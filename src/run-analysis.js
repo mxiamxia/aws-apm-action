@@ -248,87 +248,32 @@ Focus on actionable recommendations using AWS monitoring services.`;
     const { spawn } = require('child_process');
 
     console.log('Spawning Claude process...');
-    const claudeProcess = spawn('claude', claudeArgs, {
-      stdio: ['pipe', 'pipe', 'pipe'], // Capture stderr too
-      env: {
-        ...process.env,
-        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-        CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN
+
+    // Try a simpler approach first - let's use execSync with timeout
+    try {
+      const { execSync } = require('child_process');
+
+      console.log('Running Claude CLI with execSync...');
+      const claudeOutput = execSync(`claude ${claudeArgs.join(' ')}`, {
+        encoding: 'utf8',
+        timeout: 180000, // 3 minutes timeout
+        stdio: 'pipe',
+        env: {
+          ...process.env,
+          ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+          CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN
+        }
+      });
+
+      console.log('Claude CLI completed successfully with execSync');
+
+      // Clean up temp file
+      if (fs.existsSync(tempPromptFile)) {
+        fs.unlinkSync(tempPromptFile);
       }
-    });
-
-    // Capture stderr for debugging
-    let stderrOutput = '';
-    claudeProcess.stderr.on('data', (data) => {
-      const text = data.toString();
-      stderrOutput += text;
-      console.error('Claude stderr:', text);
-    });
-
-    // Handle process errors
-    claudeProcess.on('error', (error) => {
-      throw new Error(`Error spawning Claude process: ${error.message}`);
-    });
-
-    // Capture output
-    let output = '';
-    claudeProcess.stdout.on('data', (data) => {
-      const text = data.toString();
-      output += text;
-
-      // Log each line for debugging (like claude-code-action does)
-      const lines = text.split('\n');
-      lines.forEach((line) => {
-        if (line.trim() === '') return;
-
-        try {
-          // Try to parse as JSON and pretty print
-          const parsed = JSON.parse(line);
-          console.log(JSON.stringify(parsed, null, 2));
-        } catch (e) {
-          // Not JSON, print as is
-          console.log(line);
-        }
-      });
-    });
-
-    // Wait for Claude to finish with timeout
-    const exitCode = await new Promise((resolve) => {
-      let processCompleted = false;
-
-      // Set a timeout to prevent hanging
-      const timeout = setTimeout(() => {
-        if (!processCompleted) {
-          console.error('Claude process timed out after 5 minutes');
-          claudeProcess.kill('SIGTERM');
-          resolve(1);
-        }
-      }, 300000); // 5 minutes timeout
-
-      claudeProcess.on('close', (code) => {
-        processCompleted = true;
-        clearTimeout(timeout);
-        resolve(code || 0);
-      });
-
-      claudeProcess.on('error', (error) => {
-        processCompleted = true;
-        clearTimeout(timeout);
-        console.error('Claude process error:', error);
-        resolve(1);
-      });
-    });
-
-    // Clean up temp file
-    if (fs.existsSync(tempPromptFile)) {
-      fs.unlinkSync(tempPromptFile);
-    }
-
-    if (exitCode === 0) {
-      console.log('Claude Code CLI analysis completed successfully');
 
       // Parse the stream-json output to extract the actual response
-      const responseLines = output.split('\n').filter(line => line.trim());
+      const responseLines = claudeOutput.split('\n').filter(line => line.trim());
       let finalResponse = '';
 
       for (const line of responseLines) {
@@ -342,16 +287,117 @@ Focus on actionable recommendations using AWS monitoring services.`;
         }
       }
 
-      return finalResponse || output || 'Claude Code CLI analysis completed, but no output was generated.';
-    } else {
-      let errorMessage = `Claude Code CLI exited with code ${exitCode}`;
-      if (stderrOutput) {
-        errorMessage += `\nStderr output: ${stderrOutput}`;
+      return finalResponse || claudeOutput || 'Claude Code CLI analysis completed, but no output was generated.';
+
+    } catch (execError) {
+      console.error('execSync failed, trying spawn approach...', execError.message);
+
+      // Fall back to spawn approach if execSync fails
+      const claudeProcess = spawn('claude', claudeArgs, {
+        stdio: ['pipe', 'pipe', 'pipe'], // Capture stderr too
+        env: {
+          ...process.env,
+          ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+          CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN
+        }
+      });
+
+      // Capture stderr for debugging
+      let stderrOutput = '';
+      claudeProcess.stderr.on('data', (data) => {
+        const text = data.toString();
+        stderrOutput += text;
+        console.error('Claude stderr:', text);
+      });
+
+      // Handle process errors
+      claudeProcess.on('error', (error) => {
+        throw new Error(`Error spawning Claude process: ${error.message}`);
+      });
+
+      // Capture output
+      let output = '';
+      claudeProcess.stdout.on('data', (data) => {
+        const text = data.toString();
+        output += text;
+
+        // Log each line for debugging (like claude-code-action does)
+        const lines = text.split('\n');
+        lines.forEach((line) => {
+          if (line.trim() === '') return;
+
+          try {
+            // Try to parse as JSON and pretty print
+            const parsed = JSON.parse(line);
+            console.log(JSON.stringify(parsed, null, 2));
+          } catch (e) {
+            // Not JSON, print as is
+            console.log(line);
+          }
+        });
+      });
+
+      // Wait for Claude to finish with timeout
+      const exitCode = await new Promise((resolve) => {
+        let processCompleted = false;
+
+        // Set a timeout to prevent hanging
+        const timeout = setTimeout(() => {
+          if (!processCompleted) {
+            console.error('Claude process timed out after 5 minutes');
+            claudeProcess.kill('SIGTERM');
+            resolve(1);
+          }
+        }, 300000); // 5 minutes timeout
+
+        claudeProcess.on('close', (code) => {
+          processCompleted = true;
+          clearTimeout(timeout);
+          resolve(code || 0);
+        });
+
+        claudeProcess.on('error', (error) => {
+          processCompleted = true;
+          clearTimeout(timeout);
+          console.error('Claude process error:', error);
+          resolve(1);
+        });
+      });
+
+      // Clean up temp file
+      if (fs.existsSync(tempPromptFile)) {
+        fs.unlinkSync(tempPromptFile);
       }
-      if (output) {
-        errorMessage += `\nStdout output: ${output.substring(0, 500)}...`; // First 500 chars
+
+      if (exitCode === 0) {
+        console.log('Claude Code CLI analysis completed successfully');
+
+        // Parse the stream-json output to extract the actual response
+        const responseLines = output.split('\n').filter(line => line.trim());
+        let finalResponse = '';
+
+        for (const line of responseLines) {
+          try {
+            const parsed = JSON.parse(line);
+            if (parsed.type === 'text' && parsed.text) {
+              finalResponse += parsed.text;
+            }
+          } catch (e) {
+            // Skip non-JSON lines
+          }
+        }
+
+        return finalResponse || output || 'Claude Code CLI analysis completed, but no output was generated.';
+      } else {
+        let errorMessage = `Claude Code CLI exited with code ${exitCode}`;
+        if (stderrOutput) {
+          errorMessage += `\nStderr output: ${stderrOutput}`;
+        }
+        if (output) {
+          errorMessage += `\nStdout output: ${output.substring(0, 500)}...`; // First 500 chars
+        }
+        throw new Error(errorMessage);
       }
-      throw new Error(errorMessage);
     }
 
   } catch (error) {
