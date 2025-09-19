@@ -231,36 +231,22 @@ Focus on actionable recommendations using AWS X-Ray, CloudWatch, and other AWS m
       console.log('Amazon Q CLI analysis completed successfully');
 
     } catch (qError) {
-      console.log('Amazon Q CLI not available or failed, trying alternative approach...');
+      console.log('Amazon Q CLI not available or failed');
       console.log('Q CLI Error:', qError.message);
 
-      // If Q CLI is not available, provide a fallback message
-      qOutput = `Amazon Q Developer CLI is not available in this environment.
+      // Return simple error message
+      qOutput = `❌ **Amazon Q Developer CLI Error**
 
-## Fallback Analysis for ${repoInfo.name}
+**Error:** ${qError.message}
 
-**Repository Information:**
-- Primary Language: ${repoInfo.primaryLanguage}
-- File Count: ${repoInfo.fileCount}
-- Repository Size: ${repoInfo.size} KB
+**Possible causes:**
+- Amazon Q CLI is not installed or not in PATH
+- AWS credentials are not configured properly
+- Network connectivity issues
 
-**User Request:** ${promptContent}
+**To fix:** Ensure Amazon Q CLI is installed and AWS credentials are configured.
 
-**Recommendation:** To get the full Amazon Q Developer CLI analysis, please ensure:
-1. Amazon Q Developer CLI is installed in your environment
-2. AWS credentials are properly configured
-3. The 'q' command is available in your PATH
-
-For manual analysis, you can run:
-\`\`\`bash
-q chat --no-interactive --trust-all-tools "Analyze this repository for AWS APM opportunities and provide specific recommendations"
-\`\`\`
-
-**Basic APM Recommendations:**
-- Implement AWS X-Ray for distributed tracing
-- Set up CloudWatch metrics and dashboards
-- Configure CloudWatch Logs for centralized logging
-- Use CloudWatch Application Insights for monitoring`;
+**Manual command:** \`q chat --no-interactive --trust-all-tools "Analyze this repository for AWS APM opportunities"\``;
     }
 
     // Log the output length for debugging

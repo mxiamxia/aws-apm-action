@@ -126,10 +126,17 @@ runs:
       shell: bash
       run: |
         echo "Installing Amazon Q Developer CLI..."
-        # Note: Amazon Q Developer CLI installation method may vary
-        # For now, we'll use AWS CLI and basic tools for analysis
-        pip install awscli
-        echo "AWS CLI installed for Amazon Q Developer integration"
+        # Install Amazon Q Developer CLI
+        curl -sSL https://aws-q-developer-cli-releases.s3.amazonaws.com/install.sh | bash
+        # Add to PATH
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        # Verify installation
+        if command -v q &> /dev/null; then
+          echo "Amazon Q CLI installed successfully"
+          q --version
+        else
+          echo "Amazon Q CLI installation may have failed"
+        fi
 
     - name: Run AWS APM Analysis
       id: aws-apm-cli
