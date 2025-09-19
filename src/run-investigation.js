@@ -158,7 +158,7 @@ async function run() {
 
       if (useClaude) {
         console.log('Running Claude Code CLI investigation...');
-        investigationResult = await runClaudeCodeCLI(promptContent, repoInfo, context);
+        investigationResult = await runClaudeCodeCLI(promptContent);
         console.log('Claude Code CLI investigation completed');
       } else {
         console.log('Running Amazon Q Developer CLI investigation...');
@@ -293,7 +293,7 @@ async function getRepositoryInfo() {
 /**
  * Run Claude Code CLI (based on claude-code-action implementation)
  */
-async function runClaudeCodeCLI(promptContent, repoInfo, context) {
+async function runClaudeCodeCLI(promptContent) {
   try {
     console.log('Executing Claude Code CLI commands...');
 
@@ -333,6 +333,8 @@ async function runClaudeCodeCLI(promptContent, repoInfo, context) {
     // Build allowed tools for investigation
     const allowedTools = buildAllowedToolsString();
     console.log(`Allowed tools: ${allowedTools}`);
+    console.log(`[DEBUG] Allowed tools length: ${allowedTools.length} characters`);
+    console.log(`[DEBUG] Contains MCP tools: ${allowedTools.includes('mcp__')}`);
 
     // Run Claude Code CLI following claude-code-action pattern:
     // claude -p [prompt-file] --verbose --output-format stream-json [--mcp-config .mcp.json] --allowed-tools [tools]
@@ -340,7 +342,7 @@ async function runClaudeCodeCLI(promptContent, repoInfo, context) {
       '-p', tempPromptFile,
       '--verbose',
       '--output-format', 'stream-json',
-      '--allowedTools', allowedTools
+      '--allowed-tools', allowedTools  // Try with dashes instead of camelCase
     ];
 
     // Add MCP config if it was created and is valid
@@ -376,6 +378,8 @@ async function runClaudeCodeCLI(promptContent, repoInfo, context) {
     const { spawn } = require('child_process');
 
     console.log('Spawning Claude process...');
+    console.log(`[DEBUG] Complete Claude command: claude ${claudeArgs.map(arg => `"${arg}"`).join(' ')}`);
+    console.log(`[DEBUG] Claude arguments array:`, claudeArgs);
 
     // Try a simpler approach first - let's use execSync with timeout
     try {
