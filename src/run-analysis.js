@@ -261,7 +261,6 @@ q chat --no-interactive --trust-all-tools "Analyze this repository for AWS APM o
 - Set up CloudWatch metrics and dashboards
 - Configure CloudWatch Logs for centralized logging
 - Use CloudWatch Application Insights for monitoring`;
-      }
     }
 
     // Log the output length for debugging
