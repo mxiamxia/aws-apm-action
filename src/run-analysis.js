@@ -64,27 +64,31 @@ async function run() {
     } catch (error) {
       console.error(`${useClaude ? 'Claude Code CLI' : 'Amazon Q Developer CLI'} failed:`, error.message);
 
-      // Get basic repo info for fallback
-      const repoInfo = await getRepositoryInfo();
-      analysisResult = `${useClaude ? 'Claude Code CLI' : 'Amazon Q Developer CLI'} analysis encountered an issue: ${error.message}\n\n` +
-        `Fallback analysis for repository: ${context.repo.owner}/${context.repo.repo}\n` +
-        `Files analyzed: ${repoInfo.fileCount}\n` +
-        `Primary language: ${repoInfo.primaryLanguage}\n` +
-        `Request: ${promptContent}`;
+      // Return the actual error message - no fallback
+      analysisResult = `❌ **${useClaude ? 'Claude Code CLI' : 'Amazon Q Developer CLI'} Failed**
+
+**Error:** ${error.message}
+
+**User Request:** ${promptContent}
+
+Please check the workflow logs for more details and ensure proper authentication is configured.`;
     }
 
     // Save analysis results
     const resultFile = path.join(outputDir, 'analysis-result.txt');
     fs.writeFileSync(resultFile, analysisResult);
 
-    // Use Claude to enhance the response if API key is available, otherwise use Amazon Q results directly
+    // Use the analysis result directly - no enhancement needed
     let finalResponse;
-    if (process.env.ANTHROPIC_API_KEY) {
-      console.log('Enhancing results with Claude...');
-      finalResponse = await generateClaudeResponse(analysisResult, promptContent);
+
+    if (useClaude) {
+      // Claude CLI mode - use the Claude CLI response directly
+      console.log('Using Claude Code CLI results directly...');
+      finalResponse = analysisResult;
     } else {
+      // Amazon Q mode - use the Amazon Q results directly
       console.log('Using Amazon Q Developer CLI results directly...');
-      finalResponse = formatAmazonQResponse(analysisResult, promptContent);
+      finalResponse = analysisResult;
     }
 
     // Save the final response
@@ -233,15 +237,16 @@ Focus on actionable recommendations using AWS monitoring services.`;
 
     console.log(`Full command: claude ${claudeArgs.join(' ')}`);
 
-    // Check authentication before running
+    // Check authentication before running (Claude CLI will auto-detect the auth method)
     if (!process.env.ANTHROPIC_API_KEY && !process.env.CLAUDE_CODE_OAUTH_TOKEN) {
       throw new Error('No authentication provided. Either ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN is required.');
     }
 
+    // Claude CLI will automatically use CLAUDE_CODE_OAUTH_TOKEN if available, otherwise ANTHROPIC_API_KEY
     if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
-      console.log('Using CLAUDE_CODE_OAUTH_TOKEN for authentication');
+      console.log('Claude CLI will use CLAUDE_CODE_OAUTH_TOKEN for authentication');
     } else if (process.env.ANTHROPIC_API_KEY) {
-      console.log('Using ANTHROPIC_API_KEY for authentication');
+      console.log('Claude CLI will use ANTHROPIC_API_KEY for authentication');
     }
 
     // Use spawn for better control (following claude-code-action pattern)
@@ -259,9 +264,7 @@ Focus on actionable recommendations using AWS monitoring services.`;
         timeout: 180000, // 3 minutes timeout
         stdio: 'pipe',
         env: {
-          ...process.env,
-          ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-          CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN
+          ...process.env
         }
       });
 
@@ -296,9 +299,7 @@ Focus on actionable recommendations using AWS monitoring services.`;
       const claudeProcess = spawn('claude', claudeArgs, {
         stdio: ['pipe', 'pipe', 'pipe'], // Capture stderr too
         env: {
-          ...process.env,
-          ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-          CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN
+          ...process.env
         }
       });
 
@@ -488,105 +489,6 @@ Focus on actionable recommendations using AWS X-Ray, CloudWatch, and other AWS m
 }
 
 
-/**
- * Format Amazon Q Developer CLI results for direct use
- */
-function formatAmazonQResponse(analysisResult, promptContent) {
-  return `# 🔍 AWS APM Analysis Results
-
-## Request Analysis
-**Original Request:** ${promptContent}
-
-## Amazon Q Developer CLI Analysis
-${analysisResult}
-
----
-
-### 🚀 Quick Actions You Can Take:
-
-1. **Set up CloudWatch Metrics** - Monitor key application performance indicators
-2. **Enable AWS X-Ray** - Add distributed tracing for better visibility
-3. **Configure CloudWatch Alarms** - Get notified when performance degrades
-4. **Review Code Patterns** - Look for performance bottlenecks in the analysis above
-
-### 📊 Recommended AWS Services:
-- **CloudWatch**: Application and infrastructure monitoring
-- **X-Ray**: Distributed tracing and service maps
-- **CloudTrail**: API call logging and auditing
-- **AWS Config**: Resource configuration monitoring
-
-*Analysis powered by Amazon Q Developer CLI*`;
-}
-
-/**
- * Generate Claude response based on the analysis
- */
-async function generateClaudeResponse(analysisResult, promptContent) {
-  try {
-    const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
-
-    if (!anthropicApiKey) {
-      throw new Error('Anthropic API key not provided');
-    }
-
-    // Import node-fetch dynamically
-    const fetch = await import('node-fetch').then(module => module.default);
-
-    const claudePrompt = `You are an AWS APM expert assistant. Based on the following analysis from Amazon Q Developer CLI, provide a helpful response to the user.
-
-Original user request: ${promptContent}
-
-Analysis results:
-${analysisResult}
-
-Please provide a clear, actionable response that addresses the user's request and incorporates the analysis findings. Format your response in Markdown for better readability.`;
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-3-sonnet-20240229',
-        max_tokens: 4000,
-        messages: [
-          {
-            role: 'user',
-            content: claudePrompt,
-          },
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Claude API request failed: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-
-    if (!data.content || !data.content[0] || !data.content[0].text) {
-      throw new Error('Invalid response from Claude API');
-    }
-
-    return data.content[0].text;
-
-  } catch (error) {
-    console.error('Claude API failed:', error.message);
-
-    // Fallback response
-    return `# AWS APM Analysis Results
-
-I've completed the analysis using Amazon Q Developer CLI. Here are the findings:
-
-${analysisResult}
-
----
-
-*Note: This response was generated as a fallback due to Claude API unavailability. The analysis results above contain the core findings from Amazon Q Developer CLI.*`;
-  }
-}
 
 if (require.main === module) {
   run();
