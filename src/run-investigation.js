@@ -8,6 +8,39 @@ const path = require('path');
 const { createGeneralPrompt } = require('./create-prompt');
 
 /**
+ * Build allowed tools string for Claude CLI investigation
+ */
+function buildAllowedToolsString() {
+  // Essential tools for repository investigation
+  const allowedTools = [
+    "Read",                    // Read repository files and prompt
+    "Glob",                    // Find files by patterns
+    "Grep",                    // Search through code
+    "Bash(git status:*)",      // Git repository status
+    "Bash(git log:*)",         // Git history
+    "Bash(git diff:*)",        // View changes
+    "Bash(git show:*)",        // Show commits/files
+    "Bash(ls:*)",              // List directory contents
+    "Bash(find:*)",            // Find files
+    "Bash(cat:*)",             // Read file contents (alternative to Read)
+    "Bash(head:*)",            // Read file headers
+    "Bash(tail:*)",            // Read file tails
+    "Bash(wc:*)",              // Word/line counts
+  ];
+
+  // Add AWS CloudWatch AppSignals MCP tools (if AWS credentials are available)
+  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+    const awsMcpTools = [
+      "mcp__awslabs.cloudwatch-appsignals-mcp-server__*",  // All AppSignals MCP tools
+    ];
+    allowedTools.push(...awsMcpTools);
+    console.log('Added AWS CloudWatch AppSignals MCP tools to allowed tools');
+  }
+
+  return allowedTools.join(",");
+}
+
+/**
  * Create MCP configuration file for AWS CloudWatch AppSignals
  */
 function createMCPConfig() {
@@ -266,12 +299,17 @@ async function runClaudeCodeCLI(promptContent, repoInfo, context) {
     // Setup MCP configuration for AWS CloudWatch AppSignals if credentials are available
     const mcpConfigPath = createMCPConfig();
 
+    // Build allowed tools for investigation
+    const allowedTools = buildAllowedToolsString();
+    console.log(`Allowed tools: ${allowedTools}`);
+
     // Run Claude Code CLI following claude-code-action pattern:
-    // claude -p [prompt-file] --verbose --output-format stream-json [--mcp-config .mcp.json]
+    // claude -p [prompt-file] --verbose --output-format stream-json [--mcp-config .mcp.json] --allowed-tools [tools]
     const claudeArgs = [
       '-p', tempPromptFile,
       '--verbose',
-      '--output-format', 'stream-json'
+      '--output-format', 'stream-json',
+      '--allowed-tools', allowedTools
     ];
 
     // Add MCP config if it was created and is valid
