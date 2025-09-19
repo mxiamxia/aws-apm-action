@@ -134,6 +134,11 @@ runs:
       if: steps.prepare.outputs.contains_trigger == 'true'
       shell: bash
       run: |
+        # Install uv/uvx for MCP server execution (needed for AWS CloudWatch AppSignals MCP)
+        echo "Installing uv package manager for MCP server support..."
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
         if [ "${{ inputs.use_claude }}" = "true" ]; then
           echo "Installing Claude Code CLI..."
           # Install Claude Code CLI (from claude-code-action)
@@ -145,6 +150,13 @@ runs:
             claude --version
           else
             echo "Claude Code CLI installation may have failed"
+          fi
+          # Verify uvx is available for MCP
+          if command -v uvx &> /dev/null; then
+            echo "uvx available for MCP server execution"
+            uvx --version
+          else
+            echo "uvx not found - MCP servers may not work properly"
           fi
         else
           echo "Installing Amazon Q Developer CLI..."

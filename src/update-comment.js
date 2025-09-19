@@ -60,7 +60,7 @@ async function run() {
         `✅ **Status**: Complete\n` +
         `👤 **Requested by**: @${triggerUsername}\n` +
         `🔗 **Workflow**: [View details](${workflowUrl})\n\n` +
-        `*Powered by Amazon Q Developer CLI via Claude bot*`;
+        `*Powered by AI Agent*`;
     } else {
       commentBody = `❌ **AWS APM Investigation Failed**\n\n` +
         `The investigation could not be completed. Please check the workflow logs for more details.\n\n` +

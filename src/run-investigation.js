@@ -8,6 +8,51 @@ const path = require('path');
 const { createGeneralPrompt } = require('./create-prompt');
 
 /**
+ * Create MCP configuration file for AWS CloudWatch AppSignals
+ */
+function createMCPConfig() {
+  try {
+    const awsAccessKeyId = process.env.AWS_ACCESS_KEY_ID;
+    const awsSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+    const awsRegion = process.env.AWS_REGION || 'us-east-1';
+
+    // Only create MCP config if AWS credentials are available
+    if (awsAccessKeyId && awsSecretAccessKey) {
+      console.log('AWS credentials found, setting up MCP server for CloudWatch AppSignals...');
+
+      const mcpConfig = {
+        mcpServers: {
+          "awslabs.cloudwatch-appsignals-mcp-server": {
+            command: "uvx",
+            args: ["awslabs.cloudwatch-appsignals-mcp-server@latest"],
+            env: {
+              aws_access_key_id: awsAccessKeyId,
+              aws_secret_access_key: awsSecretAccessKey,
+              AWS_REGION: awsRegion
+            }
+          }
+        }
+      };
+
+      // Create MCP config in temp directory (outside of repository)
+      const tempDir = process.env.RUNNER_TEMP || '/tmp';
+      const mcpConfigPath = path.join(tempDir, '.mcp.json');
+      fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
+      console.log(`MCP configuration created at: ${mcpConfigPath}`);
+      console.log(`AWS Region: ${awsRegion}`);
+
+      return mcpConfigPath;
+    } else {
+      console.log('No AWS credentials found, skipping MCP server setup');
+      return null;
+    }
+  } catch (error) {
+    console.warn(`MCP setup failed (Claude CLI will continue without MCP): ${error.message}`);
+    return null;
+  }
+}
+
+/**
  * Run Amazon Q Developer CLI investigation and prepare results for Claude
  */
 async function run() {
@@ -210,20 +255,39 @@ async function runClaudeCodeCLI(promptContent, repoInfo, context) {
 
     console.log('Claude Code CLI found, running investigation...');
 
-    // Write the prompt to working directory (Claude CLI can access this)
-    const tempPromptFile = path.join(process.cwd(), 'claude-prompt.txt');
+    // Write the prompt to temp directory (outside of repository)
+    const tempDir = process.env.RUNNER_TEMP || '/tmp';
+    const tempPromptFile = path.join(tempDir, 'claude-prompt.txt');
     fs.writeFileSync(tempPromptFile, claudePrompt);
 
     console.log(`Prompt file size: ${claudePrompt.length} bytes`);
     console.log(`Running Claude with prompt from file: ${tempPromptFile}`);
 
+    // Setup MCP configuration for AWS CloudWatch AppSignals if credentials are available
+    const mcpConfigPath = createMCPConfig();
+
     // Run Claude Code CLI following claude-code-action pattern:
-    // claude -p [prompt-file] --verbose --output-format stream-json
+    // claude -p [prompt-file] --verbose --output-format stream-json [--mcp-config .mcp.json]
     const claudeArgs = [
       '-p', tempPromptFile,
       '--verbose',
       '--output-format', 'stream-json'
     ];
+
+    // Add MCP config if it was created and is valid
+    if (mcpConfigPath) {
+      try {
+        // Verify the MCP config file exists and is readable
+        if (fs.existsSync(mcpConfigPath)) {
+          claudeArgs.push('--mcp-config', mcpConfigPath);
+          console.log(`Using MCP configuration: ${mcpConfigPath}`);
+        } else {
+          console.warn('MCP config file not found, continuing without MCP');
+        }
+      } catch (error) {
+        console.warn(`Error accessing MCP config file (continuing without MCP): ${error.message}`);
+      }
+    }
 
     console.log(`Full command: claude ${claudeArgs.join(' ')}`);
 
@@ -260,9 +324,13 @@ async function runClaudeCodeCLI(promptContent, repoInfo, context) {
 
       console.log('Claude CLI completed successfully with execSync');
 
-      // Clean up temp file
+      // Clean up temp files
       if (fs.existsSync(tempPromptFile)) {
         fs.unlinkSync(tempPromptFile);
+      }
+      if (mcpConfigPath && fs.existsSync(mcpConfigPath)) {
+        fs.unlinkSync(mcpConfigPath);
+        console.log('Cleaned up MCP configuration file');
       }
 
       // Parse the stream-json output to extract the final result (like claude-code-action does)
@@ -367,9 +435,13 @@ async function runClaudeCodeCLI(promptContent, repoInfo, context) {
         });
       });
 
-      // Clean up temp file
+      // Clean up temp files
       if (fs.existsSync(tempPromptFile)) {
         fs.unlinkSync(tempPromptFile);
+      }
+      if (mcpConfigPath && fs.existsSync(mcpConfigPath)) {
+        fs.unlinkSync(mcpConfigPath);
+        console.log('Cleaned up MCP configuration file');
       }
 
       if (exitCode === 0) {

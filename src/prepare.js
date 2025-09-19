@@ -121,10 +121,10 @@ async function run() {
     if (issueNumber) {
       try {
         const commentBody = `🔍 **AWS APM Investigation Started**\n\n` +
-          `I'm analyzing this ${isPR ? 'PR' : 'issue'} with Amazon Q Developer CLI...\n\n` +
+          `I'm analyzing this ${isPR ? 'PR' : 'issue'} with AI Agent...\n\n` +
           `⏳ Investigation in progress - [View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n` +
           `Branch: \`${claudeBranch}\`\n\n` +
-          `*Powered by Amazon Q Developer CLI via Claude bot*`;
+          `*Powered by AI Agent*`;
 
         const comment = await octokit.rest.issues.createComment({
           owner: context.repo.owner,
