@@ -352,12 +352,23 @@ async function runClaudeCodeCLI(promptContent) {
         if (fs.existsSync(mcpConfigPath)) {
           claudeArgs.push('--mcp-config', mcpConfigPath);
           console.log(`Using MCP configuration: ${mcpConfigPath}`);
+
+          // Debug: Print MCP config file contents
+          try {
+            const mcpConfigContent = fs.readFileSync(mcpConfigPath, 'utf8');
+            console.log(`[DEBUG] MCP Config file contents:`);
+            console.log(mcpConfigContent);
+          } catch (readError) {
+            console.warn(`Could not read MCP config file for debugging: ${readError.message}`);
+          }
         } else {
           console.warn('MCP config file not found, continuing without MCP');
         }
       } catch (error) {
         console.warn(`Error accessing MCP config file (continuing without MCP): ${error.message}`);
       }
+    } else {
+      console.log('[DEBUG] No MCP config path provided - AWS credentials may not be available');
     }
 
     console.log(`Full command: claude ${claudeArgs.join(' ')}`);
