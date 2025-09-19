@@ -220,8 +220,8 @@ Focus on actionable recommendations using AWS monitoring services.`;
 
     console.log('Claude Code CLI found, running analysis...');
 
-    // Write the prompt to a temporary file (following claude-code-action pattern)
-    const tempPromptFile = path.join(process.env.RUNNER_TEMP || '/tmp', 'claude-prompt.txt');
+    // Write the prompt to working directory (Claude CLI can access this)
+    const tempPromptFile = path.join(process.cwd(), 'claude-prompt.txt');
     fs.writeFileSync(tempPromptFile, claudePrompt);
 
     console.log(`Prompt file size: ${claudePrompt.length} bytes`);
@@ -275,22 +275,34 @@ Focus on actionable recommendations using AWS monitoring services.`;
         fs.unlinkSync(tempPromptFile);
       }
 
-      // Parse the stream-json output to extract the actual response
+      // Parse the stream-json output to extract the final result (like claude-code-action does)
       const responseLines = claudeOutput.split('\n').filter(line => line.trim());
       let finalResponse = '';
 
+      // Look for the final result in the JSON stream
       for (const line of responseLines) {
         try {
           const parsed = JSON.parse(line);
-          if (parsed.type === 'text' && parsed.text) {
-            finalResponse += parsed.text;
+
+          // Extract text from assistant messages
+          if (parsed.type === 'assistant' && parsed.message && parsed.message.content) {
+            for (const content of parsed.message.content) {
+              if (content.type === 'text' && content.text) {
+                finalResponse += content.text + '\n\n';
+              }
+            }
+          }
+
+          // Extract final result
+          if (parsed.type === 'result' && parsed.result) {
+            finalResponse += parsed.result;
           }
         } catch (e) {
           // Skip non-JSON lines
         }
       }
 
-      return finalResponse || claudeOutput || 'Claude Code CLI analysis completed, but no output was generated.';
+      return finalResponse.trim() || 'Claude Code CLI analysis completed, but no output was generated.';
 
     } catch (execError) {
       console.error('execSync failed, trying spawn approach...', execError.message);
@@ -373,22 +385,34 @@ Focus on actionable recommendations using AWS monitoring services.`;
       if (exitCode === 0) {
         console.log('Claude Code CLI analysis completed successfully');
 
-        // Parse the stream-json output to extract the actual response
+        // Parse the stream-json output to extract the final result (like claude-code-action does)
         const responseLines = output.split('\n').filter(line => line.trim());
         let finalResponse = '';
 
+        // Look for the final result in the JSON stream
         for (const line of responseLines) {
           try {
             const parsed = JSON.parse(line);
-            if (parsed.type === 'text' && parsed.text) {
-              finalResponse += parsed.text;
+
+            // Extract text from assistant messages
+            if (parsed.type === 'assistant' && parsed.message && parsed.message.content) {
+              for (const content of parsed.message.content) {
+                if (content.type === 'text' && content.text) {
+                  finalResponse += content.text + '\n\n';
+                }
+              }
+            }
+
+            // Extract final result
+            if (parsed.type === 'result' && parsed.result) {
+              finalResponse += parsed.result;
             }
           } catch (e) {
             // Skip non-JSON lines
           }
         }
 
-        return finalResponse || output || 'Claude Code CLI analysis completed, but no output was generated.';
+        return finalResponse.trim() || 'Claude Code CLI analysis completed, but no output was generated.';
       } else {
         let errorMessage = `Claude Code CLI exited with code ${exitCode}`;
         if (stderrOutput) {
