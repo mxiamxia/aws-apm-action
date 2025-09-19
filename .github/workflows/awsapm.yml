@@ -1,4 +1,4 @@
-name: AWS APM Analysis
+name: AWS APM Investigation
 
 on:
   issue_comment:
@@ -11,7 +11,7 @@ on:
     types: [submitted]
 
 jobs:
-  awsapm-analysis:
+  awsapm-investigation:
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@awsapm')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@awsapm')) ||
@@ -29,7 +29,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Run AWS APM Analysis
+      - name: Run AWS APM Investigation
         id: awsapm
         uses: ./
         with:
@@ -38,15 +38,5 @@ jobs:
           aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}  # Required for Claude Code CLI
           trigger_phrase: "@awsapm"
-          use_claude: "true"  # Use Claude Code CLI for analysis
+          use_claude: "true"  # Use Claude Code CLI for investigation
           use_sticky_comment: "true"
-          prompt: |
-            You are an AWS APM (Application Performance Monitoring) expert assistant.
-            Please analyze this repository and provide insights on:
-            1. Performance monitoring opportunities using AWS services
-            2. APM best practices recommendations for this codebase
-            3. AWS X-Ray, CloudWatch, and other monitoring service integration
-            4. Code patterns that may impact performance
-            5. Specific implementation steps for monitoring setup
-
-            Use your code analysis capabilities to provide actionable AWS APM recommendations.

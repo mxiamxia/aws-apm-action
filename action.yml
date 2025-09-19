@@ -163,13 +163,13 @@ runs:
           fi
         fi
 
-    - name: Run AWS APM Analysis
+    - name: Run AWS APM Investigation
       id: aws-apm-cli
       if: steps.prepare.outputs.contains_trigger == 'true'
       shell: bash
       run: |
         cd ${GITHUB_ACTION_PATH}
-        node src/run-analysis.js
+        node src/run-investigation.js
       env:
         GITHUB_TOKEN: ${{ steps.prepare.outputs.GITHUB_TOKEN }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}

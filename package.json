@@ -1,7 +1,7 @@
 {
   "name": "aws-apm-action",
   "version": "1.0.0",
-  "description": "GitHub automation with Amazon Q Developer CLI for APM analysis",
+  "description": "GitHub automation with Amazon Q Developer CLI for APM investigation",
   "main": "src/prepare.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

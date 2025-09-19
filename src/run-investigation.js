@@ -5,13 +5,14 @@ const github = require('@actions/github');
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { createGeneralPrompt } = require('./create-prompt');
 
 /**
- * Run Amazon Q Developer CLI analysis and prepare results for Claude
+ * Run Amazon Q Developer CLI investigation and prepare results for Claude
  */
 async function run() {
   try {
-    console.log('Starting AWS APM analysis...');
+    console.log('Starting AWS APM investigation...');
 
     const context = github.context;
 
@@ -44,8 +45,8 @@ async function run() {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    // Run CLI analysis based on the selected tool
-    let analysisResult = '';
+    // Run CLI investigation based on the selected tool
+    let investigationResult = '';
     const useClaude = process.env.USE_CLAUDE === 'true';
 
     try {
@@ -53,19 +54,19 @@ async function run() {
       const repoInfo = await getRepositoryInfo();
 
       if (useClaude) {
-        console.log('Running Claude Code CLI analysis...');
-        analysisResult = await runClaudeCodeCLI(promptContent, repoInfo);
-        console.log('Claude Code CLI analysis completed');
+        console.log('Running Claude Code CLI investigation...');
+        investigationResult = await runClaudeCodeCLI(promptContent, repoInfo, context);
+        console.log('Claude Code CLI investigation completed');
       } else {
-        console.log('Running Amazon Q Developer CLI analysis...');
-        analysisResult = await runAmazonQDeveloperCLI(promptContent, repoInfo);
-        console.log('Amazon Q Developer CLI analysis completed');
+        console.log('Running Amazon Q Developer CLI investigation...');
+        investigationResult = await runAmazonQDeveloperCLI(promptContent, repoInfo, context);
+        console.log('Amazon Q Developer CLI investigation completed');
       }
     } catch (error) {
       console.error(`${useClaude ? 'Claude Code CLI' : 'Amazon Q Developer CLI'} failed:`, error.message);
 
       // Return the actual error message - no fallback
-      analysisResult = `❌ **${useClaude ? 'Claude Code CLI' : 'Amazon Q Developer CLI'} Failed**
+      investigationResult = `❌ **${useClaude ? 'Claude Code CLI' : 'Amazon Q Developer CLI'} Failed**
 
 **Error:** ${error.message}
 
@@ -74,21 +75,21 @@ async function run() {
 Please check the workflow logs for more details and ensure proper authentication is configured.`;
     }
 
-    // Save analysis results
-    const resultFile = path.join(outputDir, 'analysis-result.txt');
-    fs.writeFileSync(resultFile, analysisResult);
+    // Save investigation results
+    const resultFile = path.join(outputDir, 'investigation-result.txt');
+    fs.writeFileSync(resultFile, investigationResult);
 
-    // Use the analysis result directly - no enhancement needed
+    // Use the investigation result directly - no enhancement needed
     let finalResponse;
 
     if (useClaude) {
       // Claude CLI mode - use the Claude CLI response directly
       console.log('Using Claude Code CLI results directly...');
-      finalResponse = analysisResult;
+      finalResponse = investigationResult;
     } else {
       // Amazon Q mode - use the Amazon Q results directly
       console.log('Using Amazon Q Developer CLI results directly...');
-      finalResponse = analysisResult;
+      finalResponse = investigationResult;
     }
 
     // Save the final response
@@ -98,15 +99,15 @@ Please check the workflow logs for more details and ensure proper authentication
     // Set outputs
     core.setOutput('execution_file', responseFile);
     core.setOutput('conclusion', 'success');
-    core.setOutput('analysis_result', analysisResult);
+    core.setOutput('investigation_result', investigationResult);
     core.setOutput('final_response', finalResponse);
 
-    console.log('Analysis and response generation completed');
+    console.log('Investigation and response generation completed');
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`Analysis failed: ${errorMessage}`);
-    core.setFailed(`Analysis failed with error: ${errorMessage}`);
+    console.error(`Investigation failed: ${errorMessage}`);
+    core.setFailed(`Investigation failed with error: ${errorMessage}`);
 
     // Still try to set some outputs for error handling
     core.setOutput('conclusion', 'failure');
@@ -117,7 +118,7 @@ Please check the workflow logs for more details and ensure proper authentication
 }
 
 /**
- * Get basic repository information for analysis
+ * Get basic repository information for investigation
  */
 async function getRepositoryInfo() {
   try {
@@ -189,23 +190,12 @@ async function getRepositoryInfo() {
 /**
  * Run Claude Code CLI (based on claude-code-action implementation)
  */
-async function runClaudeCodeCLI(promptContent, repoInfo) {
+async function runClaudeCodeCLI(promptContent, repoInfo, context) {
   try {
     console.log('Executing Claude Code CLI commands...');
 
-    // Create a comprehensive prompt for Claude Code
-    const claudePrompt = `You are an AWS APM (Application Performance Monitoring) expert assistant.
-
-User Request: ${promptContent}
-
-Please analyze this repository and provide:
-1. Performance monitoring recommendations specific to this codebase
-2. AWS services that would improve observability (X-Ray, CloudWatch, etc.)
-3. Code patterns that may impact performance
-4. Specific implementation steps for APM integration
-5. Monitoring best practices for the detected technology stack
-
-Focus on actionable recommendations using AWS monitoring services.`;
+    // Create general prompt using dynamic generation
+    const claudePrompt = createGeneralPrompt(context, repoInfo, promptContent);
 
     // Test if claude command is available
     try {
@@ -218,7 +208,7 @@ Focus on actionable recommendations using AWS monitoring services.`;
       throw new Error('Claude Code CLI not found in PATH');
     }
 
-    console.log('Claude Code CLI found, running analysis...');
+    console.log('Claude Code CLI found, running investigation...');
 
     // Write the prompt to working directory (Claude CLI can access this)
     const tempPromptFile = path.join(process.cwd(), 'claude-prompt.txt');
@@ -302,7 +292,7 @@ Focus on actionable recommendations using AWS monitoring services.`;
         }
       }
 
-      return finalResponse.trim() || 'Claude Code CLI analysis completed, but no output was generated.';
+      return finalResponse.trim() || 'Claude Code CLI investigation completed, but no output was generated.';
 
     } catch (execError) {
       console.error('execSync failed, trying spawn approach...', execError.message);
@@ -383,7 +373,7 @@ Focus on actionable recommendations using AWS monitoring services.`;
       }
 
       if (exitCode === 0) {
-        console.log('Claude Code CLI analysis completed successfully');
+        console.log('Claude Code CLI investigation completed successfully');
 
         // Parse the stream-json output to extract the final result (like claude-code-action does)
         const responseLines = output.split('\n').filter(line => line.trim());
@@ -412,7 +402,7 @@ Focus on actionable recommendations using AWS monitoring services.`;
           }
         }
 
-        return finalResponse.trim() || 'Claude Code CLI analysis completed, but no output was generated.';
+        return finalResponse.trim() || 'Claude Code CLI investigation completed, but no output was generated.';
       } else {
         let errorMessage = `Claude Code CLI exited with code ${exitCode}`;
         if (stderrOutput) {
@@ -433,29 +423,12 @@ Focus on actionable recommendations using AWS monitoring services.`;
 /**
  * Run Amazon Q Developer CLI with actual commands
  */
-async function runAmazonQDeveloperCLI(promptContent, repoInfo) {
+async function runAmazonQDeveloperCLI(promptContent, repoInfo, context) {
   try {
     console.log('Executing Amazon Q Developer CLI commands...');
 
-    // Create a comprehensive prompt for Amazon Q CLI
-    const fullPrompt = `I need you to analyze this repository for AWS Application Performance Monitoring (APM) opportunities.
-
-Repository Information:
-- Name: ${repoInfo.name}
-- Primary Language: ${repoInfo.primaryLanguage}
-- Repository Size: ${repoInfo.size} KB
-- File Count: ${repoInfo.fileCount}
-
-User Request: ${promptContent}
-
-Please analyze the current directory and provide:
-1. Performance monitoring recommendations specific to this codebase
-2. AWS services that would improve observability
-3. Code patterns that may impact performance
-4. Specific implementation steps for APM integration
-5. Monitoring best practices for the detected technology stack
-
-Focus on actionable recommendations using AWS X-Ray, CloudWatch, and other AWS monitoring services.`;
+    // Create general prompt using dynamic generation
+    const fullPrompt = createGeneralPrompt(context, repoInfo, promptContent);
 
     // Try to run Amazon Q Developer CLI commands
     let qOutput = '';
@@ -471,17 +444,17 @@ Focus on actionable recommendations using AWS X-Ray, CloudWatch, and other AWS m
         stdio: 'pipe'
       });
 
-      console.log('Amazon Q CLI found, running analysis...');
+      console.log('Amazon Q CLI found, running investigation...');
 
-      // Run the actual analysis with q chat command
-      const analysisCommand = `q chat --no-interactive --trust-all-tools "${fullPrompt.replace(/"/g, '\\"')}"`;
-      qOutput = execSync(analysisCommand, {
+      // Run the actual investigation with q chat command
+      const investigationCommand = `q chat --no-interactive --trust-all-tools "${fullPrompt.replace(/"/g, '\\"')}"`;
+      qOutput = execSync(investigationCommand, {
         encoding: 'utf8',
-        timeout: 180000, // 3 minutes timeout for analysis
+        timeout: 180000, // 3 minutes timeout for investigation
         stdio: 'pipe'
       });
 
-      console.log('Amazon Q CLI analysis completed successfully');
+      console.log('Amazon Q CLI investigation completed successfully');
 
     } catch (qError) {
       console.log('Amazon Q CLI not available or failed');
@@ -505,7 +478,7 @@ Focus on actionable recommendations using AWS X-Ray, CloudWatch, and other AWS m
     // Log the output length for debugging
     console.log(`Amazon Q CLI output length: ${qOutput ? qOutput.length : 0} characters`);
 
-    return qOutput || 'Amazon Q Developer CLI analysis completed, but no output was generated.';
+    return qOutput || 'Amazon Q Developer CLI investigation completed, but no output was generated.';
 
   } catch (error) {
     throw new Error(`Amazon Q Developer CLI execution failed: ${error.message}`);

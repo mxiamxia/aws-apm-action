@@ -5,7 +5,7 @@ const github = require('@actions/github');
 const fs = require('fs');
 
 /**
- * Update the GitHub comment with the final results from AWS APM analysis and Claude response
+ * Update the GitHub comment with the final results from AWS APM investigation and Claude response
  */
 async function run() {
   try {
@@ -44,7 +44,7 @@ async function run() {
       // Read the Claude response from the output file
       responseContent = fs.readFileSync(outputFile, 'utf8');
     } else {
-      responseContent = '❌ **Analysis Failed**\n\nThe AWS APM analysis could not be completed. Please check the workflow logs for more details.';
+      responseContent = '❌ **Investigation Failed**\n\nThe AWS APM investigation could not be completed. Please check the workflow logs for more details.';
     }
 
     // Create the final comment body
@@ -52,8 +52,8 @@ async function run() {
 
     let commentBody;
     if (awsapmSuccess) {
-      commentBody = `🎯 **AWS APM Analysis Complete**\n\n` +
-        `Analysis completed successfully! Here are the results:\n\n` +
+      commentBody = `🎯 **AWS APM Investigation Complete**\n\n` +
+        `Investigation completed successfully! Here are the results:\n\n` +
         `---\n\n` +
         `${responseContent}\n\n` +
         `---\n\n` +
@@ -62,8 +62,8 @@ async function run() {
         `🔗 **Workflow**: [View details](${workflowUrl})\n\n` +
         `*Powered by Amazon Q Developer CLI via Claude bot*`;
     } else {
-      commentBody = `❌ **AWS APM Analysis Failed**\n\n` +
-        `The analysis could not be completed. Please check the workflow logs for more details.\n\n` +
+      commentBody = `❌ **AWS APM Investigation Failed**\n\n` +
+        `The investigation could not be completed. Please check the workflow logs for more details.\n\n` +
         `👤 **Requested by**: @${triggerUsername}\n` +
         `🔗 **Workflow**: [View details](${workflowUrl})\n\n` +
         `*If this issue persists, please check your action configuration and try again.*`;
@@ -107,7 +107,7 @@ async function run() {
         const [owner, repo] = repository.split('/');
 
         const errorCommentBody = `❌ **AWS APM Action Error**\n\n` +
-          `Failed to complete the analysis due to an internal error.\n\n` +
+          `Failed to complete the investigation due to an internal error.\n\n` +
           `Error: \`${errorMessage}\`\n\n` +
           `Please check the [workflow logs](${context.payload.repository.html_url}/actions/runs/${process.env.GITHUB_RUN_ID}) for more details.`;
 

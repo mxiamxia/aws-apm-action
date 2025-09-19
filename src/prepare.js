@@ -120,9 +120,9 @@ async function run() {
     let awsapmCommentId = null;
     if (issueNumber) {
       try {
-        const commentBody = `🔍 **AWS APM Analysis Started**\n\n` +
+        const commentBody = `🔍 **AWS APM Investigation Started**\n\n` +
           `I'm analyzing this ${isPR ? 'PR' : 'issue'} with Amazon Q Developer CLI...\n\n` +
-          `⏳ Analysis in progress - [View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n` +
+          `⏳ Investigation in progress - [View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n` +
           `Branch: \`${claudeBranch}\`\n\n` +
           `*Powered by Amazon Q Developer CLI via Claude bot*`;
 
