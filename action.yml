@@ -93,7 +93,7 @@ outputs:
     value: ${{ steps.prepare.outputs.AWSAPM_BRANCH }}
   github_token:
     description: "The GitHub token used by the action"
-    value: ${{ steps.prepare.outputs.github_token }}
+    value: ${{ steps.prepare.outputs.GITHUB_TOKEN }}
 
 runs:
   using: "composite"

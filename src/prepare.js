@@ -174,7 +174,7 @@ async function run() {
     console.log('[DEBUG] Calling createGeneralPrompt...');
 
     try {
-      const finalPrompt = await createGeneralPrompt(context, repoInfo, prompt);
+      const finalPrompt = await createGeneralPrompt(context, repoInfo, prompt, githubToken);
       console.log(`[DEBUG] Generated prompt length: ${finalPrompt.length} characters`);
 
       fs.writeFileSync(promptFile, finalPrompt);
@@ -197,7 +197,8 @@ async function run() {
     }
 
     // Set outputs
-    core.setOutput('github_token', githubToken);
+    console.log(`[DEBUG] Setting GITHUB_TOKEN output: ${githubToken ? 'Token available' : 'No token'}`);
+    core.setOutput('GITHUB_TOKEN', githubToken);
     core.setOutput('AWSAPM_BRANCH', claudeBranch);
     core.setOutput('BASE_BRANCH', actualBaseBranch);
     core.setOutput('awsapm_comment_id', awsapmCommentId);

@@ -3,7 +3,7 @@
 /**
  * Get PR changed files if this is a PR context
  */
-async function getPRChangedFiles(context) {
+async function getPRChangedFiles(context, githubToken) {
   // Check for PR context in different event types
   const directPR = context.payload.pull_request;
   const issuePR = context.payload.issue?.pull_request;
@@ -28,9 +28,8 @@ async function getPRChangedFiles(context) {
   }
 
   try {
-    const githubToken = process.env.GITHUB_TOKEN;
     if (!githubToken) {
-      console.warn('No GitHub token available for PR diff');
+      console.warn('No GitHub token provided for PR diff');
       return null;
     }
 
@@ -69,7 +68,7 @@ async function getPRChangedFiles(context) {
 /**
  * Create a general prompt based on GitHub context, following claude-code-action pattern
  */
-async function createGeneralPrompt(context, repoInfo, userRequest = '') {
+async function createGeneralPrompt(context, repoInfo, userRequest = '', githubToken = null) {
   const { eventName, payload } = context;
 
   // Detect PR context correctly for different event types
@@ -121,7 +120,8 @@ Topics: ${repoInfo.topics.join(', ') || 'None'}`;
   // Get PR changes if this is a PR context
   console.log(`[DEBUG] === ABOUT TO FETCH PR CHANGES ===`);
   console.log(`[DEBUG] Attempting to fetch PR changes - isPR: ${isPR}`);
-  const prChanges = await getPRChangedFiles(context);
+  console.log(`[DEBUG] GitHub token available: ${!!githubToken}`);
+  const prChanges = await getPRChangedFiles(context, githubToken);
   console.log(`[DEBUG] PR changes result: ${prChanges ? `${prChanges.length} files` : 'null'}`);
 
   // Build changed files section for PR reviews

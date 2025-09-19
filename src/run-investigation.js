@@ -106,6 +106,9 @@ async function run() {
     console.log(`[DEBUG] Prompt contains <changed_files>: ${promptContent.includes('<changed_files>')}`);
     console.log(`[DEBUG] Prompt contains PR-specific instruction: ${promptContent.includes('Focus ONLY on the files that were changed in this PR')}`);
 
+    // Check GitHub token availability
+    console.log(`[DEBUG] GITHUB_TOKEN environment variable available: ${!!process.env.GITHUB_TOKEN}`);
+
     // Print the full prompt content for debugging
     console.log('\n=== FULL PROMPT CONTENT START ===');
     console.log(promptContent);
