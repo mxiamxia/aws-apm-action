@@ -84,6 +84,21 @@ async function run() {
     // Create Octokit instance
     const octokit = github.getOctokit(githubToken);
 
+    // Add immediate eye reaction to show the action is triggered
+    if (commentId) {
+      try {
+        await octokit.rest.reactions.createForIssueComment({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          comment_id: commentId,
+          content: 'eyes',
+        });
+        console.log('Added eyes reaction to trigger comment');
+      } catch (error) {
+        console.warn('Failed to add reaction:', error.message);
+      }
+    }
+
     // Get repository default branch if not specified
     let actualBaseBranch = baseBranch;
     if (!actualBaseBranch) {

@@ -49,23 +49,23 @@ async function run() {
     try {
       console.log('Running Amazon Q Developer CLI analysis...');
 
-      // Basic analysis command - this would need to be customized based on actual Amazon Q CLI
-      // For now, we'll simulate the analysis and focus on getting repository information
+      // Get repository info for context
       const repoInfo = await getRepositoryInfo();
 
-      // Run a basic code analysis (simulated)
-      analysisResult = await runCodeAnalysis(repoInfo, promptContent);
+      // Run actual Amazon Q Developer CLI with the prompt
+      analysisResult = await runAmazonQDeveloperCLI(promptContent, repoInfo);
 
       console.log('Amazon Q Developer CLI analysis completed');
     } catch (error) {
       console.error('Amazon Q Developer CLI failed:', error.message);
-      analysisResult = `Amazon Q Developer CLI analysis failed: ${error.message}\n\nFalling back to basic repository analysis...`;
 
-      // Fallback analysis
+      // Get basic repo info for fallback
       const repoInfo = await getRepositoryInfo();
-      analysisResult += `\n\nRepository: ${context.repo.owner}/${context.repo.repo}\n`;
-      analysisResult += `Files analyzed: ${repoInfo.fileCount}\n`;
-      analysisResult += `Primary language: ${repoInfo.primaryLanguage}\n`;
+      analysisResult = `Amazon Q Developer CLI analysis encountered an issue: ${error.message}\n\n` +
+        `Fallback analysis for repository: ${context.repo.owner}/${context.repo.repo}\n` +
+        `Files analyzed: ${repoInfo.fileCount}\n` +
+        `Primary language: ${repoInfo.primaryLanguage}\n` +
+        `Request: ${promptContent}`;
     }
 
     // Save analysis results
@@ -178,47 +178,102 @@ async function getRepositoryInfo() {
 }
 
 /**
- * Run code analysis using available tools
+ * Run Amazon Q Developer CLI with actual commands
  */
-async function runCodeAnalysis(repoInfo, promptContent) {
+async function runAmazonQDeveloperCLI(promptContent, repoInfo) {
   try {
-    // This is where we would integrate with Amazon Q Developer CLI
-    // For now, we'll provide a basic analysis template
+    console.log('Executing Amazon Q Developer CLI commands...');
 
-    const analysis = `# AWS APM Code Analysis Report
+    // Create a comprehensive prompt for Amazon Q CLI
+    const fullPrompt = `I need you to analyze this repository for AWS Application Performance Monitoring (APM) opportunities.
 
-## Repository Overview
-- **Name**: ${repoInfo.name}
-- **Description**: ${repoInfo.description || 'No description available'}
-- **Primary Language**: ${repoInfo.primaryLanguage}
-- **File Count**: ${repoInfo.fileCount}
-- **Repository Size**: ${repoInfo.size} KB
+Repository Information:
+- Name: ${repoInfo.name}
+- Primary Language: ${repoInfo.primaryLanguage}
+- Repository Size: ${repoInfo.size} KB
+- File Count: ${repoInfo.fileCount}
 
-## Language Distribution
-${Object.entries(repoInfo.languages).map(([lang, bytes]) => `- ${lang}: ${bytes} bytes`).join('\n')}
+User Request: ${promptContent}
 
-## APM Analysis
-Based on the repository structure and the request: "${promptContent}"
+Please analyze the current directory and provide:
+1. Performance monitoring recommendations specific to this codebase
+2. AWS services that would improve observability
+3. Code patterns that may impact performance
+4. Specific implementation steps for APM integration
+5. Monitoring best practices for the detected technology stack
 
-### Recommendations:
-1. **Performance Monitoring**: Consider implementing AWS X-Ray for distributed tracing
-2. **Metrics Collection**: Set up CloudWatch metrics for application performance
-3. **Log Aggregation**: Use CloudWatch Logs or ELK stack for centralized logging
-4. **Error Tracking**: Implement error monitoring with CloudWatch Alarms
+Focus on actionable recommendations using AWS X-Ray, CloudWatch, and other AWS monitoring services.`;
 
-### Next Steps:
-- Review current monitoring setup
-- Identify key performance indicators (KPIs)
-- Set up alerting for critical metrics
-- Consider implementing distributed tracing
+    // Try to run Amazon Q Developer CLI commands
+    let qOutput = '';
 
-*This analysis was generated using Amazon Q Developer CLI integration.*`;
+    try {
+      // Method 1: Try using q chat command directly
+      console.log('Attempting to use Amazon Q Developer CLI...');
 
-    return analysis;
+      // Test if q command is available
+      execSync('q --help', {
+        encoding: 'utf8',
+        timeout: 10000,
+        stdio: 'pipe'
+      });
+
+      console.log('Amazon Q CLI found, running analysis...');
+
+      // Run the actual analysis with q chat command
+      const analysisCommand = `q chat --no-interactive --trust-all-tools "${fullPrompt.replace(/"/g, '\\"')}"`;
+      qOutput = execSync(analysisCommand, {
+        encoding: 'utf8',
+        timeout: 180000, // 3 minutes timeout for analysis
+        stdio: 'pipe'
+      });
+
+      console.log('Amazon Q CLI analysis completed successfully');
+
+    } catch (qError) {
+      console.log('Amazon Q CLI not available or failed, trying alternative approach...');
+      console.log('Q CLI Error:', qError.message);
+
+      // If Q CLI is not available, provide a fallback message
+      qOutput = `Amazon Q Developer CLI is not available in this environment.
+
+## Fallback Analysis for ${repoInfo.name}
+
+**Repository Information:**
+- Primary Language: ${repoInfo.primaryLanguage}
+- File Count: ${repoInfo.fileCount}
+- Repository Size: ${repoInfo.size} KB
+
+**User Request:** ${promptContent}
+
+**Recommendation:** To get the full Amazon Q Developer CLI analysis, please ensure:
+1. Amazon Q Developer CLI is installed in your environment
+2. AWS credentials are properly configured
+3. The 'q' command is available in your PATH
+
+For manual analysis, you can run:
+\`\`\`bash
+q chat --no-interactive --trust-all-tools "Analyze this repository for AWS APM opportunities and provide specific recommendations"
+\`\`\`
+
+**Basic APM Recommendations:**
+- Implement AWS X-Ray for distributed tracing
+- Set up CloudWatch metrics and dashboards
+- Configure CloudWatch Logs for centralized logging
+- Use CloudWatch Application Insights for monitoring`;
+      }
+    }
+
+    // Log the output length for debugging
+    console.log(`Amazon Q CLI output length: ${qOutput ? qOutput.length : 0} characters`);
+
+    return qOutput || 'Amazon Q Developer CLI analysis completed, but no output was generated.';
+
   } catch (error) {
-    throw new Error(`Code analysis failed: ${error.message}`);
+    throw new Error(`Amazon Q Developer CLI execution failed: ${error.message}`);
   }
 }
+
 
 /**
  * Format Amazon Q Developer CLI results for direct use
