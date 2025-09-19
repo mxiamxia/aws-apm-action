@@ -35,8 +35,9 @@ async function getPRChangedFiles(context, githubToken) {
 
     console.log(`[DEBUG] Fetching PR changes for PR #${prNumber}`);
 
-    const { Octokit } = require('@octokit/rest');
-    const octokit = new Octokit({ auth: githubToken });
+    // Use @actions/github instead of direct @octokit/rest to avoid ES module issues
+    const github = require('@actions/github');
+    const octokit = github.getOctokit(githubToken);
 
     const { data: files } = await octokit.rest.pulls.listFiles({
       owner: context.repo.owner,
