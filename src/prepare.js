@@ -148,17 +148,53 @@ async function run() {
 
     const promptFile = path.join(promptDir, 'awsapm-prompt.txt');
 
-    // Generate prompt based on the trigger text and custom prompt
-    let finalPrompt = '';
-    if (prompt) {
-      finalPrompt = prompt + '\n\n';
-    }
-    finalPrompt += `Please analyze this ${isPR ? 'pull request' : 'issue'} using Amazon Q Developer CLI for APM insights.\n\n`;
-    finalPrompt += `Original request: ${triggerText}\n\n`;
-    finalPrompt += `Context: This is a ${context.eventName} event in ${context.repo.owner}/${context.repo.repo}`;
+    // Generate dynamic prompt using createGeneralPrompt function
+    console.log('Generating dynamic prompt with PR-specific context...');
+    console.log(`[DEBUG] Context info - eventName: ${context.eventName}, isPR: ${isPR}`);
 
-    fs.writeFileSync(promptFile, finalPrompt);
-    console.log(`Created prompt file: ${promptFile}`);
+    // Get repository info for prompt generation
+    console.log('[DEBUG] Fetching repository information...');
+    let repoInfo;
+    try {
+      repoInfo = await getBasicRepoInfo(context, githubToken);
+      console.log(`[DEBUG] Repository info: ${repoInfo.primaryLanguage}, ${repoInfo.description?.substring(0, 50) || 'No description'}...`);
+    } catch (repoError) {
+      console.warn('Failed to fetch repository info, using defaults:', repoError.message);
+      repoInfo = {
+        primaryLanguage: 'Unknown',
+        description: 'Repository information unavailable',
+        size: 0,
+        fileCount: 'Unknown',
+        topics: []
+      };
+    }
+
+    // Use the dynamic prompt generation with PR context
+    const { createGeneralPrompt } = require('./create-prompt');
+    console.log('[DEBUG] Calling createGeneralPrompt...');
+
+    try {
+      const finalPrompt = await createGeneralPrompt(context, repoInfo, prompt);
+      console.log(`[DEBUG] Generated prompt length: ${finalPrompt.length} characters`);
+
+      fs.writeFileSync(promptFile, finalPrompt);
+      console.log(`Created dynamic prompt file: ${promptFile}`);
+    } catch (promptError) {
+      console.error('Failed to generate dynamic prompt:', promptError.message);
+      console.log('Falling back to basic prompt generation...');
+
+      // Fallback to basic prompt if dynamic generation fails
+      let fallbackPrompt = '';
+      if (prompt) {
+        fallbackPrompt = prompt + '\n\n';
+      }
+      fallbackPrompt += `Please analyze this ${isPR ? 'pull request' : 'issue'} using AI Agent for insights.\n\n`;
+      fallbackPrompt += `Original request: ${triggerText}\n\n`;
+      fallbackPrompt += `Context: This is a ${context.eventName} event in ${context.repo.owner}/${context.repo.repo}`;
+
+      fs.writeFileSync(promptFile, fallbackPrompt);
+      console.log(`Created fallback prompt file: ${promptFile}`);
+    }
 
     // Set outputs
     core.setOutput('github_token', githubToken);
@@ -176,6 +212,45 @@ async function run() {
     console.error(`Prepare step failed: ${errorMessage}`);
     core.setFailed(`Prepare step failed with error: ${errorMessage}`);
     process.exit(1);
+  }
+}
+
+/**
+ * Get basic repository information for prompt generation
+ */
+async function getBasicRepoInfo(context, githubToken) {
+  try {
+    const octokit = github.getOctokit(githubToken);
+
+    const { data: repo } = await octokit.rest.repos.get({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+    });
+
+    // Get repository languages
+    const { data: languages } = await octokit.rest.repos.listLanguages({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+    });
+
+    const primaryLanguage = Object.keys(languages)[0] || 'Unknown';
+
+    return {
+      primaryLanguage,
+      description: repo.description,
+      size: repo.size,
+      fileCount: 'Unknown', // GitHub API doesn't provide file count directly
+      topics: repo.topics || []
+    };
+  } catch (error) {
+    console.warn('Could not fetch repository info:', error.message);
+    return {
+      primaryLanguage: 'Unknown',
+      description: 'Repository information unavailable',
+      size: 0,
+      fileCount: 'Unknown',
+      topics: []
+    };
   }
 }
 

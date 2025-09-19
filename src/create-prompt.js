@@ -1,9 +1,75 @@
 // Dynamic general prompt creation
 
 /**
+ * Get PR changed files if this is a PR context
+ */
+async function getPRChangedFiles(context) {
+  // Check for PR context in different event types
+  const directPR = context.payload.pull_request;
+  const issuePR = context.payload.issue?.pull_request;
+  const isPRContext = !!(directPR || issuePR);
+
+  console.log(`[DEBUG] Checking for PR context:`);
+  console.log(`[DEBUG] - payload.pull_request exists: ${!!directPR}`);
+  console.log(`[DEBUG] - payload.issue.pull_request exists: ${!!issuePR}`);
+  console.log(`[DEBUG] - Overall PR context: ${isPRContext}`);
+
+  if (!isPRContext) {
+    console.log('[DEBUG] Not a PR context, skipping changed files fetch');
+    return null;
+  }
+
+  // Get PR number from whichever source is available
+  const prNumber = directPR?.number || (issuePR ? context.payload.issue.number : null);
+
+  if (!prNumber) {
+    console.log('[DEBUG] No PR number found, skipping changed files fetch');
+    return null;
+  }
+
+  try {
+    const githubToken = process.env.GITHUB_TOKEN;
+    if (!githubToken) {
+      console.warn('No GitHub token available for PR diff');
+      return null;
+    }
+
+    console.log(`[DEBUG] Fetching PR changes for PR #${prNumber}`);
+
+    const { Octokit } = require('@octokit/rest');
+    const octokit = new Octokit({ auth: githubToken });
+
+    const { data: files } = await octokit.rest.pulls.listFiles({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      pull_number: prNumber,
+    });
+
+    console.log(`[DEBUG] Successfully fetched ${files.length} changed files from PR`);
+    console.log(`[DEBUG] Changed files: ${files.map(f => f.filename).join(', ')}`);
+
+    const mappedFiles = files.map(file => ({
+      filename: file.filename,
+      status: file.status,
+      additions: file.additions,
+      deletions: file.deletions,
+      patch: file.patch
+    }));
+
+    return mappedFiles;
+  } catch (error) {
+    console.error('Could not fetch PR changes:', error.message);
+    console.log('[DEBUG] GitHub API error details:', error.status || 'No status', error.response?.data?.message || 'No error message');
+
+    // Return null to continue without PR changes rather than failing completely
+    return null;
+  }
+}
+
+/**
  * Create a general prompt based on GitHub context, following claude-code-action pattern
  */
-function createGeneralPrompt(context, repoInfo, userRequest = '') {
+async function createGeneralPrompt(context, repoInfo, userRequest = '') {
   const { eventName, payload } = context;
   const isPR = !!payload.pull_request;
   const repository = context.repo.owner + '/' + context.repo.repo;
@@ -41,6 +107,35 @@ Topics: ${repoInfo.topics.join(', ') || 'None'}`;
 
   const formattedBody = commentBody || userRequest || 'No description provided';
 
+  // Get PR changes if this is a PR context
+  console.log(`[DEBUG] Attempting to fetch PR changes - isPR: ${isPR}`);
+  const prChanges = await getPRChangedFiles(context);
+  console.log(`[DEBUG] PR changes result: ${prChanges ? `${prChanges.length} files` : 'null'}`);
+
+  // Build changed files section for PR reviews
+  let changedFilesSection = '';
+  if (isPR && prChanges && prChanges.length > 0) {
+    console.log(`[DEBUG] Building changed files section for ${prChanges.length} files`);
+    changedFilesSection = `
+<changed_files>
+The following files were changed in this PR:
+
+${prChanges.map(file => `
+**${file.filename}** (${file.status})
+- Additions: +${file.additions}
+- Deletions: -${file.deletions}
+${file.patch ? `
+\`\`\`diff
+${file.patch}
+\`\`\`
+` : ''}
+`).join('\n')}
+</changed_files>`;
+    console.log(`[DEBUG] Changed files section created (${changedFilesSection.length} characters)`);
+  } else {
+    console.log(`[DEBUG] No changed files section created - isPR: ${isPR}, prChanges: ${!!prChanges}, length: ${prChanges?.length || 0}`);
+  }
+
   // Follow claude-code-action's prompt structure for general use
   const prompt = `You are Claude, an AI assistant designed to help with GitHub issues and pull requests. Think carefully as you analyze the context and respond appropriately. Here's the context for your current task:
 
@@ -51,6 +146,7 @@ ${formattedContext}
 <pr_or_issue_body>
 ${formattedBody}
 </pr_or_issue_body>
+${changedFilesSection}
 
 <event_type>${eventType}</event_type>
 <is_pr>${isPR ? "true" : "false"}</is_pr>
@@ -63,7 +159,7 @@ Your task is to analyze the context, understand the request, and provide helpful
 IMPORTANT CLARIFICATIONS:
 - When asked to "review" code, read the code and provide review feedback (do not implement changes unless explicitly asked)
 - Your responses should be practical and implementation-focused
-- Analyze the codebase and provide insights based on the request
+${isPR && prChanges ? '- **FOR PR REVIEWS**: Focus ONLY on the files that were changed in this PR (listed above). Do NOT analyze the entire codebase.' : '- Analyze the codebase and provide insights based on the request'}
 
 Follow these steps:
 
@@ -121,6 +217,13 @@ What You FOCUS On:
 - Clear explanations and examples
 
 Provide practical, actionable recommendations specific to this repository's technology stack and use case.`;
+
+  // Debug log the final prompt characteristics
+  console.log(`[DEBUG] Final prompt generated:`);
+  console.log(`[DEBUG] - Total length: ${prompt.length} characters`);
+  console.log(`[DEBUG] - Contains <changed_files>: ${prompt.includes('<changed_files>')}`);
+  console.log(`[DEBUG] - Contains PR-specific instruction: ${prompt.includes('Focus ONLY on the files that were changed in this PR')}`);
+  console.log(`[DEBUG] - Event type: ${eventType}, isPR: ${isPR}`);
 
   return prompt;
 }

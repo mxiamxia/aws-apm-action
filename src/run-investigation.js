@@ -5,7 +5,7 @@ const github = require('@actions/github');
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { createGeneralPrompt } = require('./create-prompt');
+// Note: createGeneralPrompt is now called in prepare.js
 
 /**
  * Build allowed tools string for Claude CLI investigation
@@ -102,6 +102,9 @@ async function run() {
 
     const promptContent = fs.readFileSync(promptFile, 'utf8');
     console.log('Prompt loaded successfully');
+    console.log(`[DEBUG] Prompt content length: ${promptContent.length} characters`);
+    console.log(`[DEBUG] Prompt contains <changed_files>: ${promptContent.includes('<changed_files>')}`);
+    console.log(`[DEBUG] Prompt contains PR-specific instruction: ${promptContent.includes('Focus ONLY on the files that were changed in this PR')}`);
 
     // Setup AWS credentials if provided
     if (process.env.AWS_ACCESS_KEY_ID) {
@@ -272,8 +275,9 @@ async function runClaudeCodeCLI(promptContent, repoInfo, context) {
   try {
     console.log('Executing Claude Code CLI commands...');
 
-    // Create general prompt using dynamic generation
-    const claudePrompt = createGeneralPrompt(context, repoInfo, promptContent);
+    // Use the prompt content that was already generated in prepare.js
+    const claudePrompt = promptContent;
+    console.log(`[DEBUG] Using pre-generated prompt (${claudePrompt.length} characters)`);
 
     // Test if claude command is available
     try {
@@ -309,7 +313,7 @@ async function runClaudeCodeCLI(promptContent, repoInfo, context) {
       '-p', tempPromptFile,
       '--verbose',
       '--output-format', 'stream-json',
-      '--allowed-tools', allowedTools
+      '--allowedTools', allowedTools
     ];
 
     // Add MCP config if it was created and is valid
@@ -538,7 +542,7 @@ async function runAmazonQDeveloperCLI(promptContent, repoInfo, context) {
     console.log('Executing Amazon Q Developer CLI commands...');
 
     // Create general prompt using dynamic generation
-    const fullPrompt = createGeneralPrompt(context, repoInfo, promptContent);
+    const fullPrompt = await createGeneralPrompt(context, repoInfo, promptContent);
 
     // Try to run Amazon Q Developer CLI commands
     let qOutput = '';
