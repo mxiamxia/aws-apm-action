@@ -351,7 +351,7 @@ async function runClaudeCodeCLI(promptContent, repoInfo, context) {
       const { execSync } = require('child_process');
 
       console.log('Running Claude CLI with execSync...');
-      const claudeOutput = execSync(`claude ${claudeArgs.join(' ')}`, {
+      const claudeOutput = execSync('claude', claudeArgs, {
         encoding: 'utf8',
         timeout: 180000, // 3 minutes timeout
         stdio: 'pipe',
