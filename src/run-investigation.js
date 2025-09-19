@@ -106,6 +106,11 @@ async function run() {
     console.log(`[DEBUG] Prompt contains <changed_files>: ${promptContent.includes('<changed_files>')}`);
     console.log(`[DEBUG] Prompt contains PR-specific instruction: ${promptContent.includes('Focus ONLY on the files that were changed in this PR')}`);
 
+    // Print the full prompt content for debugging
+    console.log('\n=== FULL PROMPT CONTENT START ===');
+    console.log(promptContent);
+    console.log('=== FULL PROMPT CONTENT END ===\n');
+
     // Setup AWS credentials if provided
     if (process.env.AWS_ACCESS_KEY_ID) {
       process.env.AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
@@ -299,6 +304,11 @@ async function runClaudeCodeCLI(promptContent, repoInfo, context) {
 
     console.log(`Prompt file size: ${claudePrompt.length} bytes`);
     console.log(`Running Claude with prompt from file: ${tempPromptFile}`);
+
+    // Print the content that will be passed to Claude
+    console.log('\n=== CLAUDE INPUT PROMPT START ===');
+    console.log(claudePrompt);
+    console.log('=== CLAUDE INPUT PROMPT END ===\n');
 
     // Setup MCP configuration for AWS CloudWatch AppSignals if credentials are available
     const mcpConfigPath = createMCPConfig();

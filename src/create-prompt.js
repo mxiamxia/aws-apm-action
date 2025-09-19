@@ -71,7 +71,18 @@ async function getPRChangedFiles(context) {
  */
 async function createGeneralPrompt(context, repoInfo, userRequest = '') {
   const { eventName, payload } = context;
-  const isPR = !!payload.pull_request;
+
+  // Detect PR context correctly for different event types
+  const directPR = payload.pull_request;
+  const issuePR = payload.issue?.pull_request;
+  const isPR = !!(directPR || issuePR);
+
+  console.log(`[DEBUG] === NEW PR DETECTION LOGIC ACTIVE ===`);
+  console.log(`[DEBUG] PR detection in createGeneralPrompt:`);
+  console.log(`[DEBUG] - payload.pull_request: ${!!directPR}`);
+  console.log(`[DEBUG] - payload.issue.pull_request: ${!!issuePR}`);
+  console.log(`[DEBUG] - Final isPR: ${isPR}`);
+
   const repository = context.repo.owner + '/' + context.repo.repo;
 
   // Extract trigger context and event type
@@ -108,6 +119,7 @@ Topics: ${repoInfo.topics.join(', ') || 'None'}`;
   const formattedBody = commentBody || userRequest || 'No description provided';
 
   // Get PR changes if this is a PR context
+  console.log(`[DEBUG] === ABOUT TO FETCH PR CHANGES ===`);
   console.log(`[DEBUG] Attempting to fetch PR changes - isPR: ${isPR}`);
   const prChanges = await getPRChangedFiles(context);
   console.log(`[DEBUG] PR changes result: ${prChanges ? `${prChanges.length} files` : 'null'}`);
