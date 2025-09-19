@@ -32,15 +32,15 @@ function buildAllowedToolsString() {
   if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
     const awsMcpTools = [
       "mcp__*",  // Allow all MCP tools (broader pattern)
-      "mcp__awslabs.cloudwatch-appsignals-mcp-server__*",  // Specific AppSignals wildcard
-      // Exact tool names from https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server#available-tools
-      "mcp__awslabs.cloudwatch-appsignals-mcp-server__list_monitored_services",
-      "mcp__awslabs.cloudwatch-appsignals-mcp-server__get_service_detail",
-      "mcp__awslabs.cloudwatch-appsignals-mcp-server__list_slis",
-      "mcp__awslabs.cloudwatch-appsignals-mcp-server__get_slo",
-      "mcp__awslabs.cloudwatch-appsignals-mcp-server__search_Transaction_spans",
-      "mcp__awslabs.cloudwatch-appsignals-mcp-server__query_sampled_traces",
-      "mcp__awslabs.cloudwatch-appsignals-mcp-server__query_service_metrics",
+      "mcp__awslabs_cloudwatch-appsignals-mcp-server__*",  // Specific AppSignals wildcard with underscores
+      // Exact tool names with underscores format (as shown in your example)
+      "mcp__awslabs_cloudwatch-appsignals-mcp-server__list_monitored_services",
+      "mcp__awslabs_cloudwatch-appsignals-mcp-server__get_service_detail",
+      "mcp__awslabs_cloudwatch-appsignals-mcp-server__list_slis",
+      "mcp__awslabs_cloudwatch-appsignals-mcp-server__get_slo",
+      "mcp__awslabs_cloudwatch-appsignals-mcp-server__search_Transaction_spans",
+      "mcp__awslabs_cloudwatch-appsignals-mcp-server__query_sampled_traces",
+      "mcp__awslabs_cloudwatch-appsignals-mcp-server__query_service_metrics",
     ];
     allowedTools.push(...awsMcpTools);
     console.log('Added AWS CloudWatch AppSignals MCP tools to allowed tools');
