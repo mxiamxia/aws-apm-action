@@ -44,24 +44,29 @@ async function run() {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    // Run Amazon Q Developer CLI analysis
+    // Run CLI analysis based on the selected tool
     let analysisResult = '';
-    try {
-      console.log('Running Amazon Q Developer CLI analysis...');
+    const useClaude = process.env.USE_CLAUDE === 'true';
 
+    try {
       // Get repository info for context
       const repoInfo = await getRepositoryInfo();
 
-      // Run actual Amazon Q Developer CLI with the prompt
-      analysisResult = await runAmazonQDeveloperCLI(promptContent, repoInfo);
-
-      console.log('Amazon Q Developer CLI analysis completed');
+      if (useClaude) {
+        console.log('Running Claude Code CLI analysis...');
+        analysisResult = await runClaudeCodeCLI(promptContent, repoInfo);
+        console.log('Claude Code CLI analysis completed');
+      } else {
+        console.log('Running Amazon Q Developer CLI analysis...');
+        analysisResult = await runAmazonQDeveloperCLI(promptContent, repoInfo);
+        console.log('Amazon Q Developer CLI analysis completed');
+      }
     } catch (error) {
-      console.error('Amazon Q Developer CLI failed:', error.message);
+      console.error(`${useClaude ? 'Claude Code CLI' : 'Amazon Q Developer CLI'} failed:`, error.message);
 
       // Get basic repo info for fallback
       const repoInfo = await getRepositoryInfo();
-      analysisResult = `Amazon Q Developer CLI analysis encountered an issue: ${error.message}\n\n` +
+      analysisResult = `${useClaude ? 'Claude Code CLI' : 'Amazon Q Developer CLI'} analysis encountered an issue: ${error.message}\n\n` +
         `Fallback analysis for repository: ${context.repo.owner}/${context.repo.repo}\n` +
         `Files analyzed: ${repoInfo.fileCount}\n` +
         `Primary language: ${repoInfo.primaryLanguage}\n` +
@@ -174,6 +179,141 @@ async function getRepositoryInfo() {
       size: 0,
       topics: [],
     };
+  }
+}
+
+/**
+ * Run Claude Code CLI (based on claude-code-action implementation)
+ */
+async function runClaudeCodeCLI(promptContent, repoInfo) {
+  try {
+    console.log('Executing Claude Code CLI commands...');
+
+    // Create a comprehensive prompt for Claude Code
+    const claudePrompt = `You are an AWS APM (Application Performance Monitoring) expert assistant.
+
+User Request: ${promptContent}
+
+Please analyze this repository and provide:
+1. Performance monitoring recommendations specific to this codebase
+2. AWS services that would improve observability (X-Ray, CloudWatch, etc.)
+3. Code patterns that may impact performance
+4. Specific implementation steps for APM integration
+5. Monitoring best practices for the detected technology stack
+
+Focus on actionable recommendations using AWS monitoring services.`;
+
+    // Test if claude command is available
+    try {
+      execSync('claude --help', {
+        encoding: 'utf8',
+        timeout: 10000,
+        stdio: 'pipe'
+      });
+    } catch (testError) {
+      throw new Error('Claude Code CLI not found in PATH');
+    }
+
+    console.log('Claude Code CLI found, running analysis...');
+
+    // Write the prompt to a temporary file (following claude-code-action pattern)
+    const tempPromptFile = path.join(process.env.RUNNER_TEMP || '/tmp', 'claude-prompt.txt');
+    fs.writeFileSync(tempPromptFile, claudePrompt);
+
+    console.log(`Prompt file size: ${claudePrompt.length} bytes`);
+    console.log(`Running Claude with prompt from file: ${tempPromptFile}`);
+
+    // Run Claude Code CLI following claude-code-action pattern:
+    // claude -p [prompt-file] --verbose --output-format stream-json
+    const claudeArgs = [
+      '-p', tempPromptFile,
+      '--verbose',
+      '--output-format', 'stream-json'
+    ];
+
+    console.log(`Full command: claude ${claudeArgs.join(' ')}`);
+
+    // Use spawn for better control (following claude-code-action pattern)
+    const { spawn } = require('child_process');
+
+    const claudeProcess = spawn('claude', claudeArgs, {
+      stdio: ['pipe', 'pipe', 'inherit'],
+      env: {
+        ...process.env,
+        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+        CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN
+      }
+    });
+
+    // Handle process errors
+    claudeProcess.on('error', (error) => {
+      throw new Error(`Error spawning Claude process: ${error.message}`);
+    });
+
+    // Capture output
+    let output = '';
+    claudeProcess.stdout.on('data', (data) => {
+      const text = data.toString();
+      output += text;
+
+      // Log each line for debugging (like claude-code-action does)
+      const lines = text.split('\n');
+      lines.forEach((line) => {
+        if (line.trim() === '') return;
+
+        try {
+          // Try to parse as JSON and pretty print
+          const parsed = JSON.parse(line);
+          console.log(JSON.stringify(parsed, null, 2));
+        } catch (e) {
+          // Not JSON, print as is
+          console.log(line);
+        }
+      });
+    });
+
+    // Wait for Claude to finish
+    const exitCode = await new Promise((resolve) => {
+      claudeProcess.on('close', (code) => {
+        resolve(code || 0);
+      });
+
+      claudeProcess.on('error', (error) => {
+        console.error('Claude process error:', error);
+        resolve(1);
+      });
+    });
+
+    // Clean up temp file
+    if (fs.existsSync(tempPromptFile)) {
+      fs.unlinkSync(tempPromptFile);
+    }
+
+    if (exitCode === 0) {
+      console.log('Claude Code CLI analysis completed successfully');
+
+      // Parse the stream-json output to extract the actual response
+      const responseLines = output.split('\n').filter(line => line.trim());
+      let finalResponse = '';
+
+      for (const line of responseLines) {
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed.type === 'text' && parsed.text) {
+            finalResponse += parsed.text;
+          }
+        } catch (e) {
+          // Skip non-JSON lines
+        }
+      }
+
+      return finalResponse || output || 'Claude Code CLI analysis completed, but no output was generated.';
+    } else {
+      throw new Error(`Claude Code CLI exited with code ${exitCode}`);
+    }
+
+  } catch (error) {
+    throw new Error(`Claude Code CLI execution failed: ${error.message}`);
   }
 }
 

@@ -36,15 +36,17 @@ jobs:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}  # Optional: for enhanced responses
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}  # Required for Claude Code CLI
           trigger_phrase: "@awsapm"
+          use_claude: "true"  # Use Claude Code CLI for analysis
           use_sticky_comment: "true"
           prompt: |
             You are an AWS APM (Application Performance Monitoring) expert assistant.
             Please analyze this repository and provide insights on:
-            1. Performance monitoring opportunities
-            2. APM best practices recommendations
-            3. AWS services that could improve observability
-            4. Specific code patterns that may impact performance
+            1. Performance monitoring opportunities using AWS services
+            2. APM best practices recommendations for this codebase
+            3. AWS X-Ray, CloudWatch, and other monitoring service integration
+            4. Code patterns that may impact performance
+            5. Specific implementation steps for monitoring setup
 
-            Use Amazon Q Developer CLI for code analysis and provide actionable recommendations.
+            Use your code analysis capabilities to provide actionable AWS APM recommendations.

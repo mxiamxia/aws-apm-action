@@ -25,15 +25,24 @@ inputs:
     required: false
     default: ""
 
-  # Amazon Q Developer CLI configuration
+  # CLI Tool Selection
+  use_claude:
+    description: "Use Claude Code CLI instead of Amazon Q Developer CLI"
+    required: false
+    default: "false"
+
+  # CLI configuration
   prompt:
-    description: "Instructions for Amazon Q Developer. Can be a direct prompt or custom template."
+    description: "Instructions for the selected CLI tool. Can be a direct prompt or custom template."
     required: false
     default: ""
 
   # Auth configuration
   anthropic_api_key:
-    description: "Anthropic API key for enhanced Claude bot responses (optional - Amazon Q Developer CLI can work standalone)"
+    description: "Anthropic API key (required for direct API, not needed if using claude_code_oauth_token)"
+    required: false
+  claude_code_oauth_token:
+    description: "Claude Code OAuth token (alternative to anthropic_api_key)"
     required: false
   github_token:
     description: "GitHub token with repo and pull request permissions"
@@ -121,23 +130,37 @@ runs:
         BOT_NAME: ${{ inputs.bot_name }}
         ADDITIONAL_PERMISSIONS: ${{ inputs.additional_permissions }}
 
-    - name: Install Amazon Q Developer CLI
+    - name: Install CLI Tools
       if: steps.prepare.outputs.contains_trigger == 'true'
       shell: bash
       run: |
-        echo "Installing Amazon Q Developer CLI..."
-        # Step 1: Download the .deb package
-        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/latest/amazon-q.deb
-        # Step 2: Install the package
-        sudo apt install -y ./amazon-q.deb
-        # Verify installation
-        if command -v q &> /dev/null; then
-          echo "Amazon Q CLI installed successfully"
-          q --version
+        if [ "${{ inputs.use_claude }}" = "true" ]; then
+          echo "Installing Claude Code CLI..."
+          # Install Claude Code CLI (from claude-code-action)
+          curl -fsSL https://claude.ai/install.sh | bash -s 1.0.117
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          # Verify Claude CLI installation
+          if command -v claude &> /dev/null; then
+            echo "Claude Code CLI installed successfully"
+            claude --version
+          else
+            echo "Claude Code CLI installation may have failed"
+          fi
         else
-          echo "Amazon Q CLI installation may have failed"
-          echo "Checking if q command is available..."
-          which q || echo "q command not found in PATH"
+          echo "Installing Amazon Q Developer CLI..."
+          # Step 1: Download the .deb package
+          curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/latest/amazon-q.deb
+          # Step 2: Install the package
+          sudo apt install -y ./amazon-q.deb
+          # Verify Amazon Q CLI installation
+          if command -v q &> /dev/null; then
+            echo "Amazon Q CLI installed successfully"
+            q --version
+          else
+            echo "Amazon Q CLI installation may have failed"
+            echo "Checking if q command is available..."
+            which q || echo "q command not found in PATH"
+          fi
         fi
 
     - name: Run AWS APM Analysis
@@ -150,10 +173,12 @@ runs:
       env:
         GITHUB_TOKEN: ${{ steps.prepare.outputs.GITHUB_TOKEN }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude_code_oauth_token }}
         AWS_ACCESS_KEY_ID: ${{ inputs.aws_access_key_id }}
         AWS_SECRET_ACCESS_KEY: ${{ inputs.aws_secret_access_key }}
         AWS_SESSION_TOKEN: ${{ inputs.aws_session_token }}
         AWS_REGION: ${{ inputs.aws_region }}
+        USE_CLAUDE: ${{ inputs.use_claude }}
         INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
 
     - name: Update comment with results

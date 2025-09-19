@@ -36,7 +36,9 @@ jobs:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           trigger_phrase: "@awsapm"
+          use_claude: "false"  # Set to "true" to use Claude Code CLI instead
           use_sticky_comment: "true"
           prompt: |
             You are an AWS APM (Application Performance Monitoring) expert assistant.
