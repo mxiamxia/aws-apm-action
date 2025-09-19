@@ -94,6 +94,12 @@ runs:
       with:
         node-version: '18'
 
+    - name: Install Dependencies
+      shell: bash
+      run: |
+        cd ${GITHUB_ACTION_PATH}
+        npm install
+
     - name: Prepare action
       id: prepare
       shell: bash
@@ -120,16 +126,18 @@ runs:
       shell: bash
       run: |
         echo "Installing Amazon Q Developer CLI..."
-        # Install Amazon Q Developer CLI via npm
-        npm install -g @aws/amazon-q-developer-cli
-        echo "Amazon Q Developer CLI installed successfully"
+        # Note: Amazon Q Developer CLI installation method may vary
+        # For now, we'll use AWS CLI and basic tools for analysis
+        pip install awscli
+        echo "AWS CLI installed for Amazon Q Developer integration"
 
     - name: Run AWS APM Analysis
       id: aws-apm-cli
       if: steps.prepare.outputs.contains_trigger == 'true'
       shell: bash
       run: |
-        node ${GITHUB_ACTION_PATH}/src/run-analysis.js
+        cd ${GITHUB_ACTION_PATH}
+        node src/run-analysis.js
       env:
         GITHUB_TOKEN: ${{ steps.prepare.outputs.GITHUB_TOKEN }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
@@ -143,7 +151,8 @@ runs:
       if: steps.prepare.outputs.contains_trigger == 'true' && steps.prepare.outputs.awsapm_comment_id && always()
       shell: bash
       run: |
-        node ${GITHUB_ACTION_PATH}/src/update-comment.js
+        cd ${GITHUB_ACTION_PATH}
+        node src/update-comment.js
       env:
         REPOSITORY: ${{ github.repository }}
         PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
