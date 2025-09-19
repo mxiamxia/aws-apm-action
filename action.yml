@@ -126,16 +126,18 @@ runs:
       shell: bash
       run: |
         echo "Installing Amazon Q Developer CLI..."
-        # Install Amazon Q Developer CLI
-        curl -sSL https://aws-q-developer-cli-releases.s3.amazonaws.com/install.sh | bash
-        # Add to PATH
-        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        # Step 1: Download the .deb package
+        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/latest/amazon-q.deb
+        # Step 2: Install the package
+        sudo apt install -y ./amazon-q.deb
         # Verify installation
         if command -v q &> /dev/null; then
           echo "Amazon Q CLI installed successfully"
           q --version
         else
           echo "Amazon Q CLI installation may have failed"
+          echo "Checking if q command is available..."
+          which q || echo "q command not found in PATH"
         fi
 
     - name: Run AWS APM Analysis
