@@ -233,16 +233,36 @@ Focus on actionable recommendations using AWS monitoring services.`;
 
     console.log(`Full command: claude ${claudeArgs.join(' ')}`);
 
+    // Check authentication before running
+    if (!process.env.ANTHROPIC_API_KEY && !process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+      throw new Error('No authentication provided. Either ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN is required.');
+    }
+
+    if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+      console.log('Using CLAUDE_CODE_OAUTH_TOKEN for authentication');
+    } else if (process.env.ANTHROPIC_API_KEY) {
+      console.log('Using ANTHROPIC_API_KEY for authentication');
+    }
+
     // Use spawn for better control (following claude-code-action pattern)
     const { spawn } = require('child_process');
 
+    console.log('Spawning Claude process...');
     const claudeProcess = spawn('claude', claudeArgs, {
-      stdio: ['pipe', 'pipe', 'inherit'],
+      stdio: ['pipe', 'pipe', 'pipe'], // Capture stderr too
       env: {
         ...process.env,
         ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
         CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN
       }
+    });
+
+    // Capture stderr for debugging
+    let stderrOutput = '';
+    claudeProcess.stderr.on('data', (data) => {
+      const text = data.toString();
+      stderrOutput += text;
+      console.error('Claude stderr:', text);
     });
 
     // Handle process errors
@@ -272,13 +292,28 @@ Focus on actionable recommendations using AWS monitoring services.`;
       });
     });
 
-    // Wait for Claude to finish
+    // Wait for Claude to finish with timeout
     const exitCode = await new Promise((resolve) => {
+      let processCompleted = false;
+
+      // Set a timeout to prevent hanging
+      const timeout = setTimeout(() => {
+        if (!processCompleted) {
+          console.error('Claude process timed out after 5 minutes');
+          claudeProcess.kill('SIGTERM');
+          resolve(1);
+        }
+      }, 300000); // 5 minutes timeout
+
       claudeProcess.on('close', (code) => {
+        processCompleted = true;
+        clearTimeout(timeout);
         resolve(code || 0);
       });
 
       claudeProcess.on('error', (error) => {
+        processCompleted = true;
+        clearTimeout(timeout);
         console.error('Claude process error:', error);
         resolve(1);
       });
@@ -309,7 +344,14 @@ Focus on actionable recommendations using AWS monitoring services.`;
 
       return finalResponse || output || 'Claude Code CLI analysis completed, but no output was generated.';
     } else {
-      throw new Error(`Claude Code CLI exited with code ${exitCode}`);
+      let errorMessage = `Claude Code CLI exited with code ${exitCode}`;
+      if (stderrOutput) {
+        errorMessage += `\nStderr output: ${stderrOutput}`;
+      }
+      if (output) {
+        errorMessage += `\nStdout output: ${output.substring(0, 500)}...`; // First 500 chars
+      }
+      throw new Error(errorMessage);
     }
 
   } catch (error) {
