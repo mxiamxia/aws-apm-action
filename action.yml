@@ -1,0 +1,162 @@
+name: "AWS APM Action v1.0"
+description: "GitHub automation with Amazon Q Developer CLI. Auto-detects @awsapm mentions in PR comments and issues."
+branding:
+  icon: "at-sign"
+  color: "orange"
+
+inputs:
+  trigger_phrase:
+    description: "The trigger phrase to look for in comments or issue body"
+    required: false
+    default: "@awsapm"
+  base_branch:
+    description: "The branch to use as the base/source when creating new branches (defaults to repository default branch)"
+    required: false
+  branch_prefix:
+    description: "The prefix to use for AWS APM branches (defaults to 'awsapm/', use 'awsapm-' for dash format)"
+    required: false
+    default: "awsapm/"
+  allowed_bots:
+    description: "Comma-separated list of allowed bot usernames, or '*' to allow all bots. Empty string (default) allows no bots."
+    required: false
+    default: ""
+  allowed_non_write_users:
+    description: "Comma-separated list of usernames to allow without write permissions, or '*' to allow all users. Only works when github_token input is provided. WARNING: Use with extreme caution - this bypasses security checks and should only be used for workflows with very limited permissions (e.g., issue labeling)."
+    required: false
+    default: ""
+
+  # Amazon Q Developer CLI configuration
+  prompt:
+    description: "Instructions for Amazon Q Developer. Can be a direct prompt or custom template."
+    required: false
+    default: ""
+
+  # Auth configuration
+  anthropic_api_key:
+    description: "Anthropic API key for enhanced Claude bot responses (optional - Amazon Q Developer CLI can work standalone)"
+    required: false
+  github_token:
+    description: "GitHub token with repo and pull request permissions"
+    required: false
+
+  # AWS configuration for Amazon Q Developer CLI
+  aws_access_key_id:
+    description: "AWS Access Key ID for Amazon Q Developer CLI (required for full functionality)"
+    required: true
+  aws_secret_access_key:
+    description: "AWS Secret Access Key for Amazon Q Developer CLI (required for full functionality)"
+    required: true
+  aws_session_token:
+    description: "AWS Session Token for Amazon Q Developer CLI (optional for temporary credentials)"
+    required: false
+  aws_region:
+    description: "AWS Region for Amazon Q Developer CLI"
+    required: false
+    default: "us-east-1"
+
+  additional_permissions:
+    description: "Additional GitHub permissions to request (e.g., 'actions: read')"
+    required: false
+    default: ""
+  use_sticky_comment:
+    description: "Use just one comment to deliver issue/PR comments"
+    required: false
+    default: "false"
+  use_commit_signing:
+    description: "Enable commit signing using GitHub's commit signature verification"
+    required: false
+    default: "false"
+  bot_id:
+    description: "GitHub user ID to use for git operations (defaults to Claude bot ID)"
+    required: false
+    default: "41898282"
+  bot_name:
+    description: "GitHub username to use for git operations (defaults to Claude bot name)"
+    required: false
+    default: "claude[bot]"
+
+outputs:
+  execution_file:
+    description: "Path to the Amazon Q Developer CLI execution output file"
+    value: ${{ steps.aws-apm-cli.outputs.execution_file }}
+  branch_name:
+    description: "The branch created by AWS APM Action for this execution"
+    value: ${{ steps.prepare.outputs.AWSAPM_BRANCH }}
+  github_token:
+    description: "The GitHub token used by the action"
+    value: ${{ steps.prepare.outputs.github_token }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Prepare action
+      id: prepare
+      shell: bash
+      run: |
+        node ${GITHUB_ACTION_PATH}/src/prepare.js
+      env:
+        PROMPT: ${{ inputs.prompt }}
+        TRIGGER_PHRASE: ${{ inputs.trigger_phrase }}
+        BASE_BRANCH: ${{ inputs.base_branch }}
+        BRANCH_PREFIX: ${{ inputs.branch_prefix }}
+        OVERRIDE_GITHUB_TOKEN: ${{ inputs.github_token }}
+        ALLOWED_BOTS: ${{ inputs.allowed_bots }}
+        ALLOWED_NON_WRITE_USERS: ${{ inputs.allowed_non_write_users }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        USE_STICKY_COMMENT: ${{ inputs.use_sticky_comment }}
+        DEFAULT_WORKFLOW_TOKEN: ${{ github.token }}
+        USE_COMMIT_SIGNING: ${{ inputs.use_commit_signing }}
+        BOT_ID: ${{ inputs.bot_id }}
+        BOT_NAME: ${{ inputs.bot_name }}
+        ADDITIONAL_PERMISSIONS: ${{ inputs.additional_permissions }}
+
+    - name: Install Amazon Q Developer CLI
+      if: steps.prepare.outputs.contains_trigger == 'true'
+      shell: bash
+      run: |
+        echo "Installing Amazon Q Developer CLI..."
+        # Install Amazon Q Developer CLI via npm
+        npm install -g @aws/amazon-q-developer-cli
+        echo "Amazon Q Developer CLI installed successfully"
+
+    - name: Run AWS APM Analysis
+      id: aws-apm-cli
+      if: steps.prepare.outputs.contains_trigger == 'true'
+      shell: bash
+      run: |
+        node ${GITHUB_ACTION_PATH}/src/run-analysis.js
+      env:
+        GITHUB_TOKEN: ${{ steps.prepare.outputs.GITHUB_TOKEN }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.aws_access_key_id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.aws_secret_access_key }}
+        AWS_SESSION_TOKEN: ${{ inputs.aws_session_token }}
+        AWS_REGION: ${{ inputs.aws_region }}
+        INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
+
+    - name: Update comment with results
+      if: steps.prepare.outputs.contains_trigger == 'true' && steps.prepare.outputs.awsapm_comment_id && always()
+      shell: bash
+      run: |
+        node ${GITHUB_ACTION_PATH}/src/update-comment.js
+      env:
+        REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+        AWSAPM_COMMENT_ID: ${{ steps.prepare.outputs.awsapm_comment_id }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        GITHUB_TOKEN: ${{ steps.prepare.outputs.GITHUB_TOKEN }}
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        TRIGGER_COMMENT_ID: ${{ github.event.comment.id }}
+        AWSAPM_BRANCH: ${{ steps.prepare.outputs.AWSAPM_BRANCH }}
+        IS_PR: ${{ github.event.issue.pull_request != null || github.event_name == 'pull_request_review_comment' }}
+        BASE_BRANCH: ${{ steps.prepare.outputs.BASE_BRANCH }}
+        AWSAPM_SUCCESS: ${{ steps.aws-apm-cli.outputs.conclusion == 'success' }}
+        OUTPUT_FILE: ${{ steps.aws-apm-cli.outputs.execution_file || '' }}
+        TRIGGER_USERNAME: ${{ github.event.comment.user.login || github.event.issue.user.login || github.event.pull_request.user.login || github.event.sender.login || github.triggering_actor || github.actor || '' }}
+        PREPARE_SUCCESS: ${{ steps.prepare.outcome == 'success' }}
+        USE_STICKY_COMMENT: ${{ inputs.use_sticky_comment }}
