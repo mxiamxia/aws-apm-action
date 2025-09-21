@@ -371,12 +371,14 @@ Follow these steps:
    - Consider previous conversations and context from earlier comments
 
 3. For Issue Troubleshooting (Performance, Errors, Latency):
-   - PRIORITIZE using mcp__awslabs_cloudwatch-appsignals-mcp-server__query_sampled_traces
-   - This tool contains detailed exception stack traces and error information
-   - Look for error patterns, exception messages, and failure points
-   - Analyze trace data to identify root causes of performance issues
+   - PRIORITIZE these AWS trace analysis tools:
+     * mcp__awslabs_cloudwatch-appsignals-mcp-server__query_sampled_traces (detailed exception stack traces)
+     * mcp__awslabs_cloudwatch-appsignals-mcp-server__search_transaction_spans (transaction-level errors and exceptions)
+   - Both tools contain critical exception and error information for root cause analysis
+   - Look for error patterns, exception messages, and failure points in both trace and transaction data
+   - Focus on traces/transactions with errors or high latency first
+   - Analyze stack traces to identify exactly where failures occur in the code
    - Use other AWS MCP tools (service metrics, SLOs) as supporting data
-   - Focus on traces with errors or high latency first
 
 4. Provide Helpful Responses:
 
