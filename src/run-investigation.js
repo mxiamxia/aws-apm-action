@@ -30,6 +30,14 @@ function buildAllowedToolsString() {
     "Bash(git log:*)",                  // Git history
     "Bash(git diff:*)",                 // View changes
     "Bash(git show:*)",                 // Show commits/files
+    "Bash(git add:*)",                  // Stage files for commit
+    "Bash(git commit:*)",               // Commit changes
+    "Bash(git push:*)",                 // Push changes to remote
+    "Bash(git checkout:*)",             // Switch branches
+    "Bash(git branch:*)",               // Branch operations
+    "Bash(gh pr create:*)",             // Create pull requests
+    "Bash(gh pr list:*)",               // List pull requests
+    "Bash(gh pr view:*)",               // View pull request details
     `Bash(ls:${workingDir}/**)`,        // List repository contents only
     `Bash(find:${workingDir}/**)`,      // Find files in repository only
     `Bash(cat:${workingDir}/**)`,       // Read repository files only
@@ -179,7 +187,7 @@ async function run() {
       console.error(`${useClaude ? 'Claude Code CLI' : 'Amazon Q Developer CLI'} failed:`, error.message);
 
       // Return the actual error message - no fallback
-      investigationResult = `❌ **${useClaude ? 'Claude Code CLI' : 'Amazon Q Developer CLI'} Failed**
+      investigationResult = `❌ **AI Agent Investigation Failed**
 
 **Error:** ${error.message}
 
@@ -405,7 +413,11 @@ async function runClaudeCodeCLI(promptContent) {
       stdio: ['pipe', 'pipe', 'inherit'],
       cwd: targetRepoDir,
       env: {
-        ...process.env
+        ...process.env,
+        // Ensure non-interactive mode
+        CLAUDE_NON_INTERACTIVE: '1',
+        // Ensure GitHub Action inputs are available to Claude
+        GITHUB_ACTION_INPUTS: process.env.INPUT_ACTION_INPUTS_PRESENT || '1'
       }
     });
 
@@ -529,7 +541,7 @@ async function runClaudeCodeCLI(promptContent) {
         }
       }
 
-      return finalResponse.trim() || 'Claude Code CLI investigation completed, but no output was generated.';
+      return finalResponse.trim() || 'AI Agent investigation completed, but no output was generated.';
     } else {
       throw new Error(`Claude CLI exited with code ${exitCode}`);
     }
@@ -580,16 +592,16 @@ async function runAmazonQDeveloperCLI(promptContent, repoInfo, context) {
       console.log('Q CLI Error:', qError.message);
 
       // Return simple error message
-      qOutput = `❌ **Amazon Q Developer CLI Error**
+      qOutput = `❌ **AI Agent Investigation Error**
 
 **Error:** ${qError.message}
 
 **Possible causes:**
-- Amazon Q CLI is not installed or not in PATH
+- Required CLI tool is not installed or not in PATH
 - AWS credentials are not configured properly
 - Network connectivity issues
 
-**To fix:** Ensure Amazon Q CLI is installed and AWS credentials are configured.
+**To fix:** Ensure required tools are installed and credentials are configured.
 
 **Manual command:** \`q chat --no-interactive --trust-all-tools "Analyze this repository for AWS APM opportunities"\``;
     }
@@ -597,7 +609,7 @@ async function runAmazonQDeveloperCLI(promptContent, repoInfo, context) {
     // Log the output length for debugging
     console.log(`Amazon Q CLI output length: ${qOutput ? qOutput.length : 0} characters`);
 
-    return qOutput || 'Amazon Q Developer CLI investigation completed, but no output was generated.';
+    return qOutput || 'AI Agent investigation completed, but no output was generated.';
 
   } catch (error) {
     throw new Error(`Amazon Q Developer CLI execution failed: ${error.message}`);
