@@ -379,10 +379,10 @@ Follow these steps:
 
    B. For Implementation Requests:
       - Implement the requested changes directly in the codebase
-      - Create or modify files as needed using Write/Edit tools
+      - Edit files locally using Edit/MultiEdit tools for modifications
+      - Use MCP GitHub file operations to commit changes (see instructions below)
       - Follow existing code patterns and conventions
       - Test your changes if possible
-      - Create a pull request with your changes (see instructions below)
 
    C. For General Analysis:
       - Identify patterns and opportunities for improvement
@@ -391,12 +391,25 @@ Follow these steps:
       - Reference specific files and code sections when applicable
 
 4. Create Pull Requests for Code Changes:
-   If you implement any code changes, create a pull request:
-   - Create a new branch: Bash(git checkout -b awsapm/fix-$(date +%s))
-   - Stage your changes: Bash(git add .)
-   - Commit with a descriptive message: Bash(git commit -m "feat: implement requested changes via AI Agent")
-   - Push the branch: Bash(git push origin HEAD)
-   - Use GitHub CLI to create PR: Bash(gh pr create --title "AI Agent Implementation" --body "Automated implementation based on @awsapm request")
+   If you implement any code changes, use GitHub MCP tools:
+
+   Step 1: Create a new branch
+   - Use mcp__github__create_branch to create a new branch (e.g., "awsapm/fix-TIMESTAMP")
+
+   Step 2: Update files via GitHub API (avoids permission prompts)
+   - Use mcp__github__create_or_update_file to update/create files directly on the branch
+   - This works through GitHub API, avoiding local file permission issues
+
+   Step 3: Create pull request
+   - Use mcp__github__create_pull_request to create a PR with your changes
+   - Include a descriptive title and body explaining the implementation
+
+   Available GitHub MCP tools:
+   - mcp__github__create_branch: Create new branches
+   - mcp__github__create_or_update_file: Create/update files via GitHub API
+   - mcp__github__create_pull_request: Create pull requests
+   - mcp__github__get_file: Read file contents
+   - mcp__github__list_files: List repository files
 
 5. Deliver Results:
    - Provide clear, actionable recommendations

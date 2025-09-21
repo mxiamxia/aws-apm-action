@@ -21,23 +21,16 @@ function buildAllowedToolsString() {
   // Essential tools for repository investigation - RESTRICTED to target repository only
   const allowedTools = [
     `Read(${workingDir}/**)`,           // Read repository files only
-    `Write(${workingDir}/**)`,          // Write/create files in repository only
-    `Edit(${workingDir}/**)`,           // Edit existing files in repository only
-    `MultiEdit(${workingDir}/**)`,      // Multi-edit files in repository only
+    `Edit(${workingDir}/**)`,           // Edit existing files in repository only (for local editing)
+    `MultiEdit(${workingDir}/**)`,      // Multi-edit files in repository only (for local editing)
     `Glob(${workingDir}/**)`,           // Find files in repository only
     `Grep(${workingDir}/**)`,           // Search through repository code only
     "Bash(git status:*)",               // Git repository status
     "Bash(git log:*)",                  // Git history
     "Bash(git diff:*)",                 // View changes
     "Bash(git show:*)",                 // Show commits/files
-    "Bash(git add:*)",                  // Stage files for commit
-    "Bash(git commit:*)",               // Commit changes
-    "Bash(git push:*)",                 // Push changes to remote
     "Bash(git checkout:*)",             // Switch branches
     "Bash(git branch:*)",               // Branch operations
-    "Bash(gh pr create:*)",             // Create pull requests
-    "Bash(gh pr list:*)",               // List pull requests
-    "Bash(gh pr view:*)",               // View pull request details
     `Bash(ls:${workingDir}/**)`,        // List repository contents only
     `Bash(find:${workingDir}/**)`,      // Find files in repository only
     `Bash(cat:${workingDir}/**)`,       // Read repository files only
@@ -45,6 +38,18 @@ function buildAllowedToolsString() {
     `Bash(tail:${workingDir}/**)`,      // Read repository file tails only
     `Bash(wc:${workingDir}/**)`,        // Word/line counts in repository only
   ];
+
+  // Add GitHub MCP tools (using official GitHub MCP server following claude-code-action pattern)
+  // These work through GitHub API and avoid permission prompts
+  allowedTools.push(
+    "mcp__github__*",                      // Allow all GitHub MCP tools
+    "mcp__github__create_pull_request",    // Create pull requests
+    "mcp__github__create_or_update_file",  // Create or update files via GitHub API
+    "mcp__github__push_files",             // Push files via GitHub API
+    "mcp__github__get_file",               // Get file contents
+    "mcp__github__create_branch",          // Create branches
+    "mcp__github__list_files"              // List repository files
+  );
 
   // Add AWS CloudWatch AppSignals MCP tools (if AWS credentials are available)
   if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
@@ -77,40 +82,71 @@ function buildAllowedToolsString() {
  */
 function createMCPConfig() {
   try {
+    const mcpConfig = {
+      mcpServers: {}
+    };
+
+    // Add AWS CloudWatch AppSignals MCP server if credentials are available
     const awsAccessKeyId = process.env.AWS_ACCESS_KEY_ID;
     const awsSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
     const awsRegion = process.env.AWS_REGION || 'us-east-1';
 
-    // Only create MCP config if AWS credentials are available
     if (awsAccessKeyId && awsSecretAccessKey) {
       console.log('AWS credentials found, setting up MCP server for CloudWatch AppSignals...');
-
-      const mcpConfig = {
-        mcpServers: {
-          "awslabs.cloudwatch-appsignals-mcp-server": {
-            command: "uvx",
-            args: ["awslabs.cloudwatch-appsignals-mcp-server@latest"],
-            env: {
-              aws_access_key_id: awsAccessKeyId,
-              aws_secret_access_key: awsSecretAccessKey,
-              AWS_REGION: awsRegion
-            }
-          }
+      mcpConfig.mcpServers["awslabs.cloudwatch-appsignals-mcp-server"] = {
+        command: "uvx",
+        args: ["awslabs.cloudwatch-appsignals-mcp-server@latest"],
+        env: {
+          aws_access_key_id: awsAccessKeyId,
+          aws_secret_access_key: awsSecretAccessKey,
+          AWS_REGION: awsRegion
         }
       };
-
-      // Create MCP config in temp directory (outside of repository)
-      const tempDir = process.env.RUNNER_TEMP || '/tmp';
-      const mcpConfigPath = path.join(tempDir, '.mcp.json');
-      fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
-      console.log(`MCP configuration created at: ${mcpConfigPath}`);
-      console.log(`AWS Region: ${awsRegion}`);
-
-      return mcpConfigPath;
+      console.log(`AWS MCP server configured for region: ${awsRegion}`);
     } else {
-      console.log('No AWS credentials found, skipping MCP server setup');
+      console.log('No AWS credentials found, skipping AWS MCP server');
+    }
+
+    // Add GitHub MCP server if GitHub token is available (following claude-code-action pattern)
+    const githubToken = process.env.GITHUB_TOKEN;
+    if (githubToken) {
+      console.log('GitHub token found, setting up GitHub MCP server...');
+      mcpConfig.mcpServers.github = {
+        command: "docker",
+        args: [
+          "run",
+          "-i",
+          "--rm",
+          "-e",
+          "GITHUB_PERSONAL_ACCESS_TOKEN",
+          "-e",
+          "GITHUB_HOST",
+          "ghcr.io/github/github-mcp-server:sha-efef8ae"
+        ],
+        env: {
+          GITHUB_PERSONAL_ACCESS_TOKEN: githubToken,
+          GITHUB_HOST: process.env.GITHUB_SERVER_URL || "https://github.com"
+        }
+      };
+      console.log('GitHub MCP server configured');
+    } else {
+      console.log('No GitHub token found, skipping GitHub MCP server');
+    }
+
+    // Only create config if we have at least one server
+    if (Object.keys(mcpConfig.mcpServers).length === 0) {
+      console.log('No MCP servers to configure');
       return null;
     }
+
+    // Create MCP config in temp directory (outside of repository)
+    const tempDir = process.env.RUNNER_TEMP || '/tmp';
+    const mcpConfigPath = path.join(tempDir, '.mcp.json');
+    fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
+    console.log(`MCP configuration created at: ${mcpConfigPath}`);
+    console.log('MCP Config:', JSON.stringify(mcpConfig, null, 2));
+
+    return mcpConfigPath;
   } catch (error) {
     console.warn(`MCP setup failed (Claude CLI will continue without MCP): ${error.message}`);
     return null;
