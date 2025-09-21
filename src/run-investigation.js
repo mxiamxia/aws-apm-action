@@ -42,13 +42,14 @@ function buildAllowedToolsString() {
   // Add GitHub MCP tools (using official GitHub MCP server following claude-code-action pattern)
   // These work through GitHub API and avoid permission prompts
   allowedTools.push(
-    "mcp__github__*",                      // Allow all GitHub MCP tools
+    "mcp__github__*",                      // Allow all GitHub MCP tools (wildcard)
     "mcp__github__create_pull_request",    // Create pull requests
     "mcp__github__create_or_update_file",  // Create or update files via GitHub API
     "mcp__github__push_files",             // Push files via GitHub API
     "mcp__github__get_file",               // Get file contents
     "mcp__github__create_branch",          // Create branches
-    "mcp__github__list_files"              // List repository files
+    "mcp__github__list_files",             // List repository files
+    "mcp__github__get_file_contents"       // Get file contents (additional specific name)
   );
 
   // Add AWS CloudWatch AppSignals MCP tools (if AWS credentials are available)
