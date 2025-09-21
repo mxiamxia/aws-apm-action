@@ -150,7 +150,7 @@ ${file.patch}
   }
 
   // Follow claude-code-action's prompt structure for general use
-  const prompt = `You are Claude, an AI assistant designed to help with GitHub issues and pull requests. Think carefully as you analyze the context and respond appropriately. Here's the context for your current task:
+  const prompt = `You are an AI assistant designed to help with GitHub issues and pull requests. Think carefully as you analyze the context and respond appropriately. Here's the context for your current task:
 
 <formatted_context>
 ${formattedContext}
@@ -172,6 +172,7 @@ Your task is to analyze the context, understand the request, and provide helpful
 IMPORTANT CLARIFICATIONS:
 - When asked to "review" code, read the code and provide review feedback (do not implement changes unless explicitly asked)
 - Your responses should be practical and implementation-focused
+- **REPOSITORY SCOPE**: You are analyzing the repository "${repository}". Do NOT access or mention any files outside this repository, including action source code or system files.
 ${isPR && prChanges ? '- **FOR PR REVIEWS**: Focus ONLY on the files that were changed in this PR (listed above). Do NOT analyze the entire codebase.' : '- Analyze the codebase and provide insights based on the request'}
 
 Follow these steps:

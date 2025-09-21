@@ -11,21 +11,28 @@ const path = require('path');
  * Build allowed tools string for Claude CLI investigation
  */
 function buildAllowedToolsString() {
-  // Essential tools for repository investigation
+  // Get the working directory (target repository) to restrict access
+  // The working directory should be the checked-out repository, not the action directory
+  const workingDir = process.env.GITHUB_WORKSPACE || process.cwd();
+  console.log(`[DEBUG] Target repository working directory: ${workingDir}`);
+  console.log(`[DEBUG] Current working directory: ${process.cwd()}`);
+  console.log(`[DEBUG] Action path: ${process.env.GITHUB_ACTION_PATH || 'undefined'}`);
+
+  // Essential tools for repository investigation - RESTRICTED to target repository only
   const allowedTools = [
-    "Read",                    // Read repository files and prompt
-    "Glob",                    // Find files by patterns
-    "Grep",                    // Search through code
-    "Bash(git status:*)",      // Git repository status
-    "Bash(git log:*)",         // Git history
-    "Bash(git diff:*)",        // View changes
-    "Bash(git show:*)",        // Show commits/files
-    "Bash(ls:*)",              // List directory contents
-    "Bash(find:*)",            // Find files
-    "Bash(cat:*)",             // Read file contents (alternative to Read)
-    "Bash(head:*)",            // Read file headers
-    "Bash(tail:*)",            // Read file tails
-    "Bash(wc:*)",              // Word/line counts
+    `Read(${workingDir}/**)`,           // Read repository files only
+    `Glob(${workingDir}/**)`,           // Find files in repository only
+    `Grep(${workingDir}/**)`,           // Search through repository code only
+    "Bash(git status:*)",               // Git repository status
+    "Bash(git log:*)",                  // Git history
+    "Bash(git diff:*)",                 // View changes
+    "Bash(git show:*)",                 // Show commits/files
+    `Bash(ls:${workingDir}/**)`,        // List repository contents only
+    `Bash(find:${workingDir}/**)`,      // Find files in repository only
+    `Bash(cat:${workingDir}/**)`,       // Read repository files only
+    `Bash(head:${workingDir}/**)`,      // Read repository file headers only
+    `Bash(tail:${workingDir}/**)`,      // Read repository file tails only
+    `Bash(wc:${workingDir}/**)`,        // Word/line counts in repository only
   ];
 
   // Add AWS CloudWatch AppSignals MCP tools (if AWS credentials are available)
@@ -397,10 +404,16 @@ async function runClaudeCodeCLI(promptContent) {
       const { execSync } = require('child_process');
 
       console.log('Running Claude CLI with execSync...');
+
+      // Ensure Claude runs from the target repository directory, not the action directory
+      const targetRepoDir = process.env.GITHUB_WORKSPACE || process.cwd();
+      console.log(`[DEBUG] Executing Claude from directory: ${targetRepoDir}`);
+
       const claudeOutput = execSync(`claude ${claudeArgs.map(arg => `"${arg}"`).join(' ')}`, {
         encoding: 'utf8',
         timeout: 180000, // 3 minutes timeout
         stdio: 'pipe',
+        cwd: targetRepoDir,  // CRITICAL: Run from target repository, not action directory
         env: {
           ...process.env
         }

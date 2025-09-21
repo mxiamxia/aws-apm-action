@@ -45,7 +45,13 @@ inputs:
     description: "Claude Code OAuth token (alternative to anthropic_api_key)"
     required: false
   github_token:
-    description: "GitHub token with repo and pull request permissions"
+    description: "GitHub token with repo and pull request permissions. If not provided, uses default workflow token (comments appear as 'github-actions bot'). To use custom bot name, provide token from desired bot account."
+    required: false
+  github_app_id:
+    description: "GitHub App ID for custom bot authentication. When provided with github_app_private_key, generates GitHub App installation token for custom bot name."
+    required: false
+  github_app_private_key:
+    description: "GitHub App private key (PEM format). Used with github_app_id to authenticate as custom GitHub App bot."
     required: false
 
   # AWS configuration for Amazon Q Developer CLI
@@ -129,6 +135,8 @@ runs:
         BOT_ID: ${{ inputs.bot_id }}
         BOT_NAME: ${{ inputs.bot_name }}
         ADDITIONAL_PERMISSIONS: ${{ inputs.additional_permissions }}
+        GITHUB_APP_ID: ${{ inputs.github_app_id }}
+        GITHUB_APP_PRIVATE_KEY: ${{ inputs.github_app_private_key }}
 
     - name: Install CLI Tools
       if: steps.prepare.outputs.contains_trigger == 'true'
@@ -215,3 +223,5 @@ runs:
         TRIGGER_USERNAME: ${{ github.event.comment.user.login || github.event.issue.user.login || github.event.pull_request.user.login || github.event.sender.login || github.triggering_actor || github.actor || '' }}
         PREPARE_SUCCESS: ${{ steps.prepare.outcome == 'success' }}
         USE_STICKY_COMMENT: ${{ inputs.use_sticky_comment }}
+        BOT_ID: ${{ inputs.bot_id }}
+        BOT_NAME: ${{ inputs.bot_name }}

@@ -75,10 +75,47 @@ async function run() {
       return;
     }
 
-    // Setup GitHub token
-    const githubToken = process.env.OVERRIDE_GITHUB_TOKEN || process.env.DEFAULT_WORKFLOW_TOKEN;
+    // Setup GitHub token with intelligent resolution (including GitHub App support)
+    let githubToken = process.env.OVERRIDE_GITHUB_TOKEN;
+    let tokenSource = 'custom';
+
+    // Check for GitHub App authentication
+    if (!githubToken && process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY) {
+      console.log('[INFO] GitHub App credentials detected, generating installation token...');
+      try {
+        githubToken = await generateGitHubAppToken();
+        tokenSource = 'github_app';
+      } catch (error) {
+        console.error('Failed to generate GitHub App token:', error.message);
+        console.log('Falling back to default workflow token...');
+      }
+    }
+
+    if (!githubToken) {
+      githubToken = process.env.DEFAULT_WORKFLOW_TOKEN;
+      tokenSource = 'default';
+    }
+
     if (!githubToken) {
       throw new Error('GitHub token is required');
+    }
+
+    // Provide helpful information about bot name behavior
+    if (tokenSource === 'default') {
+      console.log('[INFO] Using default GitHub token - comments will appear as "github-actions bot"');
+      console.log('[INFO] To use a custom bot name, provide either:');
+      console.log('[INFO]   1. github_token input with a token from your desired bot account');
+      console.log('[INFO]   2. github_app_id + github_app_private_key for GitHub App authentication');
+
+      // Check if user has Claude authentication available
+      const hasClaudeAuth = process.env.CLAUDE_CODE_OAUTH_TOKEN || process.env.ANTHROPIC_API_KEY;
+      if (hasClaudeAuth) {
+        console.log('[INFO] Note: CLAUDE_CODE_OAUTH_TOKEN/ANTHROPIC_API_KEY only affects Claude API auth, not GitHub bot name');
+      }
+    } else if (tokenSource === 'github_app') {
+      console.log('[INFO] Using GitHub App token - comments will appear as your custom bot');
+    } else {
+      console.log('[INFO] Using custom GitHub token - bot name depends on token source');
     }
 
     // Create Octokit instance
@@ -252,6 +289,54 @@ async function getBasicRepoInfo(context, githubToken) {
       fileCount: 'Unknown',
       topics: []
     };
+  }
+}
+
+/**
+ * Generate GitHub App installation token using App ID and private key
+ */
+async function generateGitHubAppToken() {
+  const appId = process.env.GITHUB_APP_ID;
+  const privateKey = process.env.GITHUB_APP_PRIVATE_KEY;
+
+  if (!appId || !privateKey) {
+    throw new Error('GitHub App ID and private key are required');
+  }
+
+  try {
+    // Import jsonwebtoken for JWT creation
+    const jwt = require('jsonwebtoken');
+
+    // Create JWT for GitHub App authentication
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+      iat: now - 60, // Issued 1 minute in the past to allow for clock skew
+      exp: now + (10 * 60), // Expires in 10 minutes
+      iss: appId
+    };
+
+    const jwtToken = jwt.sign(payload, privateKey, { algorithm: 'RS256' });
+
+    // Get installation ID for the current repository
+    const context = github.context;
+    const appOctokit = github.getOctokit(jwtToken);
+
+    const { data: installation } = await appOctokit.rest.apps.getRepoInstallation({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+    });
+
+    // Generate installation access token
+    const { data: installationToken } = await appOctokit.rest.apps.createInstallationAccessToken({
+      installation_id: installation.id,
+    });
+
+    console.log(`[INFO] Successfully generated GitHub App installation token for ${context.repo.owner}/${context.repo.repo}`);
+    return installationToken.token;
+
+  } catch (error) {
+    console.error('GitHub App token generation error:', error.message);
+    throw new Error(`Failed to generate GitHub App token: ${error.message}`);
   }
 }
 
