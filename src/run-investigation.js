@@ -21,6 +21,9 @@ function buildAllowedToolsString() {
   // Essential tools for repository investigation - RESTRICTED to target repository only
   const allowedTools = [
     `Read(${workingDir}/**)`,           // Read repository files only
+    `Write(${workingDir}/**)`,          // Write/create files in repository only
+    `Edit(${workingDir}/**)`,           // Edit existing files in repository only
+    `MultiEdit(${workingDir}/**)`,      // Multi-edit files in repository only
     `Glob(${workingDir}/**)`,           // Find files in repository only
     `Grep(${workingDir}/**)`,           // Search through repository code only
     "Bash(git status:*)",               // Git repository status

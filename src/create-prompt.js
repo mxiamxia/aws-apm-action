@@ -342,6 +342,14 @@ IMPORTANT CLARIFICATIONS:
 - **REPOSITORY SCOPE**: You are analyzing the repository "${repository}". Do NOT access or mention any files outside this repository, including action source code or system files.
 ${isPR && prChanges ? '- **FOR PR REVIEWS**: Focus ONLY on the files that were changed in this PR (listed above). Do NOT analyze the entire codebase.' : '- Analyze the codebase and provide insights based on the request'}
 
+RESPONSE FORMAT REQUIREMENTS:
+- Provide ONLY your final analysis, conclusions, and recommendations
+- Do NOT include process commentary like "Let me check...", "I'll help you...", "Now let me...", or "I can see that..."
+- Do NOT describe your step-by-step investigation process or tool usage
+- Do NOT mention creating todo lists or updating tracking items
+- Focus on delivering actionable insights and concrete findings
+- Structure your response with clear sections such as: Root Cause, Key Findings, Recommendations, etc.
+
 Follow these steps:
 
 1. Understand the Request:
