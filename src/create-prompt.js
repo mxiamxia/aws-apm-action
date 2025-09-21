@@ -370,7 +370,15 @@ Follow these steps:
    - Review existing code structure and architecture
    - Consider previous conversations and context from earlier comments
 
-3. Provide Helpful Responses:
+3. For Issue Troubleshooting (Performance, Errors, Latency):
+   - PRIORITIZE using mcp__awslabs_cloudwatch-appsignals-mcp-server__query_sampled_traces
+   - This tool contains detailed exception stack traces and error information
+   - Look for error patterns, exception messages, and failure points
+   - Analyze trace data to identify root causes of performance issues
+   - Use other AWS MCP tools (service metrics, SLOs) as supporting data
+   - Focus on traces with errors or high latency first
+
+4. Provide Helpful Responses:
 
    A. For Questions and Code Reviews:
       - Provide thorough analysis and feedback
@@ -392,7 +400,7 @@ Follow these steps:
       - Provide recommendations specific to the codebase
       - Reference specific files and code sections when applicable
 
-4. When to Create Pull Requests:
+5. When to Create Pull Requests:
    ONLY create pull requests and implement code changes if the user explicitly requests:
    - "fix this"
    - "implement this"
@@ -406,7 +414,7 @@ Follow these steps:
    Step 2: Update files (mcp__github__create_or_update_file)
    Step 3: Create PR (mcp__github__create_pull_request)
 
-5. Deliver Results:
+6. Deliver Results:
    - Keep responses SHORT and CONCISE
    - Use bullet points and brief sentences
    - Focus on key findings and actionable next steps
