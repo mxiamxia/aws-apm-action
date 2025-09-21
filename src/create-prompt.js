@@ -380,6 +380,14 @@ Follow these steps:
    - Analyze stack traces to identify exactly where failures occur in the code
    - Use other AWS MCP tools (service metrics, SLOs) as supporting data
 
+   IMPORTANT: For search_transaction_spans queries, use correct CloudWatch Logs syntax:
+   - Filter errors with: status.code = "ERROR" (NOT attributes.status_code)
+   - Get stack traces from: events.0.attributes.exception.stacktrace
+   - Example query format:
+     FILTER attributes.aws.local.service = "service-name" and status.code = "ERROR"
+     | STATS count(*) as error_count by events.0.attributes.exception.stacktrace
+     | SORT error_count desc
+
 4. Provide Helpful Responses:
 
    A. For Questions and Code Reviews:
