@@ -1,6 +1,163 @@
 // Dynamic general prompt creation
 
 /**
+ * Get the trigger time from the GitHub context (following claude-code-action pattern)
+ */
+function getTriggerTime(context) {
+  if (context.eventName === 'issue_comment') {
+    return context.payload.comment?.created_at;
+  } else if (context.eventName === 'pull_request_review') {
+    return context.payload.review?.submitted_at;
+  } else if (context.eventName === 'pull_request_review_comment') {
+    return context.payload.comment?.created_at;
+  }
+  return undefined;
+}
+
+/**
+ * Filters comments to only include those that existed in their final state before the trigger time.
+ * This prevents malicious actors from editing comments after the trigger to inject harmful content.
+ * (Following claude-code-action security pattern)
+ */
+function filterCommentsToTriggerTime(comments, triggerTime) {
+  if (!triggerTime) return comments;
+
+  const triggerTimestamp = new Date(triggerTime).getTime();
+
+  return comments.filter((comment) => {
+    // Comment must have been created before trigger (not at or after)
+    const createdTimestamp = new Date(comment.createdAt).getTime();
+    if (createdTimestamp >= triggerTimestamp) {
+      return false;
+    }
+
+    // If comment has been edited, the most recent edit must have occurred before trigger
+    // Use updated_at as GitHub REST API doesn't provide lastEditedAt
+    if (comment.updatedAt) {
+      const lastEditTimestamp = new Date(comment.updatedAt).getTime();
+      if (lastEditTimestamp >= triggerTimestamp) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+/**
+ * Get comments for conversation context (following claude-code-action pattern with security filtering)
+ */
+async function getConversationComments(context, githubToken) {
+  try {
+    if (!githubToken) {
+      console.warn('No GitHub token provided for fetching comments');
+      return [];
+    }
+
+    const github = require('@actions/github');
+    const octokit = github.getOctokit(githubToken);
+
+    console.log(`[DEBUG] Fetching conversation comments for ${context.eventName}`);
+
+    // Get trigger time for security filtering
+    const triggerTime = getTriggerTime(context);
+    console.log(`[DEBUG] Trigger time for security filtering: ${triggerTime}`);
+
+    let comments = [];
+
+    if (context.eventName === 'issue_comment' || context.eventName === 'issues') {
+      // Get issue comments
+      const { data: issueComments } = await octokit.rest.issues.listComments({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: context.payload.issue?.number || context.payload.pull_request?.number,
+      });
+
+      comments = issueComments.map(comment => ({
+        author: comment.user.login,
+        createdAt: comment.created_at,
+        updatedAt: comment.updated_at,
+        body: comment.body,
+        isMinimized: false // GitHub API doesn't provide this, assume false
+      }));
+
+    } else if (context.eventName === 'pull_request_review_comment' || context.eventName === 'pull_request_review') {
+      // Get PR comments (issue comments on PRs)
+      const { data: issueComments } = await octokit.rest.issues.listComments({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: context.payload.pull_request.number,
+      });
+
+      // Get PR review comments
+      const { data: reviewComments } = await octokit.rest.pulls.listReviewComments({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        pull_number: context.payload.pull_request.number,
+      });
+
+      // Combine and sort by creation time
+      const allComments = [
+        ...issueComments.map(comment => ({
+          author: comment.user.login,
+          createdAt: comment.created_at,
+          updatedAt: comment.updated_at,
+          body: comment.body,
+          type: 'issue_comment',
+          isMinimized: false
+        })),
+        ...reviewComments.map(comment => ({
+          author: comment.user.login,
+          createdAt: comment.created_at,
+          updatedAt: comment.updated_at,
+          body: comment.body,
+          type: 'review_comment',
+          isMinimized: false
+        }))
+      ];
+
+      // Sort by creation time
+      comments = allComments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    }
+
+    // Apply security filtering to prevent malicious comment editing
+    const filteredComments = filterCommentsToTriggerTime(comments, triggerTime);
+    const filteredCount = comments.length - filteredComments.length;
+
+    if (filteredCount > 0) {
+      console.log(`[DEBUG] Security filtering removed ${filteredCount} comments that were created or edited after trigger time`);
+    }
+
+    console.log(`[DEBUG] Retrieved ${filteredComments.length} comments for conversation context (${comments.length} total, ${filteredCount} filtered)`);
+    return filteredComments;
+
+  } catch (error) {
+    console.error('Could not fetch conversation comments:', error.message);
+    console.log('[DEBUG] GitHub API error details:', error.status || 'No status', error.response?.data?.message || 'No error message');
+    return [];
+  }
+}
+
+/**
+ * Format comments for conversation context (following claude-code-action pattern)
+ */
+function formatConversationComments(comments) {
+  if (!comments || comments.length === 0) {
+    return "No previous comments";
+  }
+
+  return comments
+    .filter(comment => !comment.isMinimized)
+    .map(comment => {
+      // Sanitize content (basic implementation)
+      const sanitizedBody = comment.body || '';
+      const formattedDate = new Date(comment.createdAt).toISOString();
+      return `[${comment.author} at ${formattedDate}]: ${sanitizedBody}`;
+    })
+    .join('\n\n');
+}
+
+/**
  * Get PR changed files if this is a PR context
  */
 async function getPRChangedFiles(context, githubToken) {
@@ -118,6 +275,12 @@ Topics: ${repoInfo.topics.join(', ') || 'None'}`;
 
   const formattedBody = commentBody || userRequest || 'No description provided';
 
+  // Get conversation context (following claude-code-action pattern)
+  console.log(`[DEBUG] === FETCHING CONVERSATION CONTEXT ===`);
+  const conversationComments = await getConversationComments(context, githubToken);
+  const formattedComments = formatConversationComments(conversationComments);
+  console.log(`[DEBUG] Conversation context: ${conversationComments.length} comments formatted`);
+
   // Get PR changes if this is a PR context
   console.log(`[DEBUG] === ABOUT TO FETCH PR CHANGES ===`);
   console.log(`[DEBUG] Attempting to fetch PR changes - isPR: ${isPR}`);
@@ -159,6 +322,10 @@ ${formattedContext}
 <pr_or_issue_body>
 ${formattedBody}
 </pr_or_issue_body>
+
+<comments>
+${formattedComments}
+</comments>
 ${changedFilesSection}
 
 <event_type>${eventType}</event_type>
@@ -183,10 +350,12 @@ Follow these steps:
    - Assess what type of assistance is being requested
 
 2. Gather Context:
-   - Analyze the repository structure and technology stack
+   - Analyze the pre-fetched conversation history in the <comments> section above
+   - Review the repository structure and technology stack
    - Look for relevant patterns and practices in the codebase
    - Identify areas that relate to the user's request
    - Review existing code structure and architecture
+   - Consider previous conversations and context from earlier comments
 
 3. Provide Helpful Responses:
 
@@ -235,9 +404,11 @@ Provide practical, actionable recommendations specific to this repository's tech
   // Debug log the final prompt characteristics
   console.log(`[DEBUG] Final prompt generated:`);
   console.log(`[DEBUG] - Total length: ${prompt.length} characters`);
+  console.log(`[DEBUG] - Contains <comments>: ${prompt.includes('<comments>')}`);
   console.log(`[DEBUG] - Contains <changed_files>: ${prompt.includes('<changed_files>')}`);
   console.log(`[DEBUG] - Contains PR-specific instruction: ${prompt.includes('Focus ONLY on the files that were changed in this PR')}`);
   console.log(`[DEBUG] - Event type: ${eventType}, isPR: ${isPR}`);
+  console.log(`[DEBUG] - Conversation comments count: ${conversationComments.length}`);
 
   return prompt;
 }

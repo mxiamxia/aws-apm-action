@@ -298,6 +298,11 @@ async function getBasicRepoInfo(context, githubToken) {
 async function generateGitHubAppToken() {
   const appId = process.env.GITHUB_APP_ID;
   const privateKey = process.env.GITHUB_APP_PRIVATE_KEY;
+  const context = github.context;
+
+  console.log(`[DEBUG] GitHub App setup for repository: ${context.repo.owner}/${context.repo.repo}`);
+  console.log(`[DEBUG] GitHub App ID: ${appId ? 'provided' : 'missing'}`);
+  console.log(`[DEBUG] Private Key: ${privateKey ? 'provided' : 'missing'}`);
 
   if (!appId || !privateKey) {
     throw new Error('GitHub App ID and private key are required');
@@ -315,16 +320,33 @@ async function generateGitHubAppToken() {
       iss: appId
     };
 
+    console.log(`[DEBUG] Creating JWT token for App ID: ${appId}`);
     const jwtToken = jwt.sign(payload, privateKey, { algorithm: 'RS256' });
 
     // Get installation ID for the current repository
-    const context = github.context;
     const appOctokit = github.getOctokit(jwtToken);
 
+    console.log(`[DEBUG] Checking if GitHub App is installed on ${context.repo.owner}/${context.repo.repo}`);
+
+    // First, let's check what installations this app has access to
+    try {
+      const { data: installations } = await appOctokit.rest.apps.listInstallations();
+      console.log(`[DEBUG] GitHub App has ${installations.length} installation(s)`);
+
+      for (const inst of installations) {
+        console.log(`[DEBUG] Installation ${inst.id}: account=${inst.account.login}, type=${inst.account.type}`);
+      }
+    } catch (listError) {
+      console.warn(`[DEBUG] Could not list installations: ${listError.message}`);
+    }
+
+    // Now try to get the specific repo installation
     const { data: installation } = await appOctokit.rest.apps.getRepoInstallation({
       owner: context.repo.owner,
       repo: context.repo.repo,
     });
+
+    console.log(`[DEBUG] Found installation ID: ${installation.id} for ${context.repo.owner}/${context.repo.repo}`);
 
     // Generate installation access token
     const { data: installationToken } = await appOctokit.rest.apps.createInstallationAccessToken({
@@ -336,6 +358,20 @@ async function generateGitHubAppToken() {
 
   } catch (error) {
     console.error('GitHub App token generation error:', error.message);
+    console.error(`[DEBUG] Error details:`, error.response?.data || 'No additional details');
+
+    // Provide helpful troubleshooting information
+    if (error.message.includes('Not Found')) {
+      console.error(`[TROUBLESHOOTING] GitHub App is not installed on ${context.repo.owner}/${context.repo.repo}`);
+      console.error(`[TROUBLESHOOTING] Please:`);
+      console.error(`[TROUBLESHOOTING] 1. Go to your GitHub App settings`);
+      console.error(`[TROUBLESHOOTING] 2. Click "Install App" and select the repository`);
+      console.error(`[TROUBLESHOOTING] 3. Or check if the App ID (${appId}) is correct`);
+    } else if (error.message.includes('Bad credentials')) {
+      console.error(`[TROUBLESHOOTING] Invalid private key or App ID`);
+      console.error(`[TROUBLESHOOTING] Please verify the private key matches App ID: ${appId}`);
+    }
+
     throw new Error(`Failed to generate GitHub App token: ${error.message}`);
   }
 }

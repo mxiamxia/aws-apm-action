@@ -298,9 +298,13 @@ async function getRepositoryInfo() {
 }
 
 /**
- * Run Claude Code CLI (based on claude-code-action implementation)
+ * Run Claude Code CLI using claude-code-action's proven named pipe approach
  */
 async function runClaudeCodeCLI(promptContent) {
+  const { spawn } = require('child_process');
+  const { promisify } = require('util');
+  const execAsync = promisify(require('child_process').exec);
+
   try {
     console.log('Executing Claude Code CLI commands...');
 
@@ -324,15 +328,12 @@ async function runClaudeCodeCLI(promptContent) {
     // Write the prompt to temp directory (outside of repository)
     const tempDir = process.env.RUNNER_TEMP || '/tmp';
     const tempPromptFile = path.join(tempDir, 'claude-prompt.txt');
+    const PIPE_PATH = path.join(tempDir, 'claude_prompt_pipe');
+
     fs.writeFileSync(tempPromptFile, claudePrompt);
 
     console.log(`Prompt file size: ${claudePrompt.length} bytes`);
     console.log(`Running Claude with prompt from file: ${tempPromptFile}`);
-
-    // Print the content that will be passed to Claude
-    console.log('\n=== CLAUDE INPUT PROMPT START ===');
-    console.log(claudePrompt);
-    console.log('=== CLAUDE INPUT PROMPT END ===\n');
 
     // Setup MCP configuration for AWS CloudWatch AppSignals if credentials are available
     const mcpConfigPath = createMCPConfig();
@@ -340,88 +341,150 @@ async function runClaudeCodeCLI(promptContent) {
     // Build allowed tools for investigation
     const allowedTools = buildAllowedToolsString();
     console.log(`Allowed tools: ${allowedTools}`);
-    console.log(`[DEBUG] Allowed tools length: ${allowedTools.length} characters`);
-    console.log(`[DEBUG] Contains MCP tools: ${allowedTools.includes('mcp__')}`);
 
-    // Run Claude Code CLI following claude-code-action pattern:
-    // claude -p [prompt-file] --verbose --output-format stream-json [--mcp-config .mcp.json] --allowed-tools [tools]
+    // Build Claude CLI arguments (following claude-code-action pattern)
     const claudeArgs = [
-      '-p', tempPromptFile,
+      '-p',  // Will use named pipe instead of file
       '--verbose',
       '--output-format', 'stream-json',
-      '--allowed-tools', allowedTools  // Try with dashes instead of camelCase
+      '--allowed-tools', allowedTools
     ];
 
     // Add MCP config if it was created and is valid
-    if (mcpConfigPath) {
-      try {
-        // Verify the MCP config file exists and is readable
-        if (fs.existsSync(mcpConfigPath)) {
-          claudeArgs.push('--mcp-config', mcpConfigPath);
-          console.log(`Using MCP configuration: ${mcpConfigPath}`);
-
-          // Debug: Print MCP config file contents
-          try {
-            const mcpConfigContent = fs.readFileSync(mcpConfigPath, 'utf8');
-            console.log(`[DEBUG] MCP Config file contents:`);
-            console.log(mcpConfigContent);
-          } catch (readError) {
-            console.warn(`Could not read MCP config file for debugging: ${readError.message}`);
-          }
-        } else {
-          console.warn('MCP config file not found, continuing without MCP');
-        }
-      } catch (error) {
-        console.warn(`Error accessing MCP config file (continuing without MCP): ${error.message}`);
-      }
-    } else {
-      console.log('[DEBUG] No MCP config path provided - AWS credentials may not be available');
+    if (mcpConfigPath && fs.existsSync(mcpConfigPath)) {
+      claudeArgs.push('--mcp-config', mcpConfigPath);
+      console.log(`Using MCP configuration: ${mcpConfigPath}`);
     }
 
     console.log(`Full command: claude ${claudeArgs.join(' ')}`);
 
-    // Check authentication before running (Claude CLI will auto-detect the auth method)
+    // Check authentication
     if (!process.env.ANTHROPIC_API_KEY && !process.env.CLAUDE_CODE_OAUTH_TOKEN) {
       throw new Error('No authentication provided. Either ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN is required.');
     }
 
-    // Claude CLI will automatically use CLAUDE_CODE_OAUTH_TOKEN if available, otherwise ANTHROPIC_API_KEY
     if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
       console.log('Claude CLI will use CLAUDE_CODE_OAUTH_TOKEN for authentication');
     } else if (process.env.ANTHROPIC_API_KEY) {
       console.log('Claude CLI will use ANTHROPIC_API_KEY for authentication');
     }
 
-    // Use spawn for better control (following claude-code-action pattern)
-    const { spawn } = require('child_process');
-
-    console.log('Spawning Claude process...');
-    console.log(`[DEBUG] Complete Claude command: claude ${claudeArgs.map(arg => `"${arg}"`).join(' ')}`);
-    console.log(`[DEBUG] Claude arguments array:`, claudeArgs);
-
-    // Try a simpler approach first - let's use execSync with timeout
+    // Create named pipe (following claude-code-action approach)
     try {
-      const { execSync } = require('child_process');
+      await execAsync(`rm -f "${PIPE_PATH}"`);
+    } catch (e) {
+      // Ignore if file doesn't exist
+    }
 
-      console.log('Running Claude CLI with execSync...');
+    await execAsync(`mkfifo "${PIPE_PATH}"`);
+    console.log(`Created named pipe: ${PIPE_PATH}`);
 
-      // Ensure Claude runs from the target repository directory, not the action directory
-      const targetRepoDir = process.env.GITHUB_WORKSPACE || process.cwd();
-      console.log(`[DEBUG] Executing Claude from directory: ${targetRepoDir}`);
+    // Ensure Claude runs from the target repository directory
+    const targetRepoDir = process.env.GITHUB_WORKSPACE || process.cwd();
+    console.log(`[DEBUG] Executing Claude from directory: ${targetRepoDir}`);
 
-      const claudeOutput = execSync(`claude ${claudeArgs.map(arg => `"${arg}"`).join(' ')}`, {
-        encoding: 'utf8',
-        timeout: 180000, // 3 minutes timeout
-        stdio: 'pipe',
-        cwd: targetRepoDir,  // CRITICAL: Run from target repository, not action directory
-        env: {
-          ...process.env
+    // Start sending prompt to pipe in background
+    const catProcess = spawn('cat', [tempPromptFile], {
+      stdio: ['ignore', 'pipe', 'inherit'],
+    });
+
+    const pipeWriteStream = require('fs').createWriteStream(PIPE_PATH);
+    catProcess.stdout.pipe(pipeWriteStream);
+
+    catProcess.on('error', (error) => {
+      console.error('Error reading prompt file:', error);
+      pipeWriteStream.destroy();
+    });
+
+    // Start Claude process
+    console.log('Starting Claude process with named pipe...');
+    const claudeProcess = spawn('claude', claudeArgs, {
+      stdio: ['pipe', 'pipe', 'inherit'],
+      cwd: targetRepoDir,
+      env: {
+        ...process.env
+      }
+    });
+
+    // Handle Claude process errors
+    claudeProcess.on('error', (error) => {
+      console.error('Error spawning Claude process:', error);
+      pipeWriteStream.destroy();
+      throw error;
+    });
+
+    // Capture output for parsing execution metrics (like claude-code-action)
+    let output = '';
+    claudeProcess.stdout.on('data', (data) => {
+      const text = data.toString();
+
+      // Try to parse as JSON and pretty print if it's on a single line (like claude-code-action)
+      const lines = text.split('\n');
+      lines.forEach((line, index) => {
+        if (line.trim() === '') return;
+
+        try {
+          // Check if this line is a JSON object
+          const parsed = JSON.parse(line);
+          const prettyJson = JSON.stringify(parsed, null, 2);
+          process.stdout.write(prettyJson);
+          if (index < lines.length - 1 || text.endsWith('\n')) {
+            process.stdout.write('\n');
+          }
+        } catch (e) {
+          // Not a JSON object, print as is
+          process.stdout.write(line);
+          if (index < lines.length - 1 || text.endsWith('\n')) {
+            process.stdout.write('\n');
+          }
         }
       });
 
-      console.log('Claude CLI completed successfully with execSync');
+      output += text;
+    });
 
-      // Clean up temp files
+    // Handle stdout errors
+    claudeProcess.stdout.on('error', (error) => {
+      console.error('Error reading Claude stdout:', error);
+    });
+
+    // Pipe from named pipe to Claude
+    const pipeReadProcess = spawn('cat', [PIPE_PATH]);
+    pipeReadProcess.stdout.pipe(claudeProcess.stdin);
+
+    // Handle pipe process errors
+    pipeReadProcess.on('error', (error) => {
+      console.error('Error reading from named pipe:', error);
+      claudeProcess.kill('SIGTERM');
+    });
+
+    // Wait for Claude to finish (NO TIMEOUT - let it run as long as needed like claude-code-action)
+    const exitCode = await new Promise((resolve) => {
+      claudeProcess.on('close', (code) => {
+        resolve(code || 0);
+      });
+
+      claudeProcess.on('error', (error) => {
+        console.error('Claude process error:', error);
+        resolve(1);
+      });
+    });
+
+    // Clean up processes
+    try {
+      catProcess.kill('SIGTERM');
+    } catch (e) {
+      // Process may already be dead
+    }
+    try {
+      pipeReadProcess.kill('SIGTERM');
+    } catch (e) {
+      // Process may already be dead
+    }
+
+    // Clean up files
+    try {
+      await execAsync(`rm -f "${PIPE_PATH}"`);
       if (fs.existsSync(tempPromptFile)) {
         fs.unlinkSync(tempPromptFile);
       }
@@ -429,9 +492,15 @@ async function runClaudeCodeCLI(promptContent) {
         fs.unlinkSync(mcpConfigPath);
         console.log('Cleaned up MCP configuration file');
       }
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+
+    if (exitCode === 0) {
+      console.log('Claude CLI completed successfully');
 
       // Parse the stream-json output to extract the final result (like claude-code-action does)
-      const responseLines = claudeOutput.split('\n').filter(line => line.trim());
+      const responseLines = output.split('\n').filter(line => line.trim());
       let finalResponse = '';
 
       // Look for the final result in the JSON stream
@@ -458,130 +527,8 @@ async function runClaudeCodeCLI(promptContent) {
       }
 
       return finalResponse.trim() || 'Claude Code CLI investigation completed, but no output was generated.';
-
-    } catch (execError) {
-      console.error('execSync failed, trying spawn approach...', execError.message);
-
-      // Fall back to spawn approach if execSync fails
-      const claudeProcess = spawn('claude', claudeArgs, {
-        stdio: ['pipe', 'pipe', 'pipe'], // Capture stderr too
-        env: {
-          ...process.env
-        }
-      });
-
-      // Capture stderr for debugging
-      let stderrOutput = '';
-      claudeProcess.stderr.on('data', (data) => {
-        const text = data.toString();
-        stderrOutput += text;
-        console.error('Claude stderr:', text);
-      });
-
-      // Handle process errors
-      claudeProcess.on('error', (error) => {
-        throw new Error(`Error spawning Claude process: ${error.message}`);
-      });
-
-      // Capture output
-      let output = '';
-      claudeProcess.stdout.on('data', (data) => {
-        const text = data.toString();
-        output += text;
-
-        // Log each line for debugging (like claude-code-action does)
-        const lines = text.split('\n');
-        lines.forEach((line) => {
-          if (line.trim() === '') return;
-
-          try {
-            // Try to parse as JSON and pretty print
-            const parsed = JSON.parse(line);
-            console.log(JSON.stringify(parsed, null, 2));
-          } catch (e) {
-            // Not JSON, print as is
-            console.log(line);
-          }
-        });
-      });
-
-      // Wait for Claude to finish with timeout
-      const exitCode = await new Promise((resolve) => {
-        let processCompleted = false;
-
-        // Set a timeout to prevent hanging
-        const timeout = setTimeout(() => {
-          if (!processCompleted) {
-            console.error('Claude process timed out after 5 minutes');
-            claudeProcess.kill('SIGTERM');
-            resolve(1);
-          }
-        }, 300000); // 5 minutes timeout
-
-        claudeProcess.on('close', (code) => {
-          processCompleted = true;
-          clearTimeout(timeout);
-          resolve(code || 0);
-        });
-
-        claudeProcess.on('error', (error) => {
-          processCompleted = true;
-          clearTimeout(timeout);
-          console.error('Claude process error:', error);
-          resolve(1);
-        });
-      });
-
-      // Clean up temp files
-      if (fs.existsSync(tempPromptFile)) {
-        fs.unlinkSync(tempPromptFile);
-      }
-      if (mcpConfigPath && fs.existsSync(mcpConfigPath)) {
-        fs.unlinkSync(mcpConfigPath);
-        console.log('Cleaned up MCP configuration file');
-      }
-
-      if (exitCode === 0) {
-        console.log('Claude Code CLI investigation completed successfully');
-
-        // Parse the stream-json output to extract the final result (like claude-code-action does)
-        const responseLines = output.split('\n').filter(line => line.trim());
-        let finalResponse = '';
-
-        // Look for the final result in the JSON stream
-        for (const line of responseLines) {
-          try {
-            const parsed = JSON.parse(line);
-
-            // Extract text from assistant messages
-            if (parsed.type === 'assistant' && parsed.message && parsed.message.content) {
-              for (const content of parsed.message.content) {
-                if (content.type === 'text' && content.text) {
-                  finalResponse += content.text + '\n\n';
-                }
-              }
-            }
-
-            // Extract final result
-            if (parsed.type === 'result' && parsed.result) {
-              finalResponse += parsed.result;
-            }
-          } catch (e) {
-            // Skip non-JSON lines
-          }
-        }
-
-        return finalResponse.trim() || 'Claude Code CLI investigation completed, but no output was generated.';
-      } else {
-        let errorMessage = `Claude Code CLI exited with code ${exitCode}`;
-        if (stderrOutput) {
-          errorMessage += `\nStderr output: ${stderrOutput}`;
-        }
-        if (output) {
-          errorMessage += `\nStdout output: ${output.substring(0, 500)}...`; // First 500 chars
-        }
-        throw new Error(errorMessage);
-      }
+    } else {
+      throw new Error(`Claude CLI exited with code ${exitCode}`);
     }
 
   } catch (error) {
