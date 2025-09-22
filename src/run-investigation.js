@@ -555,18 +555,23 @@ async function runClaudeCodeCLI(promptContent) {
       // Parse the stream-json output to extract the final result (like claude-code-action does)
       const responseLines = output.split('\n').filter(line => line.trim());
       let finalResponse = '';
+      let lastAssistantMessage = '';
 
       // Look for the final result in the JSON stream
       for (const line of responseLines) {
         try {
           const parsed = JSON.parse(line);
 
-          // Extract text from assistant messages
+          // Extract text from assistant messages (keep only the last one to avoid duplicates)
           if (parsed.type === 'assistant' && parsed.message && parsed.message.content) {
+            let currentMessage = '';
             for (const content of parsed.message.content) {
               if (content.type === 'text' && content.text) {
-                finalResponse += content.text + '\n\n';
+                currentMessage += content.text;
               }
+            }
+            if (currentMessage.trim()) {
+              lastAssistantMessage = currentMessage; // Keep only the last assistant message
             }
           }
 
@@ -579,7 +584,9 @@ async function runClaudeCodeCLI(promptContent) {
         }
       }
 
-      return finalResponse.trim() || 'AI Agent investigation completed, but no output was generated.';
+      // Use the last assistant message as the final response (avoids duplicates)
+      const result = lastAssistantMessage || finalResponse || 'AI Agent investigation completed, but no output was generated.';
+      return result.trim();
     } else {
       throw new Error(`Claude CLI exited with code ${exitCode}`);
     }
