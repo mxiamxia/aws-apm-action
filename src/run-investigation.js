@@ -747,7 +747,11 @@ async function runAmazonQDeveloperCLI(promptContent) {
 
     if (exitCode === 0) {
       console.log('Amazon Q CLI completed successfully');
-      return output.trim() || 'AI Agent investigation completed, but no output was generated.';
+
+      // Clean up ANSI escape codes from Amazon Q output
+      const cleanOutput = stripAnsiCodes(output.trim());
+
+      return cleanOutput || 'AI Agent investigation completed, but no output was generated.';
     } else {
       throw new Error(`Amazon Q CLI exited with code ${exitCode}`);
     }
@@ -757,6 +761,28 @@ async function runAmazonQDeveloperCLI(promptContent) {
   }
 }
 
+/**
+ * Strip ANSI escape codes from text output
+ */
+function stripAnsiCodes(text) {
+  if (!text || typeof text !== 'string') {
+    return text;
+  }
+
+  // Remove ANSI escape sequences
+  // This regex matches:
+  // - \x1b[...m (color codes)
+  // - \x1b[...A, \x1b[...B, etc. (cursor movement)
+  // - \u001b[...m (unicode escape sequences)
+  return text
+    .replace(/\x1b\[[0-9;]*[mGKHF]/g, '')  // Most common ANSI sequences
+    .replace(/\u001b\[[0-9;]*[mGKHF]/g, '') // Unicode escape sequences
+    .replace(/\x1b\[[0-9;]*[ABCD]/g, '')   // Cursor movement
+    .replace(/\x1b\[[0-9;]*[JK]/g, '')     // Clear screen/line
+    .replace(/�\[[0-9;]*[mGKHF]/g, '')     // Malformed sequences
+    .replace(/�/g, '')                     // Remove any remaining replacement characters
+    .trim();
+}
 
 
 if (require.main === module) {
