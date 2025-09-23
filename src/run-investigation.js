@@ -597,64 +597,160 @@ async function runClaudeCodeCLI(promptContent) {
 }
 
 /**
- * Run Amazon Q Developer CLI with actual commands
+ * Run Amazon Q Developer CLI using named pipe approach (following Claude CLI pattern)
  */
-async function runAmazonQDeveloperCLI(promptContent, repoInfo, context) {
+async function runAmazonQDeveloperCLI(promptContent) {
+  const { spawn } = require('child_process');
+  const { promisify } = require('util');
+  const execAsync = promisify(require('child_process').exec);
+
   try {
     console.log('Executing Amazon Q Developer CLI commands...');
 
-    // Create general prompt using dynamic generation
-    const fullPrompt = await createGeneralPrompt(context, repoInfo, promptContent);
+    // Use the prompt content that was already generated in prepare.js
+    const qPrompt = promptContent;
+    console.log(`[DEBUG] Using pre-generated prompt (${qPrompt.length} characters)`);
 
-    // Try to run Amazon Q Developer CLI commands
-    let qOutput = '';
-
+    // Test if q command is available
     try {
-      // Method 1: Try using q chat command directly
-      console.log('Attempting to use Amazon Q Developer CLI...');
-
-      // Test if q command is available
       execSync('q --help', {
         encoding: 'utf8',
         timeout: 10000,
         stdio: 'pipe'
       });
-
-      console.log('Amazon Q CLI found, running investigation...');
-
-      // Run the actual investigation with q chat command
-      const investigationCommand = `q chat --no-interactive --trust-all-tools "${fullPrompt.replace(/"/g, '\\"')}"`;
-      qOutput = execSync(investigationCommand, {
-        encoding: 'utf8',
-        timeout: 180000, // 3 minutes timeout for investigation
-        stdio: 'pipe'
-      });
-
-      console.log('Amazon Q CLI investigation completed successfully');
-
-    } catch (qError) {
-      console.log('Amazon Q CLI not available or failed');
-      console.log('Q CLI Error:', qError.message);
-
-      // Return simple error message
-      qOutput = `❌ **AI Agent Investigation Error**
-
-**Error:** ${qError.message}
-
-**Possible causes:**
-- Required CLI tool is not installed or not in PATH
-- AWS credentials are not configured properly
-- Network connectivity issues
-
-**To fix:** Ensure required tools are installed and credentials are configured.
-
-**Manual command:** \`q chat --no-interactive --trust-all-tools "Analyze this repository for AWS APM opportunities"\``;
+    } catch (testError) {
+      throw new Error('Amazon Q CLI not found in PATH');
     }
 
-    // Log the output length for debugging
-    console.log(`Amazon Q CLI output length: ${qOutput ? qOutput.length : 0} characters`);
+    console.log('Amazon Q CLI found, running investigation...');
 
-    return qOutput || 'AI Agent investigation completed, but no output was generated.';
+    // Write the prompt to temp directory (outside of repository)
+    const tempDir = process.env.RUNNER_TEMP || '/tmp';
+    const tempPromptFile = path.join(tempDir, 'q-prompt.txt');
+    const PIPE_PATH = path.join(tempDir, 'q_prompt_pipe');
+
+    fs.writeFileSync(tempPromptFile, qPrompt);
+
+    console.log(`Prompt file size: ${qPrompt.length} bytes`);
+    console.log(`Running Amazon Q with prompt from file: ${tempPromptFile}`);
+
+    // Create named pipe (following Claude CLI approach)
+    try {
+      await execAsync(`rm -f "${PIPE_PATH}"`);
+    } catch (e) {
+      // Ignore if file doesn't exist
+    }
+
+    await execAsync(`mkfifo "${PIPE_PATH}"`);
+    console.log(`Created named pipe: ${PIPE_PATH}`);
+
+    // Ensure Q runs from the target repository directory
+    const targetRepoDir = process.env.GITHUB_WORKSPACE || process.cwd();
+    console.log(`[DEBUG] Executing Amazon Q from directory: ${targetRepoDir}`);
+
+    // Start sending prompt to pipe in background
+    const catProcess = spawn('cat', [tempPromptFile], {
+      stdio: ['ignore', 'pipe', 'inherit'],
+    });
+
+    const pipeWriteStream = require('fs').createWriteStream(PIPE_PATH);
+    catProcess.stdout.pipe(pipeWriteStream);
+
+    catProcess.on('error', (error) => {
+      console.error('Error reading prompt file:', error);
+      pipeWriteStream.destroy();
+    });
+
+    // Build Amazon Q CLI arguments (based on your example)
+    const qArgs = [
+      'chat',
+      '--no-interactive',
+      '--trust-all-tools'
+    ];
+
+    console.log(`Full command: AMAZON_Q_SIGV4=1 q ${qArgs.join(' ')} < ${PIPE_PATH}`);
+
+    // Start Amazon Q process
+    console.log('Starting Amazon Q process with named pipe...');
+    const qProcess = spawn('q', qArgs, {
+      stdio: ['pipe', 'pipe', 'inherit'],
+      cwd: targetRepoDir,
+      env: {
+        ...process.env,
+        AMAZON_Q_SIGV4: '1'  // Enable SIGV4 authentication as per your example
+      }
+    });
+
+    // Handle Q process errors
+    qProcess.on('error', (error) => {
+      console.error('Error spawning Amazon Q process:', error);
+      pipeWriteStream.destroy();
+      throw error;
+    });
+
+    // Capture output for parsing
+    let output = '';
+    qProcess.stdout.on('data', (data) => {
+      const text = data.toString();
+      process.stdout.write(text); // Log output for debugging
+      output += text;
+    });
+
+    // Handle stdout errors
+    qProcess.stdout.on('error', (error) => {
+      console.error('Error reading Amazon Q stdout:', error);
+    });
+
+    // Pipe from named pipe to Q
+    const pipeReadProcess = spawn('cat', [PIPE_PATH]);
+    pipeReadProcess.stdout.pipe(qProcess.stdin);
+
+    // Handle pipe process errors
+    pipeReadProcess.on('error', (error) => {
+      console.error('Error reading from named pipe:', error);
+      qProcess.kill('SIGTERM');
+    });
+
+    // Wait for Q to finish (NO TIMEOUT - let it run as long as needed)
+    const exitCode = await new Promise((resolve) => {
+      qProcess.on('close', (code) => {
+        resolve(code || 0);
+      });
+
+      qProcess.on('error', (error) => {
+        console.error('Amazon Q process error:', error);
+        resolve(1);
+      });
+    });
+
+    // Clean up processes
+    try {
+      catProcess.kill('SIGTERM');
+    } catch (e) {
+      // Process may already be dead
+    }
+    try {
+      pipeReadProcess.kill('SIGTERM');
+    } catch (e) {
+      // Process may already be dead
+    }
+
+    // Clean up files
+    try {
+      await execAsync(`rm -f "${PIPE_PATH}"`);
+      if (fs.existsSync(tempPromptFile)) {
+        fs.unlinkSync(tempPromptFile);
+      }
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+
+    if (exitCode === 0) {
+      console.log('Amazon Q CLI completed successfully');
+      return output.trim() || 'AI Agent investigation completed, but no output was generated.';
+    } else {
+      throw new Error(`Amazon Q CLI exited with code ${exitCode}`);
+    }
 
   } catch (error) {
     throw new Error(`Amazon Q Developer CLI execution failed: ${error.message}`);
