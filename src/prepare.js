@@ -29,6 +29,12 @@ async function run() {
 
     console.log(`Trigger phrase: ${triggerPhrase}`);
 
+    // Function to check for both "@awsapm" and "@aws-apm" trigger phrases
+    function containsTriggerPhrase(text) {
+      if (!text) return false;
+      return text.includes('@awsapm') || text.includes('@aws-apm');
+    }
+
     // Check if trigger phrase is present in the event
     let containsTrigger = false;
     let triggerText = '';
@@ -38,7 +44,7 @@ async function run() {
 
     if (context.eventName === 'issue_comment') {
       const comment = payload.comment;
-      if (comment && comment.body && comment.body.includes(triggerPhrase)) {
+      if (comment && comment.body && containsTriggerPhrase(comment.body)) {
         containsTrigger = true;
         triggerText = comment.body;
         commentId = comment.id;
@@ -47,7 +53,7 @@ async function run() {
       }
     } else if (context.eventName === 'pull_request_review_comment') {
       const comment = payload.comment;
-      if (comment && comment.body && comment.body.includes(triggerPhrase)) {
+      if (comment && comment.body && containsTriggerPhrase(comment.body)) {
         containsTrigger = true;
         triggerText = comment.body;
         commentId = comment.id;
@@ -56,8 +62,8 @@ async function run() {
       }
     } else if (context.eventName === 'issues') {
       const issue = payload.issue;
-      if (issue && ((issue.body && issue.body.includes(triggerPhrase)) ||
-                    (issue.title && issue.title.includes(triggerPhrase)))) {
+      if (issue && ((issue.body && containsTriggerPhrase(issue.body)) ||
+                    (issue.title && containsTriggerPhrase(issue.title)))) {
         containsTrigger = true;
         triggerText = issue.body || issue.title;
         issueNumber = issue.number;
