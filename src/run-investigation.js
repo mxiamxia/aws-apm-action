@@ -778,52 +778,33 @@ function stripAnsiCodes(text) {
     .replace(/�\[[0-9;]*[mGKHF]/g, '')     // Malformed sequences
     .replace(/�/g, '');                    // Remove any remaining replacement characters
 
-  // Remove tool execution steps and progress indicators
+  // Remove tool execution blocks from "Using tool:" to "● Completed in"
   const lines = cleanText.split('\n');
   const filteredLines = [];
-  let skipUntilNextSection = false;
+  let insideToolBlock = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
 
-    // Skip tool execution headers
+    // Start of tool execution block
     if (line.match(/^🛠️\s*Using tool:/)) {
-      skipUntilNextSection = true;
+      insideToolBlock = true;
       continue;
     }
 
-    // Skip progress indicators and completion messages
-    if (line.match(/^[⋮●✓]/)) {
+    // End of tool execution block
+    if (insideToolBlock && line.match(/^●\s*Completed in/)) {
+      insideToolBlock = false;
       continue;
     }
 
-    // Skip "Reading directory/file" messages
-    if (line.match(/^●\s*(Reading|Batch)/)) {
+    // Skip everything inside tool execution blocks
+    if (insideToolBlock) {
       continue;
     }
 
-    // Skip "Completed in" messages
-    if (line.match(/^●\s*Completed in/)) {
-      continue;
-    }
-
-    // Skip "Successfully read" messages
-    if (line.match(/^✓\s*Successfully read/)) {
-      continue;
-    }
-
-    // Skip "Purpose:" lines
-    if (line.match(/^↳.*Purpose:/)) {
-      continue;
-    }
-
-    // Reset skip flag when we encounter actual content
-    if (line.length > 0 && !line.match(/^[⋮●✓↳]/)) {
-      skipUntilNextSection = false;
-    }
-
-    // Keep non-tool execution lines
-    if (!skipUntilNextSection && line.length > 0) {
+    // Keep all other non-empty lines
+    if (line.length > 0) {
       filteredLines.push(lines[i]); // Keep original line with formatting
     }
   }
