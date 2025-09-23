@@ -624,6 +624,9 @@ async function runAmazonQDeveloperCLI(promptContent) {
 
     console.log('Amazon Q CLI found, running investigation...');
 
+    // Setup MCP configuration for Amazon Q CLI
+    await setupAmazonQMCPConfig();
+
     // Write the prompt to temp directory (outside of repository)
     const tempDir = process.env.RUNNER_TEMP || '/tmp';
     const tempPromptFile = path.join(tempDir, 'q-prompt.txt');
@@ -758,6 +761,74 @@ async function runAmazonQDeveloperCLI(promptContent) {
 
   } catch (error) {
     throw new Error(`Amazon Q Developer CLI execution failed: ${error.message}`);
+  }
+}
+
+/**
+ * Setup MCP configuration for Amazon Q CLI with Application Signals support
+ */
+async function setupAmazonQMCPConfig() {
+  const { promisify } = require('util');
+  const execAsync = promisify(require('child_process').exec);
+  const os = require('os');
+
+  try {
+    console.log('Setting up MCP configuration for Amazon Q CLI...');
+
+    // Ensure uvx is installed for Amazon Q CLI
+    try {
+      await execAsync('uvx --version', { timeout: 10000 });
+      console.log('uvx is available for MCP server execution');
+    } catch (uvxError) {
+      console.log('uvx not found, installing...');
+      try {
+        // Install uvx using pip
+        await execAsync('pip install uvx', { timeout: 60000 });
+        console.log('uvx installed successfully');
+      } catch (installError) {
+        console.warn('Failed to install uvx:', installError.message);
+        console.warn('MCP functionality may not work properly');
+        return; // Skip MCP setup if uvx installation fails
+      }
+    }
+
+    // Create MCP configuration directory
+    const homeDir = os.homedir();
+    const mcpConfigDir = path.join(homeDir, '.aws', 'amazonq');
+
+    if (!fs.existsSync(mcpConfigDir)) {
+      fs.mkdirSync(mcpConfigDir, { recursive: true });
+      console.log(`Created MCP config directory: ${mcpConfigDir}`);
+    }
+
+    // Create MCP configuration file
+    const mcpConfigPath = path.join(mcpConfigDir, 'mcp.json');
+    const mcpConfig = {
+      "mcpServers": {
+        "awslabs.cloudwatch-appsignals-mcp": {
+          "autoApprove": [],
+          "disabled": false,
+          "command": "uvx",
+          "args": [
+            "awslabs.cloudwatch-appsignals-mcp-server@latest"
+          ],
+          "transportType": "stdio"
+        }
+      }
+    };
+
+    fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
+    console.log(`Created Amazon Q MCP configuration: ${mcpConfigPath}`);
+
+    // Verify the configuration file was created
+    if (fs.existsSync(mcpConfigPath)) {
+      const configContent = fs.readFileSync(mcpConfigPath, 'utf8');
+      console.log(`MCP config content: ${configContent.substring(0, 200)}...`);
+    }
+
+  } catch (error) {
+    console.warn('Failed to setup Amazon Q MCP configuration:', error.message);
+    console.warn('Amazon Q CLI will run without MCP tools');
   }
 }
 

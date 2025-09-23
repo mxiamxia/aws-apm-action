@@ -181,6 +181,13 @@ runs:
             echo "Checking if q command is available..."
             which q || echo "q command not found in PATH"
           fi
+          # Verify uvx is available for MCP (needed for Application Signals)
+          if command -v uvx &> /dev/null; then
+            echo "uvx available for Amazon Q MCP server execution"
+            uvx --version
+          else
+            echo "uvx not found - Amazon Q MCP tools may not work properly"
+          fi
         fi
 
     - name: Run AWS APM Investigation
