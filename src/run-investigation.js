@@ -762,7 +762,7 @@ async function runAmazonQDeveloperCLI(promptContent) {
 }
 
 /**
- * Strip ANSI escape codes from text output
+ * Strip ANSI escape codes and tool execution steps from Amazon Q CLI output
  */
 function stripAnsiCodes(text) {
   if (!text || typeof text !== 'string') {
@@ -770,18 +770,65 @@ function stripAnsiCodes(text) {
   }
 
   // Remove ANSI escape sequences
-  // This regex matches:
-  // - \x1b[...m (color codes)
-  // - \x1b[...A, \x1b[...B, etc. (cursor movement)
-  // - \u001b[...m (unicode escape sequences)
-  return text
+  let cleanText = text
     .replace(/\x1b\[[0-9;]*[mGKHF]/g, '')  // Most common ANSI sequences
     .replace(/\u001b\[[0-9;]*[mGKHF]/g, '') // Unicode escape sequences
     .replace(/\x1b\[[0-9;]*[ABCD]/g, '')   // Cursor movement
     .replace(/\x1b\[[0-9;]*[JK]/g, '')     // Clear screen/line
     .replace(/�\[[0-9;]*[mGKHF]/g, '')     // Malformed sequences
-    .replace(/�/g, '')                     // Remove any remaining replacement characters
-    .trim();
+    .replace(/�/g, '');                    // Remove any remaining replacement characters
+
+  // Remove tool execution steps and progress indicators
+  const lines = cleanText.split('\n');
+  const filteredLines = [];
+  let skipUntilNextSection = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    // Skip tool execution headers
+    if (line.match(/^🛠️\s*Using tool:/)) {
+      skipUntilNextSection = true;
+      continue;
+    }
+
+    // Skip progress indicators and completion messages
+    if (line.match(/^[⋮●✓]/)) {
+      continue;
+    }
+
+    // Skip "Reading directory/file" messages
+    if (line.match(/^●\s*(Reading|Batch)/)) {
+      continue;
+    }
+
+    // Skip "Completed in" messages
+    if (line.match(/^●\s*Completed in/)) {
+      continue;
+    }
+
+    // Skip "Successfully read" messages
+    if (line.match(/^✓\s*Successfully read/)) {
+      continue;
+    }
+
+    // Skip "Purpose:" lines
+    if (line.match(/^↳.*Purpose:/)) {
+      continue;
+    }
+
+    // Reset skip flag when we encounter actual content
+    if (line.length > 0 && !line.match(/^[⋮●✓↳]/)) {
+      skipUntilNextSection = false;
+    }
+
+    // Keep non-tool execution lines
+    if (!skipUntilNextSection && line.length > 0) {
+      filteredLines.push(lines[i]); // Keep original line with formatting
+    }
+  }
+
+  return filteredLines.join('\n').trim();
 }
 
 
