@@ -680,7 +680,11 @@ async function runAmazonQDeveloperCLI(promptContent) {
       cwd: targetRepoDir,
       env: {
         ...process.env,
-        AMAZON_Q_SIGV4: '1'  // Enable SIGV4 authentication as per your example
+        AMAZON_Q_SIGV4: '1',  // Enable SIGV4 authentication as per your example
+        // Ensure GitHub token is available for MCP GitHub tools
+        GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+        // Ensure GitHub Action inputs are available to Amazon Q
+        GITHUB_ACTION_INPUTS: process.env.INPUT_ACTION_INPUTS_PRESENT || '1'
       }
     });
 
@@ -813,6 +817,18 @@ async function setupAmazonQMCPConfig() {
             "awslabs.cloudwatch-appsignals-mcp-server@latest"
           ],
           "transportType": "stdio"
+        },
+        "github": {
+          "autoApprove": [],
+          "disabled": false,
+          "command": "uvx",
+          "args": [
+            "mcp-server-github@latest"
+          ],
+          "transportType": "stdio",
+          "env": {
+            "GITHUB_PERSONAL_ACCESS_TOKEN": process.env.GITHUB_TOKEN
+          }
         }
       }
     };
