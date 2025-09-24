@@ -854,7 +854,7 @@ async function setupAmazonQMCPConfig() {
     if (fs.existsSync(mcpConfigPath)) {
       const configContent = fs.readFileSync(mcpConfigPath, 'utf8');
       console.log(`MCP config created successfully at ${mcpConfigPath}`);
-      console.log(`MCP config content (first 300 chars): ${configContent.substring(0, 300)}...`);
+      console.log(`Full MCP config content:\n${configContent}`);
 
       // Log GitHub token availability (without exposing the token)
       const hasToken = process.env.GITHUB_TOKEN ? 'available' : 'missing';
