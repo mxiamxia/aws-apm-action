@@ -683,8 +683,14 @@ async function runAmazonQDeveloperCLI(promptContent) {
         AMAZON_Q_SIGV4: '1',  // Enable SIGV4 authentication as per your example
         // Ensure GitHub token is available for MCP GitHub tools
         GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+        GITHUB_PERSONAL_ACCESS_TOKEN: process.env.GITHUB_TOKEN,  // Alternative token name for MCP
         // Ensure GitHub Action inputs are available to Amazon Q
-        GITHUB_ACTION_INPUTS: process.env.INPUT_ACTION_INPUTS_PRESENT || '1'
+        GITHUB_ACTION_INPUTS: process.env.INPUT_ACTION_INPUTS_PRESENT || '1',
+        // Repository context for GitHub MCP tools
+        GITHUB_REPOSITORY: process.env.GITHUB_REPOSITORY,
+        GITHUB_REF: process.env.GITHUB_REF,
+        GITHUB_SHA: process.env.GITHUB_SHA,
+        GITHUB_WORKSPACE: process.env.GITHUB_WORKSPACE
       }
     });
 
@@ -819,7 +825,15 @@ async function setupAmazonQMCPConfig() {
           "transportType": "stdio"
         },
         "github": {
-          "autoApprove": [],
+          "autoApprove": [
+            "mcp__github__create_pull_request",
+            "mcp__github__create_or_update_file",
+            "mcp__github__push_files",
+            "mcp__github__get_file",
+            "mcp__github__create_branch",
+            "mcp__github__list_files",
+            "mcp__github__get_file_contents"
+          ],
           "disabled": false,
           "command": "uvx",
           "args": [
@@ -839,7 +853,15 @@ async function setupAmazonQMCPConfig() {
     // Verify the configuration file was created
     if (fs.existsSync(mcpConfigPath)) {
       const configContent = fs.readFileSync(mcpConfigPath, 'utf8');
-      console.log(`MCP config content: ${configContent.substring(0, 200)}...`);
+      console.log(`MCP config created successfully at ${mcpConfigPath}`);
+      console.log(`MCP config content (first 300 chars): ${configContent.substring(0, 300)}...`);
+
+      // Log GitHub token availability (without exposing the token)
+      const hasToken = process.env.GITHUB_TOKEN ? 'available' : 'missing';
+      console.log(`GitHub token for MCP: ${hasToken}`);
+
+      // Log repository context
+      console.log(`Repository context: ${process.env.GITHUB_REPOSITORY || 'not set'}`);
     }
 
   } catch (error) {
