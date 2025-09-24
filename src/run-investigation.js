@@ -911,6 +911,7 @@ function stripAnsiCodes(text) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
+    const originalLine = lines[i];
 
     // Start of tool execution block
     if (line.match(/^🛠️\s*Using tool:/)) {
@@ -929,9 +930,11 @@ function stripAnsiCodes(text) {
       continue;
     }
 
-    // Keep all other non-empty lines
+    // Keep all other non-empty lines, but remove leading ">" to prevent blockquote formatting
     if (line.length > 0) {
-      filteredLines.push(lines[i]); // Keep original line with formatting
+      // Remove leading ">" that causes blockquote formatting in GitHub markdown
+      let cleanedLine = originalLine.replace(/^>\s*/, '');
+      filteredLines.push(cleanedLine);
     }
   }
 
