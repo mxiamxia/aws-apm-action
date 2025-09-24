@@ -823,29 +823,46 @@ async function setupAmazonQMCPConfig() {
             "awslabs.cloudwatch-appsignals-mcp-server@latest"
           ],
           "transportType": "stdio"
-        },
-        "github": {
-          "autoApprove": [
-            "mcp__github__create_pull_request",
-            "mcp__github__create_or_update_file",
-            "mcp__github__push_files",
-            "mcp__github__get_file",
-            "mcp__github__create_branch",
-            "mcp__github__list_files",
-            "mcp__github__get_file_contents"
-          ],
-          "disabled": false,
-          "command": "uvx",
-          "args": [
-            "mcp-server-github@latest"
-          ],
-          "transportType": "stdio",
-          "env": {
-            "GITHUB_PERSONAL_ACCESS_TOKEN": process.env.GITHUB_TOKEN
-          }
         }
       }
     };
+
+    // Add GitHub MCP server using Docker approach (same as Claude CLI)
+    const githubToken = process.env.GITHUB_TOKEN;
+    if (githubToken) {
+      console.log('GitHub token found, setting up Docker-based GitHub MCP server...');
+      mcpConfig.mcpServers.github = {
+        "autoApprove": [
+          "mcp__github__create_pull_request",
+          "mcp__github__create_or_update_file",
+          "mcp__github__push_files",
+          "mcp__github__get_file",
+          "mcp__github__create_branch",
+          "mcp__github__list_files",
+          "mcp__github__get_file_contents"
+        ],
+        "disabled": false,
+        "command": "docker",
+        "args": [
+          "run",
+          "-i",
+          "--rm",
+          "-e",
+          "GITHUB_PERSONAL_ACCESS_TOKEN",
+          "-e",
+          "GITHUB_HOST",
+          "ghcr.io/github/github-mcp-server:sha-efef8ae"
+        ],
+        "env": {
+          "GITHUB_PERSONAL_ACCESS_TOKEN": githubToken,
+          "GITHUB_HOST": process.env.GITHUB_SERVER_URL || "https://github.com"
+        },
+        "transportType": "stdio"
+      };
+      console.log('Docker-based GitHub MCP server configured for Amazon Q CLI');
+    } else {
+      console.log('No GitHub token found, skipping GitHub MCP server for Amazon Q CLI');
+    }
 
     fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
     console.log(`Created Amazon Q MCP configuration: ${mcpConfigPath}`);
