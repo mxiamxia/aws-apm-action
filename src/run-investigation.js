@@ -66,6 +66,7 @@ function buildAllowedToolsString() {
       "mcp__awslabs_cloudwatch-appsignals-mcp-server__search_transaction_spans",
       "mcp__awslabs_cloudwatch-appsignals-mcp-server__query_sampled_traces",
       "mcp__awslabs_cloudwatch-appsignals-mcp-server__query_service_metrics",
+      "mcp__awslabs_cloudwatch-appsignals-mcp-server__get_enablement_guide",
     ];
     allowedTools.push(...awsMcpTools);
     console.log('Added AWS CloudWatch AppSignals MCP tools to allowed tools');
@@ -816,11 +817,24 @@ async function setupAmazonQMCPConfig() {
     const mcpConfig = {
       "mcpServers": {
         "awslabs.cloudwatch-appsignals-mcp": {
-          "autoApprove": [],
+          "autoApprove": [
+            "mcp__awslabs_cloudwatch-appsignals-mcp-server__list_monitored_services",
+            "mcp__awslabs_cloudwatch-appsignals-mcp-server__get_service_detail",
+            "mcp__awslabs_cloudwatch-appsignals-mcp-server__list_slis",
+            "mcp__awslabs_cloudwatch-appsignals-mcp-server__get_slo",
+            "mcp__awslabs_cloudwatch-appsignals-mcp-server__search_Transaction_spans",
+            "mcp__awslabs_cloudwatch-appsignals-mcp-server__search_transaction_spans",
+            "mcp__awslabs_cloudwatch-appsignals-mcp-server__query_sampled_traces",
+            "mcp__awslabs_cloudwatch-appsignals-mcp-server__query_service_metrics",
+            "mcp__awslabs_cloudwatch-appsignals-mcp-server__get_enablement_guide"
+          ],
           "disabled": false,
           "command": "uvx",
           "args": [
-            "awslabs.cloudwatch-appsignals-mcp-server@latest"
+            "--no-cache",
+            "--from",
+            "git+https://github.com/mxiamxia/mcp.git#subdirectory=src/cloudwatch-appsignals-mcp-server",
+            "awslabs.cloudwatch-appsignals-mcp-server"
           ],
           "transportType": "stdio"
         }
