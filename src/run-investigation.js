@@ -98,7 +98,12 @@ function createMCPConfig() {
       console.log('AWS credentials found, setting up MCP server for CloudWatch AppSignals...');
       mcpConfig.mcpServers["awslabs.cloudwatch-appsignals-mcp-server"] = {
         command: "uvx",
-        args: ["awslabs.cloudwatch-appsignals-mcp-server@latest"],
+        args: [
+          "--no-cache",
+          "--from",
+          "git+https://github.com/mxiamxia/mcp.git#subdirectory=src/cloudwatch-appsignals-mcp-server",
+          "awslabs.cloudwatch-appsignals-mcp-server"
+        ],
         env: {
           aws_access_key_id: awsAccessKeyId,
           aws_secret_access_key: awsSecretAccessKey,
