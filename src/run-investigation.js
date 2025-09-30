@@ -5,146 +5,49 @@ const github = require('@actions/github');
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { MCPConfigManager } = require('./config/mcp-config');
+const { OutputCleaner } = require('./utils/output-cleaner');
 // Note: createGeneralPrompt is now called in prepare.js
 
 /**
  * Build allowed tools string for Claude CLI investigation
+ * Now uses centralized MCPConfigManager
  */
 function buildAllowedToolsString() {
-  // Get the working directory (target repository) to restrict access
-  // The working directory should be the checked-out repository, not the action directory
   const workingDir = process.env.GITHUB_WORKSPACE || process.cwd();
   console.log(`[DEBUG] Target repository working directory: ${workingDir}`);
   console.log(`[DEBUG] Current working directory: ${process.cwd()}`);
   console.log(`[DEBUG] Action path: ${process.env.GITHUB_ACTION_PATH || 'undefined'}`);
 
-  // Essential tools for repository investigation - RESTRICTED to target repository only
-  const allowedTools = [
-    `Read(${workingDir}/**)`,           // Read repository files only
-    `Edit(${workingDir}/**)`,           // Edit existing files in repository only (for local editing)
-    `MultiEdit(${workingDir}/**)`,      // Multi-edit files in repository only (for local editing)
-    `Glob(${workingDir}/**)`,           // Find files in repository only
-    `Grep(${workingDir}/**)`,           // Search through repository code only
-    "Bash(git status:*)",               // Git repository status
-    "Bash(git log:*)",                  // Git history
-    "Bash(git diff:*)",                 // View changes
-    "Bash(git show:*)",                 // Show commits/files
-    "Bash(git checkout:*)",             // Switch branches
-    "Bash(git branch:*)",               // Branch operations
-    `Bash(ls:${workingDir}/**)`,        // List repository contents only
-    `Bash(find:${workingDir}/**)`,      // Find files in repository only
-    `Bash(cat:${workingDir}/**)`,       // Read repository files only
-    `Bash(head:${workingDir}/**)`,      // Read repository file headers only
-    `Bash(tail:${workingDir}/**)`,      // Read repository file tails only
-    `Bash(wc:${workingDir}/**)`,        // Word/line counts in repository only
-  ];
+  const mcpConfigManager = new MCPConfigManager();
+  const allowedToolsString = mcpConfigManager.getAllowedToolsForClaude();
 
-  // Add GitHub MCP tools (using official GitHub MCP server following claude-code-action pattern)
-  // These work through GitHub API and avoid permission prompts
-  allowedTools.push(
-    "mcp__github__*",                      // Allow all GitHub MCP tools (wildcard)
-    "mcp__github__create_pull_request",    // Create pull requests
-    "mcp__github__create_or_update_file",  // Create or update files via GitHub API
-    "mcp__github__push_files",             // Push files via GitHub API
-    "mcp__github__get_file",               // Get file contents
-    "mcp__github__create_branch",          // Create branches
-    "mcp__github__list_files",             // List repository files
-    "mcp__github__get_file_contents"       // Get file contents (additional specific name)
-  );
-
-  // Add AWS CloudWatch AppSignals MCP tools (if AWS credentials are available)
-  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
-    const awsMcpTools = [
-      "mcp__*",  // Allow all MCP tools (broader pattern)
-      "mcp__awslabs_cloudwatch-appsignals-mcp-server__*",  // Specific AppSignals wildcard with underscores
-      // Exact tool names with underscores format (as shown in your example)
-      "mcp__awslabs_cloudwatch-appsignals-mcp-server__list_monitored_services",
-      "mcp__awslabs_cloudwatch-appsignals-mcp-server__get_service_detail",
-      "mcp__awslabs_cloudwatch-appsignals-mcp-server__list_slis",
-      "mcp__awslabs_cloudwatch-appsignals-mcp-server__get_slo",
-      "mcp__awslabs_cloudwatch-appsignals-mcp-server__search_Transaction_spans",
-      "mcp__awslabs_cloudwatch-appsignals-mcp-server__search_transaction_spans",
-      "mcp__awslabs_cloudwatch-appsignals-mcp-server__query_sampled_traces",
-      "mcp__awslabs_cloudwatch-appsignals-mcp-server__query_service_metrics",
-      "mcp__awslabs_cloudwatch-appsignals-mcp-server__get_enablement_guide",
-    ];
-    allowedTools.push(...awsMcpTools);
-    console.log('Added AWS CloudWatch AppSignals MCP tools to allowed tools');
-    console.log(`[DEBUG] MCP tools added: ${awsMcpTools.join(', ')}`);
-  } else {
-    console.log('[DEBUG] AWS credentials not available, skipping MCP tools');
-  }
-
-  const allowedToolsString = allowedTools.join(",");
   console.log(`[DEBUG] Final allowed tools string: ${allowedToolsString}`);
   return allowedToolsString;
 }
 
 /**
- * Create MCP configuration file for AWS CloudWatch AppSignals
+ * Create MCP configuration file for Claude CLI
+ * Now uses centralized MCPConfigManager
  */
 function createMCPConfig() {
   try {
-    const mcpConfig = {
-      mcpServers: {}
-    };
-
-    // Add AWS CloudWatch AppSignals MCP server if credentials are available
-    const awsAccessKeyId = process.env.AWS_ACCESS_KEY_ID;
-    const awsSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-    const awsRegion = process.env.AWS_REGION || 'us-east-1';
-
-    if (awsAccessKeyId && awsSecretAccessKey) {
-      console.log('AWS credentials found, setting up MCP server for CloudWatch AppSignals...');
-      mcpConfig.mcpServers["awslabs.cloudwatch-appsignals-mcp-server"] = {
-        command: "uvx",
-        args: [
-          "--no-cache",
-          "--from",
-          "git+https://github.com/mxiamxia/mcp.git#subdirectory=src/cloudwatch-appsignals-mcp-server",
-          "awslabs.cloudwatch-appsignals-mcp-server"
-        ],
-        env: {
-          aws_access_key_id: awsAccessKeyId,
-          aws_secret_access_key: awsSecretAccessKey,
-          AWS_REGION: awsRegion
-        }
-      };
-      console.log(`AWS MCP server configured for region: ${awsRegion}`);
-    } else {
-      console.log('No AWS credentials found, skipping AWS MCP server');
-    }
-
-    // Add GitHub MCP server if GitHub token is available (following claude-code-action pattern)
-    const githubToken = process.env.GITHUB_TOKEN;
-    if (githubToken) {
-      console.log('GitHub token found, setting up GitHub MCP server...');
-      mcpConfig.mcpServers.github = {
-        command: "docker",
-        args: [
-          "run",
-          "-i",
-          "--rm",
-          "-e",
-          "GITHUB_PERSONAL_ACCESS_TOKEN",
-          "-e",
-          "GITHUB_HOST",
-          "ghcr.io/github/github-mcp-server:sha-efef8ae"
-        ],
-        env: {
-          GITHUB_PERSONAL_ACCESS_TOKEN: githubToken,
-          GITHUB_HOST: process.env.GITHUB_SERVER_URL || "https://github.com"
-        }
-      };
-      console.log('GitHub MCP server configured');
-    } else {
-      console.log('No GitHub token found, skipping GitHub MCP server');
-    }
+    const mcpConfigManager = new MCPConfigManager();
+    const mcpConfig = mcpConfigManager.buildMCPConfig('claude');
 
     // Only create config if we have at least one server
     if (Object.keys(mcpConfig.mcpServers).length === 0) {
       console.log('No MCP servers to configure');
       return null;
+    }
+
+    // Log configuration status
+    if (mcpConfigManager.hasAWSCredentials()) {
+      console.log('AWS credentials found, AWS MCP server configured');
+      console.log(`AWS Region: ${process.env.AWS_REGION || 'us-east-1'}`);
+    }
+    if (mcpConfigManager.hasGitHubToken()) {
+      console.log('GitHub token found, GitHub MCP server configured');
     }
 
     // Create MCP config in temp directory (outside of repository)
@@ -767,8 +670,9 @@ async function runAmazonQDeveloperCLI(promptContent) {
     if (exitCode === 0) {
       console.log('Amazon Q CLI completed successfully');
 
-      // Clean up ANSI escape codes from Amazon Q output
-      const cleanOutput = stripAnsiCodes(output.trim());
+      // Clean up ANSI escape codes and tool execution blocks from Amazon Q output
+      const outputCleaner = new OutputCleaner();
+      const cleanOutput = outputCleaner.cleanAmazonQOutput(output.trim());
 
       return cleanOutput || 'AI Agent investigation completed, but no output was generated.';
     } else {
@@ -781,7 +685,8 @@ async function runAmazonQDeveloperCLI(promptContent) {
 }
 
 /**
- * Setup MCP configuration for Amazon Q CLI with Application Signals support
+ * Setup MCP configuration for Amazon Q CLI
+ * Now uses centralized MCPConfigManager
  */
 async function setupAmazonQMCPConfig() {
   const { promisify } = require('util');
@@ -798,13 +703,12 @@ async function setupAmazonQMCPConfig() {
     } catch (uvxError) {
       console.log('uvx not found, installing...');
       try {
-        // Install uvx using pip
         await execAsync('pip install uvx', { timeout: 60000 });
         console.log('uvx installed successfully');
       } catch (installError) {
         console.warn('Failed to install uvx:', installError.message);
         console.warn('MCP functionality may not work properly');
-        return; // Skip MCP setup if uvx installation fails
+        return;
       }
     }
 
@@ -817,149 +721,33 @@ async function setupAmazonQMCPConfig() {
       console.log(`Created MCP config directory: ${mcpConfigDir}`);
     }
 
+    // Use MCPConfigManager to build configuration
+    const mcpConfigManager = new MCPConfigManager();
+    const mcpConfig = mcpConfigManager.buildMCPConfig('amazonq');
+
     // Create MCP configuration file
     const mcpConfigPath = path.join(mcpConfigDir, 'mcp.json');
-    const mcpConfig = {
-      "mcpServers": {
-        "awslabs.cloudwatch-appsignals-mcp": {
-          "autoApprove": [
-            "mcp__awslabs_cloudwatch-appsignals-mcp-server__list_monitored_services",
-            "mcp__awslabs_cloudwatch-appsignals-mcp-server__get_service_detail",
-            "mcp__awslabs_cloudwatch-appsignals-mcp-server__list_slis",
-            "mcp__awslabs_cloudwatch-appsignals-mcp-server__get_slo",
-            "mcp__awslabs_cloudwatch-appsignals-mcp-server__search_Transaction_spans",
-            "mcp__awslabs_cloudwatch-appsignals-mcp-server__search_transaction_spans",
-            "mcp__awslabs_cloudwatch-appsignals-mcp-server__query_sampled_traces",
-            "mcp__awslabs_cloudwatch-appsignals-mcp-server__query_service_metrics",
-            "mcp__awslabs_cloudwatch-appsignals-mcp-server__get_enablement_guide"
-          ],
-          "disabled": false,
-          "command": "uvx",
-          "args": [
-            "--no-cache",
-            "--from",
-            "git+https://github.com/mxiamxia/mcp.git#subdirectory=src/cloudwatch-appsignals-mcp-server",
-            "awslabs.cloudwatch-appsignals-mcp-server"
-          ],
-          "transportType": "stdio"
-        }
-      }
-    };
-
-    // Add GitHub MCP server using Docker approach (same as Claude CLI)
-    const githubToken = process.env.GITHUB_TOKEN;
-    if (githubToken) {
-      console.log('GitHub token found, setting up Docker-based GitHub MCP server...');
-      mcpConfig.mcpServers.github = {
-        "autoApprove": [
-          "mcp__github__create_pull_request",
-          "mcp__github__create_or_update_file",
-          "mcp__github__push_files",
-          "mcp__github__get_file",
-          "mcp__github__create_branch",
-          "mcp__github__list_files",
-          "mcp__github__get_file_contents"
-        ],
-        "disabled": false,
-        "command": "docker",
-        "args": [
-          "run",
-          "-i",
-          "--rm",
-          "-e",
-          "GITHUB_PERSONAL_ACCESS_TOKEN",
-          "-e",
-          "GITHUB_HOST",
-          "ghcr.io/github/github-mcp-server:sha-efef8ae"
-        ],
-        "env": {
-          "GITHUB_PERSONAL_ACCESS_TOKEN": githubToken,
-          "GITHUB_HOST": process.env.GITHUB_SERVER_URL || "https://github.com"
-        },
-        "transportType": "stdio"
-      };
-      console.log('Docker-based GitHub MCP server configured for Amazon Q CLI');
-    } else {
-      console.log('No GitHub token found, skipping GitHub MCP server for Amazon Q CLI');
-    }
-
     fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
     console.log(`Created Amazon Q MCP configuration: ${mcpConfigPath}`);
 
-    // Verify the configuration file was created
-    if (fs.existsSync(mcpConfigPath)) {
-      const configContent = fs.readFileSync(mcpConfigPath, 'utf8');
-      console.log(`MCP config created successfully at ${mcpConfigPath}`);
-      console.log(`Full MCP config content:\n${configContent}`);
+    // Log configuration details
+    console.log(`Full MCP config content:\n${JSON.stringify(mcpConfig, null, 2)}`);
 
-      // Log GitHub token availability (without exposing the token)
-      const hasToken = process.env.GITHUB_TOKEN ? 'available' : 'missing';
-      console.log(`GitHub token for MCP: ${hasToken}`);
-
-      // Log repository context
-      console.log(`Repository context: ${process.env.GITHUB_REPOSITORY || 'not set'}`);
+    // Log server status
+    if (mcpConfigManager.hasAWSCredentials()) {
+      console.log('AWS MCP server configured');
     }
+    if (mcpConfigManager.hasGitHubToken()) {
+      console.log('GitHub MCP server configured');
+    }
+
+    console.log(`Repository context: ${process.env.GITHUB_REPOSITORY || 'not set'}`);
 
   } catch (error) {
     console.warn('Failed to setup Amazon Q MCP configuration:', error.message);
     console.warn('Amazon Q CLI will run without MCP tools');
   }
 }
-
-/**
- * Strip ANSI escape codes and tool execution steps from Amazon Q CLI output
- */
-function stripAnsiCodes(text) {
-  if (!text || typeof text !== 'string') {
-    return text;
-  }
-
-  // Remove ANSI escape sequences
-  let cleanText = text
-    .replace(/\x1b\[[0-9;]*[mGKHF]/g, '')  // Most common ANSI sequences
-    .replace(/\u001b\[[0-9;]*[mGKHF]/g, '') // Unicode escape sequences
-    .replace(/\x1b\[[0-9;]*[ABCD]/g, '')   // Cursor movement
-    .replace(/\x1b\[[0-9;]*[JK]/g, '')     // Clear screen/line
-    .replace(/�\[[0-9;]*[mGKHF]/g, '')     // Malformed sequences
-    .replace(/�/g, '');                    // Remove any remaining replacement characters
-
-  // Remove tool execution blocks from "Using tool:" to "● Completed in"
-  const lines = cleanText.split('\n');
-  const filteredLines = [];
-  let insideToolBlock = false;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    const originalLine = lines[i];
-
-    // Start of tool execution block
-    if (line.match(/^🛠️\s*Using tool:/)) {
-      insideToolBlock = true;
-      continue;
-    }
-
-    // End of tool execution block
-    if (insideToolBlock && line.match(/^●\s*Completed in/)) {
-      insideToolBlock = false;
-      continue;
-    }
-
-    // Skip everything inside tool execution blocks
-    if (insideToolBlock) {
-      continue;
-    }
-
-    // Keep all other non-empty lines, but remove leading ">" to prevent blockquote formatting
-    if (line.length > 0) {
-      // Remove leading ">" that causes blockquote formatting in GitHub markdown
-      let cleanedLine = originalLine.replace(/^>\s*/, '');
-      filteredLines.push(cleanedLine);
-    }
-  }
-
-  return filteredLines.join('\n').trim();
-}
-
 
 if (require.main === module) {
   run();
