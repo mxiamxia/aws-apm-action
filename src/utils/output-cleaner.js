@@ -66,6 +66,40 @@ class OutputCleaner {
   }
 
   /**
+   * Ensure markdown formatting is preserved for GitHub
+   * Fixes spacing and formatting issues that can break markdown rendering
+   * @param {string} text - Text with markdown
+   * @returns {string} Properly formatted markdown
+   */
+  ensureMarkdownFormatting(text) {
+    if (!text || typeof text !== 'string') {
+      return text;
+    }
+
+    // Remove any trailing whitespace from each line that might break markdown
+    const lines = text.split('\n');
+    const processedLines = lines.map(line => line.trimEnd());
+
+    // Join lines
+    let cleaned = processedLines.join('\n');
+
+    // Ensure proper spacing around headers (GitHub requires blank line before headers)
+    cleaned = cleaned.replace(/([^\n])\n(#{1,6}\s+)/g, '$1\n\n$2');
+
+    // Ensure proper spacing after headers
+    cleaned = cleaned.replace(/(#{1,6}\s+[^\n]+)\n([^\n#])/g, '$1\n\n$2');
+
+    // Ensure proper spacing around horizontal rules
+    cleaned = cleaned.replace(/([^\n])\n(---+)\n/g, '$1\n\n$2\n\n');
+
+    // Remove excessive blank lines (more than 2 consecutive)
+    cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+
+    // Ensure content starts and ends cleanly
+    return cleaned.trim();
+  }
+
+  /**
    * Clean Amazon Q CLI output (removes ANSI codes and tool execution blocks)
    * @param {string} text - Raw Amazon Q CLI output
    * @returns {string} Cleaned output
@@ -73,6 +107,7 @@ class OutputCleaner {
   cleanAmazonQOutput(text) {
     let cleaned = this.removeAnsiCodes(text);
     cleaned = this.removeToolExecutionBlocks(cleaned);
+    cleaned = this.ensureMarkdownFormatting(cleaned);
     return cleaned;
   }
 
