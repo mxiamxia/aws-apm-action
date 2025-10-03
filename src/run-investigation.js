@@ -739,7 +739,6 @@ async function setupAmazonQMCPConfig() {
     }
     if (mcpConfigManager.hasGitHubToken()) {
       console.log('✓ GitHub MCP server configured');
-      console.log(`  - GitHub Repository: ${process.env.GITHUB_REPOSITORY || 'NOT SET'}`);
       console.log(`  - GitHub Host: ${process.env.GITHUB_SERVER_URL || 'https://github.com'}`);
       console.log(`  - Token available: ${process.env.GITHUB_TOKEN ? 'YES' : 'NO'}`);
     } else {

@@ -47,14 +47,11 @@ class MCPConfigManager {
         "GITHUB_PERSONAL_ACCESS_TOKEN",
         "-e",
         "GITHUB_HOST",
-        "-e",
-        "GITHUB_REPOSITORY",
         "ghcr.io/github/github-mcp-server:sha-efef8ae"
       ],
       env: {
         GITHUB_PERSONAL_ACCESS_TOKEN: token,
-        GITHUB_HOST: process.env.GITHUB_SERVER_URL || "https://github.com",
-        GITHUB_REPOSITORY: process.env.GITHUB_REPOSITORY
+        GITHUB_HOST: process.env.GITHUB_SERVER_URL || "https://github.com"
       },
       transportType: "stdio"
     };
