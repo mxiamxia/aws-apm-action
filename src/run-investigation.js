@@ -733,15 +733,18 @@ async function setupAmazonQMCPConfig() {
     // Log configuration details
     console.log(`Full MCP config content:\n${JSON.stringify(mcpConfig, null, 2)}`);
 
-    // Log server status
+    // Log server status with detailed context
     if (mcpConfigManager.hasAWSCredentials()) {
-      console.log('AWS MCP server configured');
+      console.log('✓ AWS MCP server configured');
     }
     if (mcpConfigManager.hasGitHubToken()) {
-      console.log('GitHub MCP server configured');
+      console.log('✓ GitHub MCP server configured');
+      console.log(`  - GitHub Repository: ${process.env.GITHUB_REPOSITORY || 'NOT SET'}`);
+      console.log(`  - GitHub Host: ${process.env.GITHUB_SERVER_URL || 'https://github.com'}`);
+      console.log(`  - Token available: ${process.env.GITHUB_TOKEN ? 'YES' : 'NO'}`);
+    } else {
+      console.warn('✗ GitHub token not available - PR creation will not work');
     }
-
-    console.log(`Repository context: ${process.env.GITHUB_REPOSITORY || 'not set'}`);
 
   } catch (error) {
     console.warn('Failed to setup Amazon Q MCP configuration:', error.message);
