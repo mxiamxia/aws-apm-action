@@ -65,7 +65,7 @@ async function run() {
         `---\n\n` +
         `${responseContent}\n\n` +
         `---\n\n` +
-        `[![Kiro Icon](https://kiro.dev/icon.svg) **Fix In Kiro**](${kiroUrl})\n\n` +
+        `<a href="${kiroUrl}"><img src="https://kiro.dev/icon.svg" width="20" height="20" alt="Kiro" style="vertical-align: middle;"> <strong>Fix In Kiro</strong></a>\n\n` +
         `---\n\n` +
         `✅ **Status**: Complete\n` +
         `👤 **Requested by**: @${triggerUsername}\n` +
