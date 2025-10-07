@@ -3,7 +3,6 @@
 const core = require('@actions/core');
 const github = require('@actions/github');
 const fs = require('fs');
-const { randomUUID } = require('crypto');
 
 /**
  * Update the GitHub comment with the final results from AWS APM investigation and Claude response
@@ -50,22 +49,13 @@ async function run() {
 
     // Create the final comment body
     const workflowUrl = `${context.payload.repository.html_url}/actions/runs/${githubRunId}`;
-    const repoUrl = context.payload.repository.html_url || `https://github.com/${repository}`;
-
-    // Generate a unique investigation ID based on the run ID and timestamp
-    const investigationId = randomUUID();
 
     let commentBody;
     if (awsapmSuccess) {
-      // Create Kiro deep link URL
-      const kiroUrl = `kiro://aws.telemend/investigate?id=${investigationId}&repo_url=${encodeURIComponent(repoUrl)}`;
-
       commentBody = `🎯 **AWS APM Investigation Complete**\n\n` +
         `Investigation completed successfully! Here are the results:\n\n` +
         `---\n\n` +
         `${responseContent}\n\n` +
-        `---\n\n` +
-        `<a href="${kiroUrl}"><img src="https://kiro.dev/icon.svg" width="20" height="20" alt="Kiro" style="vertical-align: middle;"> <strong>Fix In Kiro</strong></a>\n\n` +
         `---\n\n` +
         `✅ **Status**: Complete\n` +
         `👤 **Requested by**: @${triggerUsername}\n` +
