@@ -127,6 +127,14 @@ async function run() {
     // Create Octokit instance
     const octokit = github.getOctokit(githubToken);
 
+    // Check user permissions
+    const hasPermissions = await checkUserPermissions(octokit, context, commentId, issueNumber);
+    if (!hasPermissions) {
+      console.log('User lacks permissions, exiting gracefully');
+      core.setOutput('contains_trigger', 'false');
+      return;
+    }
+
     // Add immediate eye reaction to show the action is triggered
     if (commentId) {
       try {
@@ -256,6 +264,65 @@ async function run() {
     console.error(`Prepare step failed: ${errorMessage}`);
     core.setFailed(`Prepare step failed with error: ${errorMessage}`);
     process.exit(1);
+  }
+}
+
+/**
+ * Check if user has write or admin permissions to the repository
+ */
+async function checkUserPermissions(octokit, context, commentId, issueNumber) {
+  const actor = context.actor;
+  console.log(`Checking permissions for actor: ${actor}`);
+
+  try {
+    // Check if the actor is a GitHub App (bot user)
+    if (actor.endsWith('[bot]')) {
+      console.log(`Actor is a GitHub App: ${actor}`);
+      return true;
+    }
+
+    // Check permissions directly using the permission endpoint
+    const response = await octokit.rest.repos.getCollaboratorPermissionLevel({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      username: actor,
+    });
+
+    const permissionLevel = response.data.permission;
+    console.log(`Permission level retrieved: ${permissionLevel}`);
+
+    if (permissionLevel === 'admin' || permissionLevel === 'write') {
+      console.log(`Actor has write access: ${permissionLevel}`);
+      return true;
+    } else {
+      console.log(`Actor has insufficient permissions: ${permissionLevel}`);
+      
+      // Post explanatory comment
+      if (issueNumber) {
+        try {
+          const commentBody = `🚫 **AWS APM Investigation - Access Denied**\n\n` +
+            `Sorry @${actor}, you don't have sufficient permissions to use this bot.\n\n` +
+            `**Required:** Write or Admin access to this repository\n` +
+            `**Your level:** ${permissionLevel}\n\n` +
+            `Please contact a repository maintainer if you believe this is an error.`;
+
+          await octokit.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: issueNumber,
+            body: commentBody,
+          });
+          console.log('Posted access denied comment');
+        } catch (commentError) {
+          console.error('Failed to post access denied comment:', commentError.message);
+        }
+      }
+      
+      return false;
+    }
+  } catch (error) {
+    console.error(`Failed to check permissions: ${error}`);
+    throw new Error(`Failed to check permissions for ${actor}: ${error}`);
   }
 }
 
