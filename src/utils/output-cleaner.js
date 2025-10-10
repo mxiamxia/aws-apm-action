@@ -54,12 +54,10 @@ class OutputCleaner {
         continue;
       }
 
-      // Keep all other non-empty lines, but remove leading ">" to prevent blockquote formatting
-      if (trimmed.length > 0) {
-        // Remove leading ">" that causes blockquote formatting in GitHub markdown
-        const cleanedLine = line.replace(/^>\s*/, '');
-        filteredLines.push(cleanedLine);
-      }
+      // Keep all lines (including blank lines for proper markdown spacing)
+      // Only remove leading ">" to prevent blockquote formatting
+      const cleanedLine = line.replace(/^>\s*/, '');
+      filteredLines.push(cleanedLine);
     }
 
     return filteredLines.join('\n').trim();
