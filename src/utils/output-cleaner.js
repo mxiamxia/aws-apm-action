@@ -54,10 +54,14 @@ class OutputCleaner {
         continue;
       }
 
-      // Keep all lines (including blank lines for proper markdown spacing)
-      // Only remove leading ">" to prevent blockquote formatting
-      const cleanedLine = line.replace(/^>\s*/, '');
-      filteredLines.push(cleanedLine);
+      // Skip thinking/reasoning statements (lines starting with ">")
+      // These are Amazon Q's internal thought process, not actual results
+      if (trimmed.startsWith('>')) {
+        continue;
+      }
+
+      // Keep all other lines (including blank lines for proper markdown spacing)
+      filteredLines.push(line);
     }
 
     return filteredLines.join('\n').trim();
