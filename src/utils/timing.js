@@ -66,9 +66,9 @@ class TimingTracker {
   }
 
   /**
-   * Format duration in human-readable format
+   * Format duration in human-readable format with decimal precision
    * @param {number} ms - Duration in milliseconds
-   * @returns {string} Formatted duration (e.g., "2m 34s", "5s", "123ms", "N/A")
+   * @returns {string} Formatted duration (e.g., "2m 34.5s", "2.76s", "123ms", "N/A")
    */
   formatDuration(ms) {
     // Special case: 0ms means timing not available
@@ -80,15 +80,23 @@ class TimingTracker {
       return `${Math.round(ms)}ms`;
     }
 
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
+    const totalSeconds = ms / 1000;
 
-    if (minutes > 0) {
-      return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+    // For times over 1 minute, show minutes and seconds with 1 decimal
+    if (totalSeconds >= 60) {
+      const minutes = Math.floor(totalSeconds / 60);
+      const remainingSeconds = totalSeconds % 60;
+
+      if (remainingSeconds > 0) {
+        // Show 1 decimal place for seconds
+        return `${minutes}m ${remainingSeconds.toFixed(1)}s`;
+      } else {
+        return `${minutes}m`;
+      }
     }
 
-    return `${seconds}s`;
+    // For times under 1 minute, show seconds with 1 decimal place
+    return `${totalSeconds.toFixed(1)}s`;
   }
 
   /**
