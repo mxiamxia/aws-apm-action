@@ -112,8 +112,14 @@ runs:
     - name: Install Dependencies
       shell: bash
       run: |
+        # Source timing utility
+        source ${GITHUB_ACTION_PATH}/src/utils/record-timing.sh
+        record_timing_start "Install Dependencies"
+
         cd ${GITHUB_ACTION_PATH}
         npm install
+
+        record_timing_end "Install Dependencies"
 
     - name: Prepare action
       id: prepare
@@ -142,6 +148,10 @@ runs:
       if: steps.prepare.outputs.contains_trigger == 'true'
       shell: bash
       run: |
+        # Source timing utility
+        source ${GITHUB_ACTION_PATH}/src/utils/record-timing.sh
+        record_timing_start "Install CLI Tools"
+
         # Install uv/uvx for MCP server execution (needed for AWS CloudWatch AppSignals MCP)
         echo "Installing uv package manager for MCP server support..."
         curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -191,6 +201,8 @@ runs:
             echo "uvx not found - Amazon Q MCP tools may not work properly"
           fi
         fi
+
+        record_timing_end "Install CLI Tools"
 
     - name: Run AWS APM Investigation
       id: aws-apm-cli
