@@ -11,8 +11,8 @@ const os = require('os');
  * Handles Amazon Q-specific configuration and output parsing
  */
 class AmazonQCLIExecutor extends BaseCLIExecutor {
-  constructor() {
-    super();
+  constructor(timingTracker = null) {
+    super(timingTracker);
     this.outputCleaner = new OutputCleaner();
   }
 
@@ -114,6 +114,51 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
       console.warn('Failed to setup Amazon Q MCP configuration:', error.message);
       console.warn('Amazon Q CLI will run without MCP tools');
       return null;
+    }
+  }
+
+  /**
+   * Extract tool call timings from Amazon Q output
+   * Parses patterns like:
+   * ● Running {tool_name} with the param:
+   * ...
+   * ● Completed in {duration}s
+   * @param {string} output Raw CLI output
+   */
+  extractToolTimings(output) {
+    if (!this.timingTracker) return;
+
+    const lines = output.split('\n');
+    let currentTool = null;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // Match: ● Running {tool_name} with the param:
+      const runningMatch = trimmed.match(/^●\s+Running\s+([^\s]+)/);
+      if (runningMatch) {
+        currentTool = runningMatch[1];
+        continue;
+      }
+
+      // Match: ● Completed in {duration}s (or ms)
+      const completedMatch = trimmed.match(/^●\s+Completed in\s+([\d.]+)(s|ms)/);
+      if (completedMatch && currentTool) {
+        const duration = parseFloat(completedMatch[1]);
+        const unit = completedMatch[2];
+
+        // Convert to milliseconds
+        const durationMs = unit === 's' ? duration * 1000 : duration;
+
+        // Record tool timing
+        this.timingTracker.record(
+          `Tool: ${currentTool}`,
+          durationMs,
+          { toolName: currentTool }
+        );
+
+        currentTool = null;
+      }
     }
   }
 

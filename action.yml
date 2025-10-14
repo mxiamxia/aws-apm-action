@@ -234,3 +234,10 @@ runs:
         USE_STICKY_COMMENT: ${{ inputs.use_sticky_comment }}
         BOT_ID: ${{ inputs.bot_id }}
         BOT_NAME: ${{ inputs.bot_name }}
+
+    - name: Generate Timing Summary
+      if: steps.prepare.outputs.contains_trigger == 'true' && always()
+      shell: bash
+      run: |
+        cd ${GITHUB_ACTION_PATH}
+        node src/generate-timing-summary.js

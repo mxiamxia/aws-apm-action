@@ -1,0 +1,225 @@
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * Timing utility for tracking execution durations and generating GitHub Actions Job Summary
+ */
+class TimingTracker {
+  constructor() {
+    this.timings = [];
+    this.startTimes = new Map();
+  }
+
+  /**
+   * Start timing for a phase
+   * @param {string} phase - Phase name (e.g., "Install Q CLI", "MCP Setup")
+   */
+  start(phase) {
+    this.startTimes.set(phase, Date.now());
+    console.log(`[TIMING] Starting: ${phase}`);
+  }
+
+  /**
+   * End timing for a phase and record duration
+   * @param {string} phase - Phase name
+   * @param {Object} metadata - Additional metadata (e.g., tool name, details)
+   */
+  end(phase, metadata = {}) {
+    const startTime = this.startTimes.get(phase);
+    if (!startTime) {
+      console.warn(`[TIMING] No start time found for: ${phase}`);
+      return;
+    }
+
+    const duration = Date.now() - startTime;
+    const timing = {
+      phase,
+      duration,
+      durationFormatted: this.formatDuration(duration),
+      timestamp: new Date().toISOString(),
+      ...metadata
+    };
+
+    this.timings.push(timing);
+    this.startTimes.delete(phase);
+
+    console.log(`[TIMING] Completed: ${phase} (${timing.durationFormatted})`);
+  }
+
+  /**
+   * Record a timing without start/end tracking (for already-known durations)
+   * @param {string} phase - Phase name
+   * @param {number} duration - Duration in milliseconds
+   * @param {Object} metadata - Additional metadata
+   */
+  record(phase, duration, metadata = {}) {
+    const timing = {
+      phase,
+      duration,
+      durationFormatted: this.formatDuration(duration),
+      timestamp: new Date().toISOString(),
+      ...metadata
+    };
+
+    this.timings.push(timing);
+    console.log(`[TIMING] Recorded: ${phase} (${timing.durationFormatted})`);
+  }
+
+  /**
+   * Format duration in human-readable format
+   * @param {number} ms - Duration in milliseconds
+   * @returns {string} Formatted duration (e.g., "2m 34s", "5s", "123ms", "N/A")
+   */
+  formatDuration(ms) {
+    // Special case: 0ms means timing not available
+    if (ms === 0) {
+      return 'N/A';
+    }
+
+    if (ms < 1000) {
+      return `${Math.round(ms)}ms`;
+    }
+
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+
+    if (minutes > 0) {
+      return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+    }
+
+    return `${seconds}s`;
+  }
+
+  /**
+   * Get all timings
+   * @returns {Array} Array of timing objects
+   */
+  getTimings() {
+    return this.timings;
+  }
+
+  /**
+   * Get total duration
+   * @returns {number} Total duration in milliseconds
+   */
+  getTotalDuration() {
+    return this.timings.reduce((sum, t) => sum + t.duration, 0);
+  }
+
+  /**
+   * Save timings to file (for persistence across steps)
+   * @param {string} filePath - Path to save timings
+   */
+  save(filePath) {
+    const data = {
+      timings: this.timings,
+      totalDuration: this.getTotalDuration(),
+      savedAt: new Date().toISOString()
+    };
+
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    console.log(`[TIMING] Saved timings to: ${filePath}`);
+  }
+
+  /**
+   * Load timings from file
+   * @param {string} filePath - Path to load timings from
+   * @returns {TimingTracker} New TimingTracker instance with loaded data
+   */
+  static load(filePath) {
+    const tracker = new TimingTracker();
+
+    if (fs.existsSync(filePath)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        tracker.timings = data.timings || [];
+        console.log(`[TIMING] Loaded ${tracker.timings.length} timings from: ${filePath}`);
+      } catch (error) {
+        console.warn(`[TIMING] Failed to load timings: ${error.message}`);
+      }
+    }
+
+    return tracker;
+  }
+
+  /**
+   * Generate GitHub Actions Job Summary markdown
+   * @returns {string} Markdown table for job summary
+   */
+  generateJobSummary() {
+    if (this.timings.length === 0) {
+      return '## ⏱️ Timing Summary\n\nNo timing data available.';
+    }
+
+    // Group timings by category
+    const categories = {
+      'Setup': [],
+      'Investigation': [],
+      'Tool Calls': [],
+      'Finalization': []
+    };
+
+    for (const timing of this.timings) {
+      if (timing.phase.includes('Checkout') || timing.phase.includes('Install') || timing.phase.includes('MCP Setup')) {
+        categories['Setup'].push(timing);
+      } else if (timing.phase.includes('Investigation') || timing.phase.includes('Execution')) {
+        categories['Investigation'].push(timing);
+      } else if (timing.phase.includes('Tool:') || timing.toolName) {
+        categories['Tool Calls'].push(timing);
+      } else {
+        categories['Finalization'].push(timing);
+      }
+    }
+
+    let markdown = '## ⏱️ Timing Summary\n\n';
+    markdown += `**Total Duration:** ${this.formatDuration(this.getTotalDuration())}\n\n`;
+
+    // Create table
+    markdown += '| Phase | Duration |\n';
+    markdown += '|-------|----------|\n';
+
+    for (const [category, timings] of Object.entries(categories)) {
+      if (timings.length === 0) continue;
+
+      markdown += `| **${category}** | |\n`;
+
+      for (const timing of timings) {
+        const indent = timing.toolName ? '&nbsp;&nbsp;&nbsp;&nbsp;↳ ' : '';
+        const displayName = timing.toolName ? `Tool: ${timing.toolName}` : timing.phase;
+        markdown += `| ${indent}${displayName} | ${timing.durationFormatted} |\n`;
+      }
+    }
+
+    return markdown;
+  }
+
+  /**
+   * Write job summary to GitHub Actions
+   * Appends to $GITHUB_STEP_SUMMARY
+   */
+  writeGitHubJobSummary() {
+    const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+
+    if (!summaryFile) {
+      console.warn('[TIMING] GITHUB_STEP_SUMMARY not set, skipping job summary');
+      return;
+    }
+
+    const markdown = this.generateJobSummary();
+
+    try {
+      fs.appendFileSync(summaryFile, '\n' + markdown + '\n');
+      console.log('[TIMING] Job summary written to GitHub Actions');
+    } catch (error) {
+      console.error(`[TIMING] Failed to write job summary: ${error.message}`);
+    }
+  }
+}
+
+module.exports = { TimingTracker };

@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { ClaudeCLIExecutor } = require('./executors/claude-cli-executor');
 const { AmazonQCLIExecutor } = require('./executors/amazonq-cli-executor');
+const { TimingTracker } = require('./utils/timing');
 // Note: createGeneralPrompt is now called in prepare.js
 
 /**
@@ -57,6 +58,9 @@ async function run() {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
+    // Initialize timing tracker
+    const timingTracker = new TimingTracker();
+
     // Run CLI investigation based on the selected tool
     let investigationResult = '';
     const useClaude = process.env.USE_CLAUDE === 'true';
@@ -64,12 +68,12 @@ async function run() {
     try {
       if (useClaude) {
         console.log('Running Claude Code CLI investigation...');
-        const executor = new ClaudeCLIExecutor();
+        const executor = new ClaudeCLIExecutor(timingTracker);
         investigationResult = await executor.execute(promptContent);
         console.log('Claude Code CLI investigation completed');
       } else {
         console.log('Running Amazon Q Developer CLI investigation...');
-        const executor = new AmazonQCLIExecutor();
+        const executor = new AmazonQCLIExecutor(timingTracker);
         investigationResult = await executor.execute(promptContent);
         console.log('Amazon Q Developer CLI investigation completed');
       }
@@ -106,6 +110,10 @@ Please check the workflow logs for more details and ensure proper authentication
     // Save the final response
     const responseFile = path.join(outputDir, 'awsapm-response.txt');
     fs.writeFileSync(responseFile, finalResponse);
+
+    // Save timing data
+    const timingFile = path.join(outputDir, 'timing.json');
+    timingTracker.save(timingFile);
 
     // Set outputs
     core.setOutput('execution_file', responseFile);
