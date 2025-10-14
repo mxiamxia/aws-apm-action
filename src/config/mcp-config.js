@@ -12,7 +12,7 @@ class MCPConfigManager {
    */
   isTestMode() {
     // Using test MCP server from custom git repository
-    return true; // Currently always in test mode as per latest configuration
+    return false; // Currently always in test mode as per latest configuration
   }
 
   /**
@@ -70,6 +70,9 @@ class MCPConfigManager {
       "mcp__awslabs_cloudwatch-appsignals-mcp-server__search_transaction_spans",
       "mcp__awslabs_cloudwatch-appsignals-mcp-server__query_sampled_traces",
       "mcp__awslabs_cloudwatch-appsignals-mcp-server__query_service_metrics",
+      "mcp__awslabs_cloudwatch-appsignals-mcp-server__audit_services",
+      "mcp__awslabs_cloudwatch-appsignals-mcp-server__audit_slos",
+      "mcp__awslabs_cloudwatch-appsignals-mcp-server__audit_service_operations",
       "mcp__awslabs_cloudwatch-appsignals-mcp-server__get_enablement_guide"
     ];
   }
