@@ -13,13 +13,13 @@ on:
 jobs:
   awsapm-investigation:
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@awsapm')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@awsapm')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@awsapm')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@awsapm') || contains(github.event.issue.title, '@awsapm')))
+      (github.event_name == 'issue_comment' && (contains(github.event.comment.body, '@awsapm') || contains(github.event.comment.body, '@aws-apm'))) ||
+      (github.event_name == 'pull_request_review_comment' && (contains(github.event.comment.body, '@awsapm') || contains(github.event.comment.body, '@aws-apm'))) ||
+      (github.event_name == 'pull_request_review' && (contains(github.event.review.body, '@awsapm') || contains(github.event.review.body, '@aws-apm'))) ||
+      (github.event_name == 'issues' && ((contains(github.event.issue.body, '@awsapm') || contains(github.event.issue.body, '@aws-apm')) || (contains(github.event.issue.title, '@awsapm') || contains(github.event.issue.title, '@aws-apm'))))
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
       issues: write
       id-token: write

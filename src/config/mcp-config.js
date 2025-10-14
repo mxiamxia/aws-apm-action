@@ -58,6 +58,17 @@ class MCPConfigManager {
   }
 
   /**
+   * Get AWS CloudWatch MCP server configuration
+   */
+  getCloudWatchServerConfig() {
+    return {
+      command: "uvx",
+      args: ["awslabs.cloudwatch-mcp-server@latest"],
+      transportType: "stdio"
+    };
+  }
+
+  /**
    * Get list of AWS CloudWatch AppSignals MCP tools for auto-approval
    */
   getAppSignalsToolsList() {
@@ -74,6 +85,24 @@ class MCPConfigManager {
       "mcp__awslabs_cloudwatch-appsignals-mcp-server__audit_slos",
       "mcp__awslabs_cloudwatch-appsignals-mcp-server__audit_service_operations",
       "mcp__awslabs_cloudwatch-appsignals-mcp-server__get_enablement_guide"
+    ];
+  }
+
+  /**
+   * Get list of AWS CloudWatch MCP tools for auto-approval
+   */
+  getCloudWatchToolsList() {
+    return [
+      "mcp__awslabs_cloudwatch-mcp-server__get_metric_statistics",
+      "mcp__awslabs_cloudwatch-mcp-server__get_metric_data",
+      "mcp__awslabs_cloudwatch-mcp-server__list_metrics",
+      "mcp__awslabs_cloudwatch-mcp-server__get_dashboard",
+      "mcp__awslabs_cloudwatch-mcp-server__list_dashboards",
+      "mcp__awslabs_cloudwatch-mcp-server__describe_alarms",
+      "mcp__awslabs_cloudwatch-mcp-server__get_log_events",
+      "mcp__awslabs_cloudwatch-mcp-server__filter_log_events",
+      "mcp__awslabs_cloudwatch-mcp-server__start_query",
+      "mcp__awslabs_cloudwatch-mcp-server__get_query_results"
     ];
   }
 
@@ -134,6 +163,14 @@ class MCPConfigManager {
         "mcp__awslabs_cloudwatch-appsignals-mcp-server__*",
         ...this.getAppSignalsToolsList()
       );
+
+      // Add CloudWatch MCP tools if enabled
+      if (this.hasCloudWatchAccess()) {
+        allowedTools.push(
+          "mcp__awslabs_cloudwatch-mcp-server__*",
+          ...this.getCloudWatchToolsList()
+        );
+      }
     }
 
     return allowedTools.join(',');
@@ -178,6 +215,26 @@ class MCPConfigManager {
       };
     }
 
+    // Add CloudWatch MCP server if enabled and credentials available
+    if (this.hasCloudWatchAccess()) {
+      const cloudwatchConfig = this.getCloudWatchServerConfig();
+
+      if (cliType === 'claude') {
+        // Claude CLI format
+        config.mcpServers["awslabs.cloudwatch-mcp-server"] = {
+          ...cloudwatchConfig,
+          env: this.getAWSEnvVars()
+        };
+      } else {
+        // Amazon Q CLI format
+        config.mcpServers["awslabs.cloudwatch-mcp"] = {
+          ...cloudwatchConfig,
+          autoApprove: this.getCloudWatchToolsList(),
+          disabled: false
+        };
+      }
+    }
+
     return config;
   }
 
@@ -193,6 +250,14 @@ class MCPConfigManager {
    */
   hasGitHubToken() {
     return !!process.env.GITHUB_TOKEN;
+  }
+
+  /**
+   * Check if CloudWatch MCP should be enabled
+   * Requires both AWS credentials and the enable flag to be true
+   */
+  hasCloudWatchAccess() {
+    return process.env.ENABLE_CLOUDWATCH_MCP === 'true' && this.hasAWSCredentials();
   }
 
   /**

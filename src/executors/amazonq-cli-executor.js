@@ -106,6 +106,10 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
       } else {
         console.warn('✗ GitHub token not available - PR creation will not work');
       }
+      if (mcpConfigManager.hasCloudWatchAccess()) {
+        console.log('✓ CloudWatch MCP server configured');
+        console.log('  - Available tools: metrics, logs, alarms, dashboards, insights');
+      }
 
       // Don't return the config path for cleanup since it's in home directory
       return null;

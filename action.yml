@@ -69,6 +69,12 @@ inputs:
     required: false
     default: "us-east-1"
 
+  # MCP configuration
+  enable_cloudwatch_mcp:
+    description: "Enable CloudWatch MCP server for monitoring and observability tools (metrics, logs, alarms, dashboards, insights)"
+    required: false
+    default: "false"
+
   additional_permissions:
     description: "Additional GitHub permissions to request (e.g., 'actions: read')"
     required: false
@@ -220,6 +226,7 @@ runs:
         AWS_SESSION_TOKEN: ${{ inputs.aws_session_token }}
         AWS_REGION: ${{ inputs.aws_region }}
         USE_CLAUDE: ${{ inputs.use_claude }}
+        ENABLE_CLOUDWATCH_MCP: ${{ inputs.enable_cloudwatch_mcp }}
         INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
 
     - name: Update comment with results

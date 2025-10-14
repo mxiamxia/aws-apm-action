@@ -101,6 +101,10 @@ class ClaudeCLIExecutor extends BaseCLIExecutor {
       if (mcpConfigManager.hasGitHubToken()) {
         console.log('GitHub token found, GitHub MCP server configured');
       }
+      if (mcpConfigManager.hasCloudWatchAccess()) {
+        console.log('✓ CloudWatch MCP server configured');
+        console.log('  - Available tools: metrics, logs, alarms, dashboards, insights');
+      }
 
       // Create MCP config in temp directory (outside of repository)
       this.mcpConfigPath = path.join(this.tempDir, '.mcp.json');
