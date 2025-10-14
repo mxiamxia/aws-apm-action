@@ -126,10 +126,19 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
    * @param {string} output Raw CLI output
    */
   extractToolTimings(output) {
-    if (!this.timingTracker) return;
+    if (!this.timingTracker) {
+      console.log('[TIMING] No timing tracker available for tool extraction');
+      return;
+    }
 
-    const lines = output.split('\n');
+    console.log('[TIMING] Extracting tool timings from Amazon Q output...');
+
+    // Strip ANSI codes first to ensure regex patterns match correctly
+    const cleanedOutput = this.outputCleaner.removeAnsiCodes(output);
+    const lines = cleanedOutput.split('\n');
+
     let currentTool = null;
+    let toolCount = 0;
 
     for (const line of lines) {
       const trimmed = line.trim();
@@ -138,6 +147,7 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
       const runningMatch = trimmed.match(/^●\s+Running\s+([^\s]+)/);
       if (runningMatch) {
         currentTool = runningMatch[1];
+        console.log(`[TIMING] Found tool start: ${currentTool}`);
         continue;
       }
 
@@ -150,6 +160,8 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
         // Convert to milliseconds
         const durationMs = unit === 's' ? duration * 1000 : duration;
 
+        console.log(`[TIMING] Tool ${currentTool} completed in ${durationMs}ms`);
+
         // Record tool timing
         this.timingTracker.record(
           `Tool: ${currentTool}`,
@@ -157,9 +169,12 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
           { toolName: currentTool }
         );
 
+        toolCount++;
         currentTool = null;
       }
     }
+
+    console.log(`[TIMING] Extracted ${toolCount} tool timings from output`);
   }
 
   /**
