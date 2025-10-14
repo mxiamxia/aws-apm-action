@@ -101,10 +101,14 @@ class TimingTracker {
 
   /**
    * Get total duration
+   * Excludes tool call timings to avoid double-counting (they're already included in CLI Execution time)
+   * Also excludes placeholder timings for steps not yet tracked
    * @returns {number} Total duration in milliseconds
    */
   getTotalDuration() {
-    return this.timings.reduce((sum, t) => sum + t.duration, 0);
+    return this.timings
+      .filter(t => !t.toolName && !t.placeholder)  // Exclude tool calls and placeholders from total
+      .reduce((sum, t) => sum + t.duration, 0);
   }
 
   /**
@@ -179,6 +183,7 @@ class TimingTracker {
 
     let markdown = '## ⏱️ Timing Summary\n\n';
     markdown += `**Total Duration:** ${this.formatDuration(this.getTotalDuration())}\n\n`;
+    markdown += '_Note: Tool call timings are shown for informational purposes and are already included in CLI Execution time. Steps showing N/A are not yet tracked._\n\n';
 
     // Create table
     markdown += '| Phase | Duration |\n';
@@ -187,7 +192,9 @@ class TimingTracker {
     for (const [category, timings] of Object.entries(categories)) {
       if (timings.length === 0) continue;
 
-      markdown += `| **${category}** | |\n`;
+      // Indent "Tool Calls" category to show it's nested under Investigation
+      const categoryIndent = category === 'Tool Calls' ? '&nbsp;&nbsp;' : '';
+      markdown += `| ${categoryIndent}**${category}** | |\n`;
 
       for (const timing of timings) {
         const indent = timing.toolName ? '&nbsp;&nbsp;&nbsp;&nbsp;↳ ' : '';

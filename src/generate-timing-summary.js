@@ -34,6 +34,46 @@ function parseBashTimings(bashTimings) {
 }
 
 /**
+ * Add placeholder timings for missing workflow steps
+ * These will show as "N/A" in the summary until proper timing is implemented
+ * @param {TimingTracker} tracker - Timing tracker instance
+ */
+function addMissingStepPlaceholders(tracker) {
+  const existingPhases = new Set(tracker.getTimings().map(t => t.phase));
+
+  // Check if investigation step exists (could be "Q CLI Execution" or "CLAUDE CLI Execution")
+  const hasInvestigation = Array.from(existingPhases).some(phase =>
+    phase.includes('CLI Execution')
+  );
+
+  // Define all expected workflow steps in order
+  const expectedSteps = [
+    { phase: 'Install Node.js', category: 'setup' },
+    { phase: 'Install Dependencies', category: 'setup' },
+    { phase: 'Prepare action', category: 'setup' },
+    { phase: 'Install CLI Tools', category: 'setup' },
+    { phase: 'MCP Setup', category: 'setup' },
+    { phase: 'Update comment with results', category: 'finalization' },
+    { phase: 'Generate Timing Summary', category: 'finalization' }
+  ];
+
+  // Add placeholders for missing steps
+  for (const step of expectedSteps) {
+    if (!existingPhases.has(step.phase)) {
+      console.log(`[TIMING] Adding placeholder for missing step: ${step.phase}`);
+      tracker.record(step.phase, 0, {
+        placeholder: true,
+        category: step.category,
+        note: 'Timing not yet tracked for this step'
+      });
+    }
+  }
+
+  // Note: "Run AWS APM Investigation" is tracked as "Q CLI Execution" or "CLAUDE CLI Execution"
+  // so we don't add a placeholder for it
+}
+
+/**
  * Generate timing summary for GitHub Actions Job Summary
  * Loads timing data from both Node.js and bash sources and writes to GITHUB_STEP_SUMMARY
  */
@@ -64,6 +104,9 @@ async function generateSummary() {
         console.warn(`[TIMING] Failed to load bash timings: ${error.message}`);
       }
     }
+
+    // Add placeholders for missing workflow steps
+    addMissingStepPlaceholders(tracker);
 
     if (tracker.getTimings().length === 0) {
       console.log('No timing data available');
