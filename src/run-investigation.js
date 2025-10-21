@@ -4,7 +4,6 @@ const core = require('@actions/core');
 const github = require('@actions/github');
 const fs = require('fs');
 const path = require('path');
-const { ClaudeCLIExecutor } = require('./executors/claude-cli-executor');
 const { AmazonQCLIExecutor } = require('./executors/amazonq-cli-executor');
 const { TimingTracker } = require('./utils/timing');
 // Note: createGeneralPrompt is now called in prepare.js
@@ -61,27 +60,19 @@ async function run() {
     // Initialize timing tracker
     const timingTracker = new TimingTracker();
 
-    // Run CLI investigation based on the selected tool
+    // Run Amazon Q Developer CLI investigation
     let investigationResult = '';
-    const useClaude = process.env.USE_CLAUDE === 'true';
 
     try {
-      if (useClaude) {
-        console.log('Running Claude Code CLI investigation...');
-        const executor = new ClaudeCLIExecutor(timingTracker);
-        investigationResult = await executor.execute(promptContent);
-        console.log('Claude Code CLI investigation completed');
-      } else {
-        console.log('Running Amazon Q Developer CLI investigation...');
-        const executor = new AmazonQCLIExecutor(timingTracker);
-        investigationResult = await executor.execute(promptContent);
-        console.log('Amazon Q Developer CLI investigation completed');
-      }
+      console.log('Running Amazon Q Developer CLI investigation...');
+      const executor = new AmazonQCLIExecutor(timingTracker);
+      investigationResult = await executor.execute(promptContent);
+      console.log('Amazon Q Developer CLI investigation completed');
     } catch (error) {
-      console.error(`${useClaude ? 'Claude Code CLI' : 'Amazon Q Developer CLI'} failed:`, error.message);
+      console.error('Amazon Q Developer CLI failed:', error.message);
 
-      // Return the actual error message - no fallback
-      investigationResult = `❌ **AI Agent Investigation Failed**
+      // Return the actual error message
+      investigationResult = `❌ **Amazon Q Investigation Failed**
 
 **Error:** ${error.message}
 
@@ -94,18 +85,9 @@ Please check the workflow logs for more details and ensure proper authentication
     const resultFile = path.join(outputDir, 'investigation-result.txt');
     fs.writeFileSync(resultFile, investigationResult);
 
-    // Use the investigation result directly - no enhancement needed
-    let finalResponse;
-
-    if (useClaude) {
-      // Claude CLI mode - use the Claude CLI response directly
-      console.log('Using Claude Code CLI results directly...');
-      finalResponse = investigationResult;
-    } else {
-      // Amazon Q mode - use the Amazon Q results directly
-      console.log('Using Amazon Q Developer CLI results directly...');
-      finalResponse = investigationResult;
-    }
+    // Use the investigation result directly
+    console.log('Using Amazon Q Developer CLI results directly...');
+    const finalResponse = investigationResult;
 
     // Save the final response
     const responseFile = path.join(outputDir, 'awsapm-response.txt');

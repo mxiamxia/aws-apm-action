@@ -112,12 +112,6 @@ async function run() {
       console.log('[INFO] To use a custom bot name, provide either:');
       console.log('[INFO]   1. github_token input with a token from your desired bot account');
       console.log('[INFO]   2. github_app_id + github_app_private_key for GitHub App authentication');
-
-      // Check if user has Claude authentication available
-      const hasClaudeAuth = process.env.CLAUDE_CODE_OAUTH_TOKEN || process.env.ANTHROPIC_API_KEY;
-      if (hasClaudeAuth) {
-        console.log('[INFO] Note: CLAUDE_CODE_OAUTH_TOKEN/ANTHROPIC_API_KEY only affects Claude API auth, not GitHub bot name');
-      }
     } else if (tokenSource === 'github_app') {
       console.log('[INFO] Using GitHub App token - comments will appear as your custom bot');
     } else {
@@ -162,10 +156,10 @@ async function run() {
 
     // Create branch name for this execution
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const claudeBranch = `${branchPrefix}${context.runId}-${timestamp}`;
+    const awsapmBranch = `${branchPrefix}${context.runId}-${timestamp}`;
 
     console.log(`Base branch: ${actualBaseBranch}`);
-    console.log(`AWS APM branch: ${claudeBranch}`);
+    console.log(`AWS APM branch: ${awsapmBranch}`);
 
     // Create initial tracking comment
     let awsapmCommentId = null;
@@ -174,7 +168,7 @@ async function run() {
         const commentBody = `🔍 **AWS APM Investigation Started**\n\n` +
           `I'm analyzing this ${isPR ? 'PR' : 'issue'} with AI Agent...\n\n` +
           `⏳ Investigation in progress - [View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n` +
-          `Branch: \`${claudeBranch}\`\n\n` +
+          `Branch: \`${awsapmBranch}\`\n\n` +
           `*Powered by AI Agent*`;
 
         const comment = await octokit.rest.issues.createComment({
@@ -250,7 +244,7 @@ async function run() {
     // Set outputs
     console.log(`[DEBUG] Setting GITHUB_TOKEN output: ${githubToken ? 'Token available' : 'No token'}`);
     core.setOutput('GITHUB_TOKEN', githubToken);
-    core.setOutput('AWSAPM_BRANCH', claudeBranch);
+    core.setOutput('AWSAPM_BRANCH', awsapmBranch);
     core.setOutput('BASE_BRANCH', actualBaseBranch);
     core.setOutput('awsapm_comment_id', awsapmCommentId);
     core.setOutput('issue_number', issueNumber);

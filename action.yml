@@ -25,25 +25,13 @@ inputs:
     required: false
     default: ""
 
-  # CLI Tool Selection
-  use_claude:
-    description: "Use Claude Code CLI instead of Amazon Q Developer CLI"
-    required: false
-    default: "false"
-
   # CLI configuration
   prompt:
-    description: "Instructions for the selected CLI tool. Can be a direct prompt or custom template."
+    description: "Instructions for Amazon Q Developer CLI. Can be a direct prompt or custom template."
     required: false
     default: ""
 
   # Auth configuration
-  anthropic_api_key:
-    description: "Anthropic API key (required for direct API, not needed if using claude_code_oauth_token)"
-    required: false
-  claude_code_oauth_token:
-    description: "Claude Code OAuth token (alternative to anthropic_api_key)"
-    required: false
   github_token:
     description: "GitHub token with repo and pull request permissions. If not provided, uses default workflow token (comments appear as 'github-actions bot'). To use custom bot name, provide token from desired bot account."
     required: false
@@ -88,13 +76,13 @@ inputs:
     required: false
     default: "false"
   bot_id:
-    description: "GitHub user ID to use for git operations (defaults to Claude bot ID)"
+    description: "GitHub user ID to use for git operations (defaults to github-actions bot ID)"
     required: false
     default: "41898282"
   bot_name:
-    description: "GitHub username to use for git operations (defaults to Claude bot name)"
+    description: "GitHub username to use for git operations (defaults to github-actions bot name)"
     required: false
-    default: "claude[bot]"
+    default: "github-actions[bot]"
 
 outputs:
   execution_file:
@@ -158,54 +146,33 @@ runs:
         source ${GITHUB_ACTION_PATH}/src/utils/record-timing.sh
         record_timing_start "Install CLI Tools"
 
-        # Install uv/uvx for MCP server execution (needed for AWS CloudWatch AppSignals MCP)
+        # Install uv/uvx for MCP server execution (needed for AWS CloudWatch MCP)
         echo "Installing uv package manager for MCP server support..."
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
-        if [ "${{ inputs.use_claude }}" = "true" ]; then
-          echo "Installing Claude Code CLI..."
-          # Install Claude Code CLI (from claude-code-action)
-          curl -fsSL https://claude.ai/install.sh | bash -s 1.0.117
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          # Verify Claude CLI installation
-          if command -v claude &> /dev/null; then
-            echo "Claude Code CLI installed successfully"
-            claude --version
-          else
-            echo "Claude Code CLI installation may have failed"
-          fi
-          # Verify uvx is available for MCP
-          if command -v uvx &> /dev/null; then
-            echo "uvx available for MCP server execution"
-            uvx --version
-          else
-            echo "uvx not found - MCP servers may not work properly"
-          fi
+        echo "Installing Amazon Q Developer CLI..."
+        # Step 1: Update apt cache to prevent mirror errors
+        sudo apt-get update
+        # Step 2: Download the .deb package
+        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/latest/amazon-q.deb
+        # Step 3: Install the package with fix-missing flag for mirror resilience
+        sudo apt-get install -y --fix-missing ./amazon-q.deb || sudo apt-get install -y -f
+        # Step 4: Verify Amazon Q CLI installation
+        if command -v q &> /dev/null; then
+          echo "Amazon Q CLI installed successfully"
+          q --version
         else
-          echo "Installing Amazon Q Developer CLI..."
-          # Step 1: Update apt cache to prevent mirror errors
-          sudo apt-get update
-          # Step 2: Download the .deb package
-          curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/latest/amazon-q.deb
-          # Step 3: Install the package with fix-missing flag for mirror resilience
-          sudo apt-get install -y --fix-missing ./amazon-q.deb || sudo apt-get install -y -f
-          # Step 4: Verify Amazon Q CLI installation
-          if command -v q &> /dev/null; then
-            echo "Amazon Q CLI installed successfully"
-            q --version
-          else
-            echo "Amazon Q CLI installation may have failed"
-            echo "Checking if q command is available..."
-            which q || echo "q command not found in PATH"
-          fi
-          # Verify uvx is available for MCP (needed for Application Signals)
-          if command -v uvx &> /dev/null; then
-            echo "uvx available for Amazon Q MCP server execution"
-            uvx --version
-          else
-            echo "uvx not found - Amazon Q MCP tools may not work properly"
-          fi
+          echo "Amazon Q CLI installation may have failed"
+          echo "Checking if q command is available..."
+          which q || echo "q command not found in PATH"
+        fi
+        # Verify uvx is available for MCP (needed for CloudWatch MCP)
+        if command -v uvx &> /dev/null; then
+          echo "uvx available for Amazon Q MCP server execution"
+          uvx --version
+        else
+          echo "uvx not found - Amazon Q MCP tools may not work properly"
         fi
 
         record_timing_end "Install CLI Tools"
@@ -219,13 +186,10 @@ runs:
         node src/run-investigation.js
       env:
         GITHUB_TOKEN: ${{ steps.prepare.outputs.GITHUB_TOKEN }}
-        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
-        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude_code_oauth_token }}
         AWS_ACCESS_KEY_ID: ${{ inputs.aws_access_key_id }}
         AWS_SECRET_ACCESS_KEY: ${{ inputs.aws_secret_access_key }}
         AWS_SESSION_TOKEN: ${{ inputs.aws_session_token }}
         AWS_REGION: ${{ inputs.aws_region }}
-        USE_CLAUDE: ${{ inputs.use_claude }}
         ENABLE_CLOUDWATCH_MCP: ${{ inputs.enable_cloudwatch_mcp }}
         INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
 

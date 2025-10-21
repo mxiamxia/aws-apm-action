@@ -114,28 +114,12 @@ class OutputCleaner {
   }
 
   /**
-   * Clean Claude CLI output (currently just trims, but can be extended)
-   * @param {string} text - Raw Claude CLI output
-   * @returns {string} Cleaned output
-   */
-  cleanClaudeOutput(text) {
-    // Claude CLI output is already clean (JSON parsed)
-    // This method is here for consistency and future extensibility
-    return text ? text.trim() : text;
-  }
-
-  /**
-   * Generic clean method that chooses appropriate cleaning based on CLI type
+   * Generic clean method - uses Amazon Q output cleaning
    * @param {string} text - Raw CLI output
-   * @param {string} cliType - 'claude' or 'amazonq'
    * @returns {string} Cleaned output
    */
-  clean(text, cliType = 'amazonq') {
-    if (cliType === 'claude') {
-      return this.cleanClaudeOutput(text);
-    } else {
-      return this.cleanAmazonQOutput(text);
-    }
+  clean(text) {
+    return this.cleanAmazonQOutput(text);
   }
 }
 

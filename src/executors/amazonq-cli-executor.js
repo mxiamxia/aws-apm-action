@@ -85,7 +85,7 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
 
       // Use MCPConfigManager to build configuration
       const mcpConfigManager = new MCPConfigManager();
-      const mcpConfig = mcpConfigManager.buildMCPConfig('amazonq');
+      const mcpConfig = mcpConfigManager.buildMCPConfig();
 
       // Create MCP configuration file
       const mcpConfigPath = path.join(mcpConfigDir, 'mcp.json');

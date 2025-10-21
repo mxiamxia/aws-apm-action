@@ -1,6 +1,6 @@
 /**
- * Centralized MCP configuration management for both Claude CLI and Amazon Q CLI
- * This eliminates code duplication and provides a single source of truth for MCP configurations
+ * Centralized MCP configuration management for Amazon Q CLI
+ * Provides a single source of truth for MCP configurations
  */
 class MCPConfigManager {
   constructor() {
@@ -122,86 +122,22 @@ class MCPConfigManager {
   }
 
   /**
-   * Get allowed tools string for Claude CLI (with wildcards and specific tool names)
-   */
-  getAllowedToolsForClaude() {
-    const workingDir = process.env.GITHUB_WORKSPACE || process.cwd();
-
-    const allowedTools = [
-      // File operations (restricted to target repository)
-      `Read(${workingDir}/**)`,
-      `Edit(${workingDir}/**)`,
-      `MultiEdit(${workingDir}/**)`,
-      `Glob(${workingDir}/**)`,
-      `Grep(${workingDir}/**)`,
-
-      // Git operations
-      "Bash(git status:*)",
-      "Bash(git log:*)",
-      "Bash(git diff:*)",
-      "Bash(git show:*)",
-      "Bash(git checkout:*)",
-      "Bash(git branch:*)",
-
-      // System commands (restricted to working directory)
-      `Bash(ls:${workingDir}/**)`,
-      `Bash(find:${workingDir}/**)`,
-      `Bash(cat:${workingDir}/**)`,
-      `Bash(head:${workingDir}/**)`,
-      `Bash(tail:${workingDir}/**)`,
-      `Bash(wc:${workingDir}/**)`,
-
-      // GitHub MCP tools
-      "mcp__github__*",
-      ...this.getGitHubToolsList()
-    ];
-
-    // Add AWS MCP tools if credentials are available
-    if (this.hasAWSCredentials()) {
-      allowedTools.push(
-        "mcp__*",
-        "mcp__awslabs_cloudwatch-appsignals-mcp-server__*",
-        ...this.getAppSignalsToolsList()
-      );
-
-      // Add CloudWatch MCP tools if enabled
-      if (this.hasCloudWatchAccess()) {
-        allowedTools.push(
-          "mcp__awslabs_cloudwatch-mcp-server__*",
-          ...this.getCloudWatchToolsList()
-        );
-      }
-    }
-
-    return allowedTools.join(',');
-  }
-
-  /**
-   * Build complete MCP configuration for specified CLI type
-   * @param {string} cliType - 'claude' or 'amazonq'
+   * Build complete MCP configuration for Amazon Q CLI
    * @returns {object} MCP configuration object
    */
-  buildMCPConfig(cliType = 'claude') {
+  buildMCPConfig() {
     const config = { mcpServers: {} };
 
     // Add AWS CloudWatch AppSignals MCP server if credentials available
     if (this.hasAWSCredentials()) {
       const appSignalsConfig = this.getAppSignalsServerConfig();
 
-      if (cliType === 'claude') {
-        // Claude CLI format
-        config.mcpServers["awslabs.cloudwatch-appsignals-mcp-server"] = {
-          ...appSignalsConfig,
-          env: this.getAWSEnvVars()
-        };
-      } else {
-        // Amazon Q CLI format
-        config.mcpServers["awslabs.cloudwatch-appsignals-mcp"] = {
-          ...appSignalsConfig,
-          autoApprove: this.getAppSignalsToolsList(),
-          disabled: false
-        };
-      }
+      // Amazon Q CLI format
+      config.mcpServers["awslabs.cloudwatch-appsignals-mcp"] = {
+        ...appSignalsConfig,
+        autoApprove: this.getAppSignalsToolsList(),
+        disabled: false
+      };
     }
 
     // Add GitHub MCP server if token available
@@ -219,20 +155,12 @@ class MCPConfigManager {
     if (this.hasCloudWatchAccess()) {
       const cloudwatchConfig = this.getCloudWatchServerConfig();
 
-      if (cliType === 'claude') {
-        // Claude CLI format
-        config.mcpServers["awslabs.cloudwatch-mcp-server"] = {
-          ...cloudwatchConfig,
-          env: this.getAWSEnvVars()
-        };
-      } else {
-        // Amazon Q CLI format
-        config.mcpServers["awslabs.cloudwatch-mcp"] = {
-          ...cloudwatchConfig,
-          autoApprove: this.getCloudWatchToolsList(),
-          disabled: false
-        };
-      }
+      // Amazon Q CLI format
+      config.mcpServers["awslabs.cloudwatch-mcp"] = {
+        ...cloudwatchConfig,
+        autoApprove: this.getCloudWatchToolsList(),
+        disabled: false
+      };
     }
 
     return config;
@@ -261,7 +189,7 @@ class MCPConfigManager {
   }
 
   /**
-   * Get AWS environment variables for Claude CLI
+   * Get AWS environment variables for MCP server
    */
   getAWSEnvVars() {
     return {

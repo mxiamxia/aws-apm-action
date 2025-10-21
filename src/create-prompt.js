@@ -1,9 +1,9 @@
 // Dynamic general prompt creation
 
 /**
- * Get the trigger time from the GitHub context (following claude-code-action pattern)
+ * Get the trigger time from the GitHub context for security filtering
  */
-function getTriggerTime(context) {
+function getEventTriggerTime(context) {
   if (context.eventName === 'issue_comment') {
     return context.payload.comment?.created_at;
   } else if (context.eventName === 'pull_request_review') {
@@ -17,9 +17,8 @@ function getTriggerTime(context) {
 /**
  * Filters comments to only include those that existed in their final state before the trigger time.
  * This prevents malicious actors from editing comments after the trigger to inject harmful content.
- * (Following claude-code-action security pattern)
  */
-function filterCommentsToTriggerTime(comments, triggerTime) {
+function filterCommentsByTriggerTime(comments, triggerTime) {
   if (!triggerTime) return comments;
 
   const triggerTimestamp = new Date(triggerTime).getTime();
@@ -45,9 +44,9 @@ function filterCommentsToTriggerTime(comments, triggerTime) {
 }
 
 /**
- * Get comments for conversation context (following claude-code-action pattern with security filtering)
+ * Get comments for conversation context with security filtering
  */
-async function getConversationComments(context, githubToken) {
+async function fetchGitHubConversation(context, githubToken) {
   try {
     if (!githubToken) {
       console.warn('No GitHub token provided for fetching comments');
@@ -60,7 +59,7 @@ async function getConversationComments(context, githubToken) {
     console.log(`[DEBUG] Fetching conversation comments for ${context.eventName}`);
 
     // Get trigger time for security filtering
-    const triggerTime = getTriggerTime(context);
+    const triggerTime = getEventTriggerTime(context);
     console.log(`[DEBUG] Trigger time for security filtering: ${triggerTime}`);
 
     let comments = [];
@@ -121,7 +120,7 @@ async function getConversationComments(context, githubToken) {
     }
 
     // Apply security filtering to prevent malicious comment editing
-    const filteredComments = filterCommentsToTriggerTime(comments, triggerTime);
+    const filteredComments = filterCommentsByTriggerTime(comments, triggerTime);
     const filteredCount = comments.length - filteredComments.length;
 
     if (filteredCount > 0) {
@@ -139,9 +138,9 @@ async function getConversationComments(context, githubToken) {
 }
 
 /**
- * Format comments for conversation context (following claude-code-action pattern)
+ * Format comments for conversation context
  */
-function formatConversationComments(comments) {
+function formatConversationHistory(comments) {
   if (!comments || comments.length === 0) {
     return "No previous comments";
   }
@@ -160,7 +159,7 @@ function formatConversationComments(comments) {
 /**
  * Get PR changed files if this is a PR context
  */
-async function getPRChangedFiles(context, githubToken) {
+async function fetchPRDiffContext(context, githubToken) {
   // Check for PR context in different event types
   const directPR = context.payload.pull_request;
   const issuePR = context.payload.issue?.pull_request;
@@ -224,9 +223,9 @@ async function getPRChangedFiles(context, githubToken) {
 }
 
 /**
- * Create a general prompt based on GitHub context, following claude-code-action pattern
+ * Create a general prompt based on GitHub context and repository information
  */
-async function createGeneralPrompt(context, repoInfo, userRequest = '', githubToken = null) {
+async function createAWSAPMPrompt(context, repoInfo, userRequest = '', githubToken = null) {
   const { eventName, payload } = context;
 
   // Detect PR context correctly for different event types
@@ -275,17 +274,17 @@ Topics: ${repoInfo.topics.join(', ') || 'None'}`;
 
   const formattedBody = commentBody || userRequest || 'No description provided';
 
-  // Get conversation context (following claude-code-action pattern)
+  // Get conversation context from previous comments
   console.log(`[DEBUG] === FETCHING CONVERSATION CONTEXT ===`);
-  const conversationComments = await getConversationComments(context, githubToken);
-  const formattedComments = formatConversationComments(conversationComments);
+  const conversationComments = await fetchGitHubConversation(context, githubToken);
+  const formattedComments = formatConversationHistory(conversationComments);
   console.log(`[DEBUG] Conversation context: ${conversationComments.length} comments formatted`);
 
   // Get PR changes if this is a PR context
   console.log(`[DEBUG] === ABOUT TO FETCH PR CHANGES ===`);
   console.log(`[DEBUG] Attempting to fetch PR changes - isPR: ${isPR}`);
   console.log(`[DEBUG] GitHub token available: ${!!githubToken}`);
-  const prChanges = await getPRChangedFiles(context, githubToken);
+  const prChanges = await fetchPRDiffContext(context, githubToken);
   console.log(`[DEBUG] PR changes result: ${prChanges ? `${prChanges.length} files` : 'null'}`);
 
   // Build changed files section for PR reviews
@@ -312,7 +311,7 @@ ${file.patch}
     console.log(`[DEBUG] No changed files section created - isPR: ${isPR}, prChanges: ${!!prChanges}, length: ${prChanges?.length || 0}`);
   }
 
-  // Follow claude-code-action's prompt structure for general use
+  // Build comprehensive prompt with repository context and PR changes
   const prompt = `You are an AI assistant designed to help with GitHub issues and pull requests. Think carefully as you analyze the context and respond appropriately. Here's the context for your current task:
 
 <formatted_context>
@@ -461,5 +460,5 @@ Provide practical, actionable recommendations specific to this repository's tech
 }
 
 module.exports = {
-  createGeneralPrompt
+  createGeneralPrompt: createAWSAPMPrompt
 };

@@ -1,14 +1,14 @@
 # AWS APM Action
 
-A GitHub Action that provides automated Application Performance Monitoring (APM) analysis using Amazon Q Developer CLI. When users mention `@awsapm` in GitHub issues or pull request comments, this action automatically analyzes the repository and provides APM-focused insights and recommendations via your existing Claude bot.
+A GitHub Action that provides automated Application Performance Monitoring (APM) analysis using Amazon Q Developer CLI. When users mention `@awsapm` in GitHub issues or pull request comments, this action automatically analyzes the repository and provides APM-focused insights and recommendations.
 
 ## Features
 
 - **Automated Trigger**: Responds to `@awsapm` mentions in issues and PR comments
 - **Amazon Q Developer CLI Integration**: Uses Amazon Q Developer CLI for code analysis
-- **Claude Bot Integration**: Posts responses through your existing Claude bot
 - **Performance Insights**: Provides specific recommendations for AWS services and monitoring tools
 - **Sticky Comments**: Updates the same comment with results (configurable)
+- **CloudWatch MCP Integration**: Optional CloudWatch metrics, logs, and alarms access
 
 ## Setup
 
@@ -19,7 +19,6 @@ Add the following secrets to your GitHub repository:
 ```
 AWS_ACCESS_KEY_ID         # Required: AWS credentials for Amazon Q Developer CLI
 AWS_SECRET_ACCESS_KEY     # Required: AWS credentials for Amazon Q Developer CLI
-ANTHROPIC_API_KEY         # Optional: Your Anthropic API key for enhanced Claude responses
 ```
 
 ### 2. Repository Variables (Optional)
@@ -68,7 +67,6 @@ jobs:
         id: awsapm
         uses: ./
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
@@ -125,8 +123,8 @@ The action provides insights on:
 | `trigger_phrase` | Phrase that triggers the action | `@awsapm` | No |
 | `aws_access_key_id` | AWS Access Key for Q Developer CLI | - | Yes |
 | `aws_secret_access_key` | AWS Secret Key for Q Developer CLI | - | Yes |
-| `anthropic_api_key` | Anthropic API key for enhanced Claude responses | - | No |
 | `aws_region` | AWS Region for Q Developer CLI | `us-east-1` | No |
+| `enable_cloudwatch_mcp` | Enable CloudWatch MCP tools | `false` | No |
 | `github_token` | GitHub token with repo permissions | `${{ github.token }}` | No |
 | `use_sticky_comment` | Update the same comment with results | `false` | No |
 | `branch_prefix` | Prefix for created branches | `awsapm/` | No |
@@ -176,9 +174,8 @@ The action follows this workflow:
 
 1. **Trigger Detection**: Monitors for `@awsapm` mentions in issues/PRs
 2. **Analysis Preparation**: Sets up environment and extracts context
-3. **Amazon Q CLI Execution**: Runs code analysis using Amazon Q Developer CLI
-4. **Claude Processing**: Uses Claude to interpret results and generate recommendations
-5. **Response Posting**: Updates GitHub comments with actionable insights
+3. **Amazon Q CLI Execution**: Runs code analysis using Amazon Q Developer CLI with MCP tools
+4. **Response Posting**: Updates GitHub comments with actionable insights
 
 ## Development
 
@@ -201,30 +198,33 @@ aws-apm-action/
 ├── action.yml              # GitHub Action definition
 ├── package.json           # Node.js dependencies
 ├── src/
-│   ├── prepare.js         # Trigger detection and setup
-│   ├── run-analysis.js    # Amazon Q CLI integration and Claude processing
-│   └── update-comment.js  # GitHub comment updates
+│   ├── prepare.js          # Trigger detection and setup
+│   ├── run-investigation.js # Amazon Q CLI integration with MCP
+│   ├── update-comment.js   # GitHub comment updates
+│   ├── executors/          # CLI executor classes
+│   ├── config/             # MCP configuration
+│   └── utils/              # Utilities (timing, output cleaning)
 ├── .github/
 │   └── workflows/
-│       └── awsapm.yml     # Example workflow
-└── README.md              # This file
+│       └── awsapm.yml      # Example workflow
+└── README.md               # This file
 ```
 
 ## Limitations
 
-- Requires valid Anthropic API key for Claude responses
-- Amazon Q Developer CLI functionality depends on AWS credentials
+- Requires AWS credentials for Amazon Q Developer CLI
 - GitHub token needs appropriate permissions for commenting
 - Analysis quality depends on repository structure and available context
+- Large repositories may take longer to analyze
 
 ## Troubleshooting
 
 ### Common Issues
 
 1. **Action doesn't trigger**: Check that the workflow file is in `.github/workflows/` and the trigger phrase matches
-2. **API errors**: Verify your Anthropic API key is valid and has sufficient credits
-3. **Permission errors**: Ensure the workflow has `pull-requests: write` and `issues: write` permissions
-4. **AWS CLI errors**: Check that AWS credentials are properly configured (optional for basic analysis)
+2. **Permission errors**: Ensure the workflow has `pull-requests: write` and `issues: write` permissions
+3. **AWS CLI errors**: Check that AWS credentials are properly configured for Amazon Q CLI
+4. **MCP errors**: Verify CloudWatch MCP is enabled if using CloudWatch features
 
 ### Debug Information
 

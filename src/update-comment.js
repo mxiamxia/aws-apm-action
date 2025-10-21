@@ -5,7 +5,7 @@ const github = require('@actions/github');
 const fs = require('fs');
 
 /**
- * Update the GitHub comment with the final results from AWS APM investigation and Claude response
+ * Update the GitHub comment with the final results from AWS APM investigation
  */
 async function run() {
   try {
@@ -41,7 +41,7 @@ async function run() {
     let responseContent = '';
 
     if (awsapmSuccess && outputFile && fs.existsSync(outputFile)) {
-      // Read the Claude response from the output file
+      // Read the AI response from the output file
       responseContent = fs.readFileSync(outputFile, 'utf8');
     } else {
       responseContent = '❌ **Investigation Failed**\n\nThe AWS APM investigation could not be completed. Please check the workflow logs for more details.';

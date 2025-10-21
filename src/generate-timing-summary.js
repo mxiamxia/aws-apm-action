@@ -41,7 +41,7 @@ function parseBashTimings(bashTimings) {
 function addMissingStepPlaceholders(tracker) {
   const existingPhases = new Set(tracker.getTimings().map(t => t.phase));
 
-  // Check if investigation step exists (could be "Q CLI Execution" or "CLAUDE CLI Execution")
+  // Check if investigation step exists ("Q CLI Execution")
   const hasInvestigation = Array.from(existingPhases).some(phase =>
     phase.includes('CLI Execution')
   );
@@ -69,7 +69,7 @@ function addMissingStepPlaceholders(tracker) {
     }
   }
 
-  // Note: "Run AWS APM Investigation" is tracked as "Q CLI Execution" or "CLAUDE CLI Execution"
+  // Note: "Run AWS APM Investigation" is tracked as "Q CLI Execution"
   // so we don't add a placeholder for it
 }
 
