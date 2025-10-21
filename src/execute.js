@@ -6,14 +6,14 @@ const fs = require('fs');
 const path = require('path');
 const { AmazonQCLIExecutor } = require('./executors/amazonq-cli-executor');
 const { TimingTracker } = require('./utils/timing');
-// Note: createGeneralPrompt is now called in prepare.js
+// Note: createGeneralPrompt is now called in init.js
 
 /**
- * Main entry point for AWS APM investigation
+ * Main entry point for Application observability for AWS investigation
  */
 async function run() {
   try {
-    console.log('Starting AWS APM investigation...');
+    console.log('Starting Application observability for AWS investigation...');
 
     const context = github.context;
 

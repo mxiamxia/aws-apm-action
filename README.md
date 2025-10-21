@@ -1,6 +1,6 @@
-# AWS APM Action
+# Application observability for AWS Action
 
-A GitHub Action that provides automated Application Performance Monitoring (APM) analysis using Amazon Q Developer CLI. When users mention `@awsapm` in GitHub issues or pull request comments, this action automatically analyzes the repository and provides APM-focused insights and recommendations.
+A GitHub Action that provides automated Application observability for AWS analysis using Amazon Q Developer CLI. When users mention `@awsapm` in GitHub issues or pull request comments, this action automatically analyzes the repository and provides observability-focused insights and recommendations.
 
 ## Features
 
@@ -32,7 +32,7 @@ AWS_REGION                # Default: us-east-1
 Create `.github/workflows/awsapm.yml` in your repository:
 
 ```yaml
-name: AWS APM Analysis
+name: Application observability for AWS Analysis
 
 on:
   issue_comment:
@@ -63,7 +63,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Run AWS APM Analysis
+      - name: Run Application observability for AWS Analysis
         id: awsapm
         uses: ./
         with:
@@ -73,7 +73,7 @@ jobs:
           trigger_phrase: "@awsapm"
           use_sticky_comment: "true"
           prompt: |
-            You are an AWS APM expert assistant.
+            You are an Application observability for AWS expert assistant.
             Please analyze this repository and provide insights on:
             1. Performance monitoring opportunities
             2. APM best practices recommendations
@@ -186,9 +186,9 @@ The action follows this workflow:
 3. Set up environment variables
 4. Test individual scripts:
    ```bash
-   node src/prepare.js
-   node src/run-analysis.js
-   node src/update-comment.js
+   node src/init.js
+   node src/execute.js
+   node src/post-result.js
    ```
 
 ### File Structure
@@ -198,9 +198,10 @@ aws-apm-action/
 ├── action.yml              # GitHub Action definition
 ├── package.json           # Node.js dependencies
 ├── src/
-│   ├── prepare.js          # Trigger detection and setup
-│   ├── run-investigation.js # Amazon Q CLI integration with MCP
-│   ├── update-comment.js   # GitHub comment updates
+│   ├── init.js             # Trigger detection and setup
+│   ├── prompt-builder.js   # Build investigation prompts
+│   ├── execute.js          # Amazon Q CLI integration with MCP
+│   ├── post-result.js      # GitHub comment updates
 │   ├── executors/          # CLI executor classes
 │   ├── config/             # MCP configuration
 │   └── utils/              # Utilities (timing, output cleaning)

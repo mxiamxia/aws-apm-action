@@ -6,11 +6,11 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Prepare the AWS APM action by checking trigger conditions and creating initial tracking comment
+ * Prepare the Application observability for AWS action by checking trigger conditions and creating initial tracking comment
  */
 async function run() {
   try {
-    console.log('Starting AWS APM Action prepare step...');
+    console.log('Starting Application observability for AWS Action prepare step...');
 
     // Get GitHub context
     const context = github.context;
@@ -29,10 +29,10 @@ async function run() {
 
     console.log(`Trigger phrase: ${triggerPhrase}`);
 
-    // Function to check for both "@awsapm" and "@aws-apm" trigger phrases
+    // Function to check for "@awsapm" trigger phrase
     function containsTriggerPhrase(text) {
       if (!text) return false;
-      return text.includes('@awsapm') || text.includes('@aws-apm');
+      return text.includes('@awsapm');
     }
 
     // Check if trigger phrase is present in the event
@@ -159,13 +159,13 @@ async function run() {
     const awsapmBranch = `${branchPrefix}${context.runId}-${timestamp}`;
 
     console.log(`Base branch: ${actualBaseBranch}`);
-    console.log(`AWS APM branch: ${awsapmBranch}`);
+    console.log(`Application observability for AWS branch: ${awsapmBranch}`);
 
     // Create initial tracking comment
     let awsapmCommentId = null;
     if (issueNumber) {
       try {
-        const commentBody = `🔍 **AWS APM Investigation Started**\n\n` +
+        const commentBody = `🔍 **Application observability for AWS Investigation Started**\n\n` +
           `I'm analyzing this ${isPR ? 'PR' : 'issue'} with AI Agent...\n\n` +
           `⏳ Investigation in progress - [View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n` +
           `Branch: \`${awsapmBranch}\`\n\n` +
@@ -215,7 +215,7 @@ async function run() {
     }
 
     // Use the dynamic prompt generation with PR context
-    const { createGeneralPrompt } = require('./create-prompt');
+    const { createGeneralPrompt } = require('./prompt-builder');
     console.log('[DEBUG] Calling createGeneralPrompt...');
 
     try {
@@ -294,7 +294,7 @@ async function checkUserPermissions(octokit, context, commentId, issueNumber) {
       // Post explanatory comment
       if (issueNumber) {
         try {
-          const commentBody = `🚫 **AWS APM Investigation - Access Denied**\n\n` +
+          const commentBody = `🚫 **Application observability for AWS Investigation - Access Denied**\n\n` +
             `Sorry @${actor}, you don't have sufficient permissions to use this bot.\n\n` +
             `**Required:** Write or Admin access to this repository\n` +
             `**Your level:** ${permissionLevel}\n\n` +
