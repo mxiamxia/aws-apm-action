@@ -1,38 +1,47 @@
-# Application observability for AWS Action
+# Application Observability for AWS Action
 
-A GitHub Action that provides automated Application observability for AWS analysis using Amazon Q Developer CLI. When users mention `@awsapm` in GitHub issues or pull request comments, this action automatically analyzes the repository and provides observability-focused insights and recommendations.
+A GitHub Action that brings Agentic AI capabilities directly into GitHub, enabling service issue investigation with live production context, dynamic OpenTelemetry instrumentation, automated APM enablement, and AI-powered bug fixing—all integrated with AWS Application Signals.
 
-## Features
+This action is powered by the [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server) and works with modern AI coding agents like Amazon Q Developer CLI and other morden AI Agents. When you mention `@awsapm` in GitHub issues or pull request comments, it helps you troubleshoot production issues, implement fixes, and enhance observability coverage on demand.
 
-- **Automated Trigger**: Responds to `@awsapm` mentions in issues and PR comments
-- **Amazon Q Developer CLI Integration**: Uses Amazon Q Developer CLI for code analysis
-- **Performance Insights**: Provides specific recommendations for AWS services and monitoring tools
-- **Sticky Comments**: Updates the same comment with results (configurable)
-- **CloudWatch MCP Integration**: Optional CloudWatch metrics, logs, and alarms access
+## ✨ Features
 
-## Setup
+With a one-time setup of Application Observability for AWS Action workflow for your GitHub repository, developers can:
 
-### 1. Repository Secrets
+1. **Troubleshoot Production Issues**: Investigate and fix production problems using live telemetry and SLO data from AWS Application Signals via MCP
+2. **Application Observability Enablement Assistance**: Get help enabling Application Signals with integrated ApplicationSignals MCP and domain knowledge as context
+3. **Dynamic Telemetry Instrumentation**: Add telemetry data dynamically or permanently to help root-cause production problems
+4. **AI-Powered Analysis**: Leverage Amazon Q Developer CLI for intelligent code analysis and recommendations
+5. **Automated Workflows**: Responds to `@awsapm` mentions in issues and PR comments, working around the clock
 
-Add the following secrets to your GitHub repository:
+## 📋 Prerequisites
+
+- AWS credentials with permissions for [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server#configuration)
+- GitHub token with appropriate permissions (automatically provided via `github.token`)
+- Repository write access for users triggering the action
+
+## 🚀 Quick Start
+
+### Setup Steps (One-Time)
+
+#### 1. Add AWS Credentials as Repository Secrets
+
+Navigate to your repository Settings > Secrets and variables > Actions, and add:
 
 ```
-AWS_ACCESS_KEY_ID         # Required: AWS credentials for Amazon Q Developer CLI
-AWS_SECRET_ACCESS_KEY     # Required: AWS credentials for Amazon Q Developer CLI
+AWS_ACCESS_KEY_ID         # Your AWS Access Key
+AWS_SECRET_ACCESS_KEY     # Your AWS Secret Key
+AWS_REGION                # Optional, defaults to us-east-1
 ```
 
-### 2. Repository Variables (Optional)
+These credentials will be used to set up Amazon Q Developer CLI and the APM MCP server.
 
-```
-AWS_REGION                # Default: us-east-1
-```
-
-### 3. Add the Workflow
+#### 2. Add Workflow Configuration
 
 Create `.github/workflows/awsapm.yml` in your repository:
 
 ```yaml
-name: Application observability for AWS Analysis
+name: Applicaiton Observability
 
 on:
   issue_comment:
@@ -41,94 +50,67 @@ on:
     types: [created]
   issues:
     types: [opened, assigned]
-  pull_request_review:
-    types: [submitted]
 
 jobs:
-  awsapm-analysis:
-    if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@awsapm')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@awsapm')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@awsapm')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@awsapm') || contains(github.event.issue.title, '@awsapm')))
+  apm-analysis:
+    if: contains(github.event.comment.body, '@awsapm') || contains(github.event.issue.body, '@awsapm')
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pull-requests: write
-      issues: write
-      id-token: write
+      contents: write        # To create branches for PRs
+      pull-requests: write   # To post comments on PRs
+      issues: write          # To post comments on issues
+      checks: write          # To create check runs with detailed results
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
-      - name: Run Application observability for AWS Analysis
-        id: awsapm
-        uses: ./
+      - name: Run AWS APM Agent
+        uses: aws-actions/apm-action@v1
         with:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
-          trigger_phrase: "@awsapm"
-          use_sticky_comment: "true"
-          prompt: |
-            You are an Application observability for AWS expert assistant.
-            Please analyze this repository and provide insights on:
-            1. Performance monitoring opportunities
-            2. APM best practices recommendations
-            3. AWS services that could improve observability
-            4. Specific code patterns that may impact performance
+          aws_region: ${{ secrets.AWS_REGION }}
 ```
 
-## Usage
-
-### Basic Usage
+#### 3. Start Using the Action
 
 Simply mention `@awsapm` in any issue or pull request comment:
 
 ```
-@awsapm Can you analyze this repository for performance monitoring opportunities?
+Hi @awsapm, can you check why my service is having SLO breaching?
+
+Hi @awsapm, can you enable Application Signals for lambda-audit-service? Post a PR for the required changes.
+
+Hi @awsapm, I want to know how many GenAI tokens have been used by my services?
 ```
 
-### Custom Prompts
-
-You can provide specific requests:
-
-```
-@awsapm Please review the API endpoints in this PR and suggest CloudWatch metrics we should track.
-```
-
-```
-@awsapm What AWS services would help us monitor this microservice architecture?
-```
-
-### Analysis Types
-
-The action provides insights on:
-
-- **Performance Monitoring**: CloudWatch, X-Ray, and other AWS monitoring services
-- **Error Tracking**: Error detection and alerting strategies
-- **Distributed Tracing**: Recommendations for tracing in microservices
-- **Metrics and Logging**: Key performance indicators and log aggregation
-- **Cost Optimization**: Performance improvements that can reduce costs
-- **Security Monitoring**: Performance-related security recommendations
-
-## Configuration Options
+## ⚙️ Configuration
 
 ### Inputs
 
-| Input | Description | Default | Required |
-|-------|-------------|---------|----------|
-| `trigger_phrase` | Phrase that triggers the action | `@awsapm` | No |
-| `aws_access_key_id` | AWS Access Key for Q Developer CLI | - | Yes |
-| `aws_secret_access_key` | AWS Secret Key for Q Developer CLI | - | Yes |
-| `aws_region` | AWS Region for Q Developer CLI | `us-east-1` | No |
-| `enable_cloudwatch_mcp` | Enable CloudWatch MCP tools | `false` | No |
-| `github_token` | GitHub token with repo permissions | `${{ github.token }}` | No |
-| `use_sticky_comment` | Update the same comment with results | `false` | No |
-| `branch_prefix` | Prefix for created branches | `awsapm/` | No |
-| `prompt` | Custom instructions for analysis | - | No |
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `bot_name` | The bot name to respond to in comments | No | `@awsapm` |
+| `target_branch` | The branch to merge PRs into | No | Repository default |
+| `branch_prefix` | Prefix for created branches | No | `awsapm/` |
+| `github_token` | GitHub token for API calls | No | `${{ github.token }}` |
+| `aws_access_key_id` | AWS Access Key for Q Developer CLI & MCP | Yes | - |
+| `aws_secret_access_key` | AWS Secret Key for Q Developer CLI & MCP | Yes | - |
+| `aws_session_token` | AWS session token for temporary credentials | No | - |
+| `aws_region` | AWS Region | No | `us-east-1` |
+| `enable_cloudwatch_mcp` | Enable Application Signals MCP integration | No | `false` |
+| `custom_prompt` | Custom instructions for the AI agent | No | - |
+| `tracing_mode` | Show agent reasoning steps and tool calls | No | `true` |
+
+### Required Permissions
+
+The action requires:
+
+1. **AWS Permissions**: Same as [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server#configuration)
+2. **GitHub Permissions**:
+   - `contents: write` - To create branches for PRs
+   - `pull-requests: write` - To post comments on PRs
+   - `checks: write` - To create check runs with detailed results
 
 ### Outputs
 
@@ -138,114 +120,76 @@ The action provides insights on:
 | `branch_name` | Branch created for this execution |
 | `github_token` | GitHub token used by the action |
 
-## Examples
+## 📖 Documentation
 
-### Repository Analysis
+Comprehensive documentation coming soon! This includes:
 
-When you mention `@awsapm` in an issue:
+- Detailed configuration guide
+- Authentication setup (GitHub tokens and Apps)
+- MCP integration guide
+- Troubleshooting common issues
+- Architecture overview
 
-```
-@awsapm Please analyze our Node.js application for APM best practices.
-```
+## 🏗️ Architecture
 
-**Expected Response:**
-- Performance monitoring recommendations
-- Suggested AWS services (CloudWatch, X-Ray, etc.)
-- Code patterns that may impact performance
-- Specific metrics to track
+This GitHub Action enables a versatile APM AI Agent within your repository that:
 
-### Pull Request Review
+1. **Initialization** - Detects `@awsapm` mentions and validates permissions
+2. **Context Gathering** - Collects GitHub context (issues, PRs, comments, diffs) and AWS Application Signals data
+3. **AI Agent Execution** - Runs Amazon Q Developer CLI (or Claude Code/Codex) integrated with AWS Application Signals MCP
+4. **Action & Response** - Posts analysis, creates branches, submits PRs, or provides troubleshooting guidance
 
-In a PR comment:
+### Integration with AWS Application Signals MCP
 
-```
-@awsapm Review the database changes in this PR and suggest monitoring strategies.
-```
+The action leverages the [AWS Application Signals MCP server](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server) to provide:
+- Live telemetry and SLO data from production services
+- Service topology and dependency mapping
+- Metrics, traces, and logs correlation
+- GenAI token usage tracking and cost analysis
 
-**Expected Response:**
-- Database performance monitoring recommendations
-- CloudWatch metrics for database operations
-- Alerting strategies for database issues
-- Performance optimization suggestions
+## 🤝 Contributing
 
-## Architecture
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
-The action follows this workflow:
+## 📄 License
 
-1. **Trigger Detection**: Monitors for `@awsapm` mentions in issues/PRs
-2. **Analysis Preparation**: Sets up environment and extracts context
-3. **Amazon Q CLI Execution**: Runs code analysis using Amazon Q Developer CLI with MCP tools
-4. **Response Posting**: Updates GitHub comments with actionable insights
+This project is licensed under the MIT-0 License - see the [LICENSE](LICENSE) file for details.
 
-## Development
+## 🔒 Security
 
-### Local Development
+See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for information on reporting security issues.
 
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Set up environment variables
-4. Test individual scripts:
-   ```bash
-   node src/init.js
-   node src/execute.js
-   node src/post-result.js
-   ```
-
-### File Structure
-
-```
-aws-apm-action/
-├── action.yml              # GitHub Action definition
-├── package.json           # Node.js dependencies
-├── src/
-│   ├── init.js             # Trigger detection and setup
-│   ├── prompt-builder.js   # Build investigation prompts
-│   ├── execute.js          # Amazon Q CLI integration with MCP
-│   ├── post-result.js      # GitHub comment updates
-│   ├── executors/          # CLI executor classes
-│   ├── config/             # MCP configuration
-│   └── utils/              # Utilities (timing, output cleaning)
-├── .github/
-│   └── workflows/
-│       └── awsapm.yml      # Example workflow
-└── README.md               # This file
-```
-
-## Limitations
-
-- Requires AWS credentials for Amazon Q Developer CLI
-- GitHub token needs appropriate permissions for commenting
-- Analysis quality depends on repository structure and available context
-- Large repositories may take longer to analyze
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Action doesn't trigger**: Check that the workflow file is in `.github/workflows/` and the trigger phrase matches
-2. **Permission errors**: Ensure the workflow has `pull-requests: write` and `issues: write` permissions
-3. **AWS CLI errors**: Check that AWS credentials are properly configured for Amazon Q CLI
-4. **MCP errors**: Verify CloudWatch MCP is enabled if using CloudWatch features
-
-### Debug Information
-
-Check the GitHub Actions logs for detailed error messages and execution steps.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details.
-
-## Support
+## 📞 Support
 
 For issues and questions:
-- Create a GitHub issue
-- Check the troubleshooting section
-- Review the action logs in your workflow runs# aws-apm-action
+- Create a [GitHub issue](https://github.com/aws-actions/application-observability-for-aws/issues)
+- Check the troubleshooting documentation (coming soon)
+- Review the action logs in your workflow runs
+
+## 🗺️ Roadmap
+
+### Current Development
+
+**Phase 1** (Current): Repository skeleton and documentation
+**Phase 2**: Core utilities and configuration
+**Phase 3**: CLI executors
+**Phase 4**: Prompt builder
+**Phase 5**: Core action logic
+**Phase 6**: Action orchestration
+**Phase 7**: Examples and comprehensive documentation
+**Phase 8**: Testing and CI/CD
+**Phase 9**: Release preparation
+
+### Future Enhancements
+
+After completing the GitHub Action, we plan to introduce a **GitHub App** that:
+- Monitors all relevant GitHub events and backend health signals
+- Connects to the APM backend automatically
+- Takes proactive actions based on service health
+- Provides a comprehensive option that complements (not replaces) the GitHub Action
+
+This will give customers flexibility to choose the approach that best fits their workflow.
+
+---
+
+**Status**: 🚧 Under active development
