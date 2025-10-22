@@ -5,84 +5,50 @@ branding:
   color: "orange"
 
 inputs:
-  trigger_phrase:
-    description: "The trigger phrase to look for in comments or issue body"
+  bot_name:
+    description: "The bot name to respond to in comments (e.g., @awsapm)"
     required: false
     default: "@awsapm"
-  base_branch:
-    description: "The branch to use as the base/source when creating new branches (defaults to repository default branch)"
+  target_branch:
+    description: "The branch to merge PRs into (defaults to repository default branch)"
     required: false
   branch_prefix:
-    description: "The prefix to use for Application observability for AWS branches (defaults to 'awsapm/', use 'awsapm-' for dash format)"
+    description: "Prefix for branches created by the action (e.g., 'awsapm/', 'awsapm-')"
     required: false
     default: "awsapm/"
-  allowed_bots:
-    description: "Comma-separated list of allowed bot usernames, or '*' to allow all bots. Empty string (default) allows no bots."
-    required: false
-    default: ""
   allowed_non_write_users:
-    description: "Comma-separated list of usernames to allow without write permissions, or '*' to allow all users. Only works when github_token input is provided. WARNING: Use with extreme caution - this bypasses security checks and should only be used for workflows with very limited permissions (e.g., issue labeling)."
+    description: "Comma-separated list of GitHub usernames allowed to use this action even without write access. Empty string (default) means only users with write/admin access can use it."
     required: false
     default: ""
-
-  # CLI configuration
-  prompt:
-    description: "Instructions for Amazon Q Developer CLI. Can be a direct prompt or custom template."
-    required: false
-    default: ""
-
-  # Auth configuration
   github_token:
-    description: "GitHub token with repo and pull request permissions. If not provided, uses default workflow token (comments appear as 'github-actions bot'). To use custom bot name, provide token from desired bot account."
+    description: "GitHub token to use for API calls. If not provided, uses the default GitHub Actions token."
     required: false
-  github_app_id:
-    description: "GitHub App ID for custom bot authentication. When provided with github_app_private_key, generates GitHub App installation token for custom bot name."
-    required: false
-  github_app_private_key:
-    description: "GitHub App private key (PEM format). Used with github_app_id to authenticate as custom GitHub App bot."
-    required: false
-
-  # AWS configuration for Amazon Q Developer CLI
+    default: ${{ github.token }}
   aws_access_key_id:
-    description: "AWS Access Key ID for Amazon Q Developer CLI (required for full functionality)"
+    description: "AWS access key ID for Amazon Q Developer CLI and Application Signals MCP"
     required: true
   aws_secret_access_key:
-    description: "AWS Secret Access Key for Amazon Q Developer CLI (required for full functionality)"
+    description: "AWS secret access key for Amazon Q Developer CLI and Application Signals MCP"
     required: true
   aws_session_token:
-    description: "AWS Session Token for Amazon Q Developer CLI (optional for temporary credentials)"
+    description: "AWS session token (optional, for temporary credentials)"
     required: false
   aws_region:
-    description: "AWS Region for Amazon Q Developer CLI"
+    description: "AWS region for Amazon Q Developer CLI and Application Signals MCP"
     required: false
     default: "us-east-1"
-
-  # MCP configuration
   enable_cloudwatch_mcp:
-    description: "Enable CloudWatch MCP server for monitoring and observability tools (metrics, logs, alarms, dashboards, insights)"
+    description: "Enable CloudWatch Application Signals MCP server integration for live telemetry access"
     required: false
     default: "false"
-
-  additional_permissions:
-    description: "Additional GitHub permissions to request (e.g., 'actions: read')"
+  custom_prompt:
+    description: "Custom instructions to guide the AI agent's analysis and actions"
     required: false
     default: ""
-  use_sticky_comment:
-    description: "Use just one comment to deliver issue/PR comments"
+  tracing_mode:
+    description: "Enable tracing to show AI agent reasoning steps and MCP tool calls in workflow summary"
     required: false
-    default: "false"
-  use_commit_signing:
-    description: "Enable commit signing using GitHub's commit signature verification"
-    required: false
-    default: "false"
-  bot_id:
-    description: "GitHub user ID to use for git operations (defaults to github-actions bot ID)"
-    required: false
-    default: "41898282"
-  bot_name:
-    description: "GitHub username to use for git operations (defaults to github-actions bot name)"
-    required: false
-    default: "github-actions[bot]"
+    default: "true"
 
 outputs:
   execution_file:
@@ -121,22 +87,15 @@ runs:
       run: |
         node ${GITHUB_ACTION_PATH}/src/init.js
       env:
-        PROMPT: ${{ inputs.prompt }}
-        TRIGGER_PHRASE: ${{ inputs.trigger_phrase }}
-        BASE_BRANCH: ${{ inputs.base_branch }}
+        CUSTOM_PROMPT: ${{ inputs.custom_prompt }}
+        BOT_NAME: ${{ inputs.bot_name }}
+        TARGET_BRANCH: ${{ inputs.target_branch }}
         BRANCH_PREFIX: ${{ inputs.branch_prefix }}
         OVERRIDE_GITHUB_TOKEN: ${{ inputs.github_token }}
-        ALLOWED_BOTS: ${{ inputs.allowed_bots }}
         ALLOWED_NON_WRITE_USERS: ${{ inputs.allowed_non_write_users }}
         GITHUB_RUN_ID: ${{ github.run_id }}
-        USE_STICKY_COMMENT: ${{ inputs.use_sticky_comment }}
         DEFAULT_WORKFLOW_TOKEN: ${{ github.token }}
-        USE_COMMIT_SIGNING: ${{ inputs.use_commit_signing }}
-        BOT_ID: ${{ inputs.bot_id }}
-        BOT_NAME: ${{ inputs.bot_name }}
-        ADDITIONAL_PERMISSIONS: ${{ inputs.additional_permissions }}
-        GITHUB_APP_ID: ${{ inputs.github_app_id }}
-        GITHUB_APP_PRIVATE_KEY: ${{ inputs.github_app_private_key }}
+        TRACING_MODE: ${{ inputs.tracing_mode }}
 
     - name: Install CLI Tools
       if: steps.prepare.outputs.contains_trigger == 'true'
@@ -209,14 +168,11 @@ runs:
         TRIGGER_COMMENT_ID: ${{ github.event.comment.id }}
         AWSAPM_BRANCH: ${{ steps.prepare.outputs.AWSAPM_BRANCH }}
         IS_PR: ${{ github.event.issue.pull_request != null || github.event_name == 'pull_request_review_comment' }}
-        BASE_BRANCH: ${{ steps.prepare.outputs.BASE_BRANCH }}
+        TARGET_BRANCH: ${{ steps.prepare.outputs.TARGET_BRANCH }}
         AWSAPM_SUCCESS: ${{ steps.aws-apm-cli.outputs.conclusion == 'success' }}
         OUTPUT_FILE: ${{ steps.aws-apm-cli.outputs.execution_file || '' }}
         TRIGGER_USERNAME: ${{ github.event.comment.user.login || github.event.issue.user.login || github.event.pull_request.user.login || github.event.sender.login || github.triggering_actor || github.actor || '' }}
         PREPARE_SUCCESS: ${{ steps.prepare.outcome == 'success' }}
-        USE_STICKY_COMMENT: ${{ inputs.use_sticky_comment }}
-        BOT_ID: ${{ inputs.bot_id }}
-        BOT_NAME: ${{ inputs.bot_name }}
 
     - name: Generate Timing Summary
       if: steps.prepare.outputs.contains_trigger == 'true' && always()

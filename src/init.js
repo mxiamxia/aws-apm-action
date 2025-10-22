@@ -20,14 +20,14 @@ async function run() {
     console.log(`Repository: ${context.repo.owner}/${context.repo.repo}`);
 
     // Get inputs
-    const triggerPhrase = process.env.TRIGGER_PHRASE || '@awsapm';
+    const botName = process.env.BOT_NAME || '@awsapm';
     const branchPrefix = process.env.BRANCH_PREFIX || 'awsapm/';
-    const baseBranch = process.env.BASE_BRANCH || '';
-    const allowedBots = process.env.ALLOWED_BOTS || '';
+    const targetBranch = process.env.TARGET_BRANCH || '';
     const allowedNonWriteUsers = process.env.ALLOWED_NON_WRITE_USERS || '';
-    const prompt = process.env.PROMPT || '';
+    const customPrompt = process.env.CUSTOM_PROMPT || '';
+    const tracingMode = process.env.TRACING_MODE || 'true';
 
-    console.log(`Trigger phrase: ${triggerPhrase}`);
+    console.log(`Bot name (trigger): ${botName}`);
 
     // Function to check for "@awsapm" trigger phrase
     function containsTriggerPhrase(text) {
@@ -85,18 +85,6 @@ async function run() {
     let githubToken = process.env.OVERRIDE_GITHUB_TOKEN;
     let tokenSource = 'custom';
 
-    // Check for GitHub App authentication
-    if (!githubToken && process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY) {
-      console.log('[INFO] GitHub App credentials detected, generating installation token...');
-      try {
-        githubToken = await generateGitHubAppToken();
-        tokenSource = 'github_app';
-      } catch (error) {
-        console.error('Failed to generate GitHub App token:', error.message);
-        console.log('Falling back to default workflow token...');
-      }
-    }
-
     if (!githubToken) {
       githubToken = process.env.DEFAULT_WORKFLOW_TOKEN;
       tokenSource = 'default';
@@ -145,20 +133,20 @@ async function run() {
     }
 
     // Get repository default branch if not specified
-    let actualBaseBranch = baseBranch;
-    if (!actualBaseBranch) {
+    let actualTargetBranch = targetBranch;
+    if (!actualTargetBranch) {
       const repo = await octokit.rest.repos.get({
         owner: context.repo.owner,
         repo: context.repo.repo,
       });
-      actualBaseBranch = repo.data.default_branch;
+      actualTargetBranch = repo.data.default_branch;
     }
 
     // Create branch name for this execution
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const awsapmBranch = `${branchPrefix}${context.runId}-${timestamp}`;
 
-    console.log(`Base branch: ${actualBaseBranch}`);
+    console.log(`Target branch: ${actualTargetBranch}`);
     console.log(`Application observability for AWS branch: ${awsapmBranch}`);
 
     // Create initial tracking comment
@@ -219,7 +207,7 @@ async function run() {
     console.log('[DEBUG] Calling createGeneralPrompt...');
 
     try {
-      const finalPrompt = await createGeneralPrompt(context, repoInfo, prompt, githubToken);
+      const finalPrompt = await createGeneralPrompt(context, repoInfo, customPrompt, githubToken);
       console.log(`[DEBUG] Generated prompt length: ${finalPrompt.length} characters`);
 
       fs.writeFileSync(promptFile, finalPrompt);
@@ -230,8 +218,8 @@ async function run() {
 
       // Fallback to basic prompt if dynamic generation fails
       let fallbackPrompt = '';
-      if (prompt) {
-        fallbackPrompt = prompt + '\n\n';
+      if (customPrompt) {
+        fallbackPrompt = customPrompt + '\n\n';
       }
       fallbackPrompt += `Please analyze this ${isPR ? 'pull request' : 'issue'} using AI Agent for insights.\n\n`;
       fallbackPrompt += `Original request: ${triggerText}\n\n`;
@@ -245,7 +233,7 @@ async function run() {
     console.log(`[DEBUG] Setting GITHUB_TOKEN output: ${githubToken ? 'Token available' : 'No token'}`);
     core.setOutput('GITHUB_TOKEN', githubToken);
     core.setOutput('AWSAPM_BRANCH', awsapmBranch);
-    core.setOutput('BASE_BRANCH', actualBaseBranch);
+    core.setOutput('TARGET_BRANCH', actualTargetBranch);
     core.setOutput('awsapm_comment_id', awsapmCommentId);
     core.setOutput('issue_number', issueNumber);
     core.setOutput('is_pr', isPR);
@@ -356,90 +344,6 @@ async function getBasicRepoInfo(context, githubToken) {
       fileCount: 'Unknown',
       topics: []
     };
-  }
-}
-
-/**
- * Generate GitHub App installation token using App ID and private key
- */
-async function generateGitHubAppToken() {
-  const appId = process.env.GITHUB_APP_ID;
-  const privateKey = process.env.GITHUB_APP_PRIVATE_KEY;
-  const context = github.context;
-
-  console.log(`[DEBUG] GitHub App setup for repository: ${context.repo.owner}/${context.repo.repo}`);
-  console.log(`[DEBUG] GitHub App ID: ${appId ? 'provided' : 'missing'}`);
-  console.log(`[DEBUG] Private Key: ${privateKey ? 'provided' : 'missing'}`);
-
-  if (!appId || !privateKey) {
-    throw new Error('GitHub App ID and private key are required');
-  }
-
-  try {
-    // Import jsonwebtoken for JWT creation
-    const jwt = require('jsonwebtoken');
-
-    // Create JWT for GitHub App authentication
-    const now = Math.floor(Date.now() / 1000);
-    const payload = {
-      iat: now - 60, // Issued 1 minute in the past to allow for clock skew
-      exp: now + (10 * 60), // Expires in 10 minutes
-      iss: appId
-    };
-
-    console.log(`[DEBUG] Creating JWT token for App ID: ${appId}`);
-    const jwtToken = jwt.sign(payload, privateKey, { algorithm: 'RS256' });
-
-    // Get installation ID for the current repository
-    const appOctokit = github.getOctokit(jwtToken);
-
-    console.log(`[DEBUG] Checking if GitHub App is installed on ${context.repo.owner}/${context.repo.repo}`);
-
-    // First, let's check what installations this app has access to
-    try {
-      const { data: installations } = await appOctokit.rest.apps.listInstallations();
-      console.log(`[DEBUG] GitHub App has ${installations.length} installation(s)`);
-
-      for (const inst of installations) {
-        console.log(`[DEBUG] Installation ${inst.id}: account=${inst.account.login}, type=${inst.account.type}`);
-      }
-    } catch (listError) {
-      console.warn(`[DEBUG] Could not list installations: ${listError.message}`);
-    }
-
-    // Now try to get the specific repo installation
-    const { data: installation } = await appOctokit.rest.apps.getRepoInstallation({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-    });
-
-    console.log(`[DEBUG] Found installation ID: ${installation.id} for ${context.repo.owner}/${context.repo.repo}`);
-
-    // Generate installation access token
-    const { data: installationToken } = await appOctokit.rest.apps.createInstallationAccessToken({
-      installation_id: installation.id,
-    });
-
-    console.log(`[INFO] Successfully generated GitHub App installation token for ${context.repo.owner}/${context.repo.repo}`);
-    return installationToken.token;
-
-  } catch (error) {
-    console.error('GitHub App token generation error:', error.message);
-    console.error(`[DEBUG] Error details:`, error.response?.data || 'No additional details');
-
-    // Provide helpful troubleshooting information
-    if (error.message.includes('Not Found')) {
-      console.error(`[TROUBLESHOOTING] GitHub App is not installed on ${context.repo.owner}/${context.repo.repo}`);
-      console.error(`[TROUBLESHOOTING] Please:`);
-      console.error(`[TROUBLESHOOTING] 1. Go to your GitHub App settings`);
-      console.error(`[TROUBLESHOOTING] 2. Click "Install App" and select the repository`);
-      console.error(`[TROUBLESHOOTING] 3. Or check if the App ID (${appId}) is correct`);
-    } else if (error.message.includes('Bad credentials')) {
-      console.error(`[TROUBLESHOOTING] Invalid private key or App ID`);
-      console.error(`[TROUBLESHOOTING] Please verify the private key matches App ID: ${appId}`);
-    }
-
-    throw new Error(`Failed to generate GitHub App token: ${error.message}`);
   }
 }
 

@@ -22,7 +22,8 @@ async function run() {
     const outputFile = process.env.OUTPUT_FILE;
     const triggerUsername = process.env.TRIGGER_USERNAME;
     const prepareSuccess = process.env.PREPARE_SUCCESS === 'true';
-    const useStickyComment = process.env.USE_STICKY_COMMENT === 'true';
+    // Always use sticky comment behavior (removed as config, now always enabled)
+    const useStickyComment = true;
     const issueNumber = process.env.PR_NUMBER;
     const isPR = process.env.IS_PR === 'true';
 

@@ -36,8 +36,6 @@ jobs:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
-          github_app_id: ${{ secrets.AWS_APM_GITHUB_APP_ID }}  # For custom bot name
-          github_app_private_key: ${{ secrets.AWS_APM_GITHUB_APP_PRIVATE_KEY }}  # For custom bot name
-          trigger_phrase: "@awsapm"
-          use_sticky_comment: "true"
-          enable_cloudwatch_mcp: "true"  # Enable CloudWatch MCP tools
+          bot_name: "@awsapm"
+          enable_cloudwatch_mcp: "true"  # Enable CloudWatch Application Signals MCP
+          tracing_mode: "true"  # Show AI agent reasoning steps
