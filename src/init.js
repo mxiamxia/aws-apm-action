@@ -41,6 +41,8 @@ async function run() {
     let commentId = null;
     let issueNumber = null;
     let isPR = false;
+    let isEditEvent = false;
+    let triggerUsername = '';
 
     if (context.eventName === 'issue_comment') {
       const comment = payload.comment;
@@ -50,6 +52,8 @@ async function run() {
         commentId = comment.id;
         issueNumber = payload.issue.number;
         isPR = !!payload.issue.pull_request;
+        isEditEvent = payload.action === 'edited';
+        triggerUsername = comment.user?.login || 'unknown';
       }
     } else if (context.eventName === 'pull_request_review_comment') {
       const comment = payload.comment;
@@ -59,6 +63,8 @@ async function run() {
         commentId = comment.id;
         issueNumber = payload.pull_request.number;
         isPR = true;
+        isEditEvent = payload.action === 'edited';
+        triggerUsername = comment.user?.login || 'unknown';
       }
     } else if (context.eventName === 'issues') {
       const issue = payload.issue;
@@ -68,10 +74,15 @@ async function run() {
         triggerText = issue.body || issue.title;
         issueNumber = issue.number;
         isPR = false;
+        isEditEvent = payload.action === 'edited';
+        triggerUsername = issue.user?.login || 'unknown';
       }
     }
 
     console.log(`Contains trigger: ${containsTrigger}`);
+    if (isEditEvent) {
+      console.log(`⚡ Edit event detected - will reuse existing result comment if found`);
+    }
 
     // Set output for action.yml to check
     core.setOutput('contains_trigger', containsTrigger.toString());
@@ -97,11 +108,11 @@ async function run() {
     // Provide helpful information about bot name behavior
     if (tokenSource === 'default') {
       console.log('[INFO] Using default GitHub token - comments will appear as "github-actions bot"');
+    } else if (tokenSource === 'custom') {
+      console.log('[INFO] Using GitHub App token - comments will appear as your custom bot');
       console.log('[INFO] To use a custom bot name, provide either:');
       console.log('[INFO]   1. github_token input with a token from your desired bot account');
       console.log('[INFO]   2. github_app_id + github_app_private_key for GitHub App authentication');
-    } else if (tokenSource === 'github_app') {
-      console.log('[INFO] Using GitHub App token - comments will appear as your custom bot');
     } else {
       console.log('[INFO] Using custom GitHub token - bot name depends on token source');
     }
@@ -149,27 +160,75 @@ async function run() {
     console.log(`Target branch: ${actualTargetBranch}`);
     console.log(`Application observability for AWS branch: ${awsapmBranch}`);
 
-    // Create initial tracking comment
+    // Create or reuse tracking comment
     let awsapmCommentId = null;
     if (issueNumber) {
       try {
-        const commentBody = `🔍 **Application observability for AWS Investigation Started**\n\n` +
-          `I'm analyzing this ${isPR ? 'PR' : 'issue'} with AI Agent...\n\n` +
-          `⏳ Investigation in progress - [View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n` +
-          `Branch: \`${awsapmBranch}\`\n\n` +
-          `*Powered by AI Agent*`;
+        // If this is an edit event, search for existing result comment to reuse
+        if (isEditEvent) {
+          console.log('🔍 Searching for existing result comment to reuse...');
+          const { data: comments } = await octokit.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: issueNumber,
+            per_page: 100,
+          });
 
-        const comment = await octokit.rest.issues.createComment({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          issue_number: issueNumber,
-          body: commentBody,
-        });
+          // Find the most recent result comment (contains our markers)
+          const existingComment = comments
+            .reverse() // Start from most recent
+            .find(c =>
+              c.body && (
+                c.body.includes('Application observability for AWS Investigation Complete') ||
+                c.body.includes('Application observability for AWS Investigation Failed') ||
+                c.body.includes('Application observability for AWS Investigation Started')
+              )
+            );
 
-        awsapmCommentId = comment.data.id;
-        console.log(`Created tracking comment: ${awsapmCommentId}`);
+          if (existingComment) {
+            awsapmCommentId = existingComment.id;
+            console.log(`✅ Found existing result comment to reuse: ${awsapmCommentId}`);
+
+            // Update it to show re-investigating status
+            const reinvestigateBody = `🔄 **Re-investigating...**\n\n` +
+              `Request updated by @${triggerUsername}.\n\n` +
+              `Updated request:\n> ${triggerText.substring(0, 300)}${triggerText.length > 300 ? '...' : ''}\n\n` +
+              `⏳ Investigation in progress - [View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n` +
+              `Branch: \`${awsapmBranch}\`\n\n` +
+              `*Powered by AI Agent*`;
+
+            await octokit.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: awsapmCommentId,
+              body: reinvestigateBody,
+            });
+            console.log('✅ Updated existing comment to show re-investigating status');
+          } else {
+            console.log('ℹ️  No existing result comment found, will create new one');
+          }
+        }
+
+        // Create new tracking comment if not reusing
+        if (!awsapmCommentId) {
+          const commentBody = `🔍 **Application observability for AWS Investigation Started**\n\n` +
+            `I'm analyzing this ${isPR ? 'PR' : 'issue'} with AI Agent...\n\n` +
+            `⏳ Investigation in progress - [View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n` +
+            `Branch: \`${awsapmBranch}\`\n\n` +
+            `*Powered by AI Agent*`;
+
+          const comment = await octokit.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: issueNumber,
+            body: commentBody,
+          });
+
+          awsapmCommentId = comment.data.id;
+          console.log(`Created new tracking comment: ${awsapmCommentId}`);
+        }
       } catch (error) {
-        console.error('Failed to create tracking comment:', error.message);
+        console.error('Failed to create/update tracking comment:', error.message);
       }
     }
 
@@ -257,12 +316,6 @@ async function checkUserPermissions(octokit, context, commentId, issueNumber) {
   console.log(`Checking permissions for actor: ${actor}`);
 
   try {
-    // Check if the actor is a GitHub App (bot user)
-    if (actor.endsWith('[bot]')) {
-      console.log(`Actor is a GitHub App: ${actor}`);
-      return true;
-    }
-
     // Check permissions directly using the permission endpoint
     const response = await octokit.rest.repos.getCollaboratorPermissionLevel({
       owner: context.repo.owner,
@@ -271,7 +324,6 @@ async function checkUserPermissions(octokit, context, commentId, issueNumber) {
     });
 
     const permissionLevel = response.data.permission;
-    console.log(`Permission level retrieved: ${permissionLevel}`);
 
     if (permissionLevel === 'admin' || permissionLevel === 'write') {
       console.log(`Actor has write access: ${permissionLevel}`);
