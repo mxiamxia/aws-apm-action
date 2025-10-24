@@ -1,0 +1,83 @@
+name: "Application observability for AWS Action v0.1"
+description: "GitHub automation with Amazon Q Developer CLI. Auto-detects @awsapm mentions in PR comments and issues."
+branding:
+  icon: "at-sign"
+  color: "orange"
+
+inputs:
+  bot_name:
+    description: "The bot name to respond to in comments (e.g., @awsapm)"
+    required: false
+    default: "@awsapm"
+  target_branch:
+    description: "The branch to merge PRs into (defaults to repository default branch)"
+    required: false
+  branch_prefix:
+    description: "Prefix for branches created by the action (e.g., 'awsapm/', 'awsapm-')"
+    required: false
+    default: "awsapm/"
+  allowed_non_write_users:
+    description: "Comma-separated list of GitHub usernames allowed to use this action even without write access. Empty string (default) means only users with write/admin access can use it."
+    required: false
+    default: ""
+  github_token:
+    description: "GitHub token to use for API calls. If not provided, uses the default GitHub Actions token."
+    required: false
+    default: ${{ github.token }}
+  aws_access_key_id:
+    description: "AWS access key ID for Amazon Q Developer CLI and Application Signals MCP"
+    required: true
+  aws_secret_access_key:
+    description: "AWS secret access key for Amazon Q Developer CLI and Application Signals MCP"
+    required: true
+  aws_session_token:
+    description: "AWS session token (optional, for temporary credentials)"
+    required: false
+  aws_region:
+    description: "AWS region for Amazon Q Developer CLI and Application Signals MCP"
+    required: false
+    default: "us-east-1"
+  enable_cloudwatch_mcp:
+    description: "Enable CloudWatch Application Signals MCP server integration for live telemetry access"
+    required: false
+    default: "false"
+  custom_prompt:
+    description: "Custom instructions to guide the AI agent's analysis and actions"
+    required: false
+    default: ""
+  tracing_mode:
+    description: "Enable tracing to show AI agent reasoning steps and MCP tool calls in workflow summary"
+    required: false
+    default: "true"
+
+outputs:
+  execution_file:
+    description: "Path to the Amazon Q Developer CLI execution output file"
+    value: ${{ steps.placeholder.outputs.execution_file }}
+  branch_name:
+    description: "The branch created by Application observability for AWS Action for this execution"
+    value: ${{ steps.placeholder.outputs.branch_name }}
+  github_token:
+    description: "The GitHub token used by the action"
+    value: ${{ steps.placeholder.outputs.github_token }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Placeholder - Initialization
+      id: placeholder
+      shell: bash
+      run: |
+        echo "🚧 Phase 1: Skeleton only - implementation coming in future PRs"
+        echo "This action will:"
+        echo "  1. Detect @awsapm trigger in comments"
+        echo "  2. Build comprehensive prompt with GitHub context"
+        echo "  3. Execute Amazon Q Developer CLI analysis"
+        echo "  4. Post results back to GitHub"
+        echo ""
+        echo "::notice::Action skeleton created - awaiting Phase 2+ implementation"
+
+        # Set dummy outputs for skeleton
+        echo "execution_file=/tmp/placeholder" >> $GITHUB_OUTPUT
+        echo "branch_name=awsapm/placeholder" >> $GITHUB_OUTPUT
+        echo "github_token=placeholder" >> $GITHUB_OUTPUT
