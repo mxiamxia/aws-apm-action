@@ -1,4 +1,5 @@
 // Dynamic general prompt creation
+const core = require('@actions/core');
 
 /**
  * Get the trigger time from the GitHub context for security filtering
@@ -49,18 +50,15 @@ function filterCommentsByTriggerTime(comments, triggerTime) {
 async function fetchGitHubConversation(context, githubToken) {
   try {
     if (!githubToken) {
-      console.warn('No GitHub token provided for fetching comments');
+      core.warning('No GitHub token provided for fetching comments');
       return [];
     }
 
     const github = require('@actions/github');
     const octokit = github.getOctokit(githubToken);
 
-    console.log(`[DEBUG] Fetching conversation comments for ${context.eventName}`);
-
     // Get trigger time for security filtering
     const triggerTime = getEventTriggerTime(context);
-    console.log(`[DEBUG] Trigger time for security filtering: ${triggerTime}`);
 
     let comments = [];
 
@@ -121,18 +119,10 @@ async function fetchGitHubConversation(context, githubToken) {
 
     // Apply security filtering to prevent malicious comment editing
     const filteredComments = filterCommentsByTriggerTime(comments, triggerTime);
-    const filteredCount = comments.length - filteredComments.length;
-
-    if (filteredCount > 0) {
-      console.log(`[DEBUG] Security filtering removed ${filteredCount} comments that were created or edited after trigger time`);
-    }
-
-    console.log(`[DEBUG] Retrieved ${filteredComments.length} comments for conversation context (${comments.length} total, ${filteredCount} filtered)`);
     return filteredComments;
 
   } catch (error) {
-    console.error('Could not fetch conversation comments:', error.message);
-    console.log('[DEBUG] GitHub API error details:', error.status || 'No status', error.response?.data?.message || 'No error message');
+    core.error(`Could not fetch conversation comments: ${error.message}`);
     return [];
   }
 }
@@ -165,13 +155,7 @@ async function fetchPRDiffContext(context, githubToken) {
   const issuePR = context.payload.issue?.pull_request;
   const isPRContext = !!(directPR || issuePR);
 
-  console.log(`[DEBUG] Checking for PR context:`);
-  console.log(`[DEBUG] - payload.pull_request exists: ${!!directPR}`);
-  console.log(`[DEBUG] - payload.issue.pull_request exists: ${!!issuePR}`);
-  console.log(`[DEBUG] - Overall PR context: ${isPRContext}`);
-
   if (!isPRContext) {
-    console.log('[DEBUG] Not a PR context, skipping changed files fetch');
     return null;
   }
 
@@ -179,17 +163,14 @@ async function fetchPRDiffContext(context, githubToken) {
   const prNumber = directPR?.number || (issuePR ? context.payload.issue.number : null);
 
   if (!prNumber) {
-    console.log('[DEBUG] No PR number found, skipping changed files fetch');
     return null;
   }
 
   try {
     if (!githubToken) {
-      console.warn('No GitHub token provided for PR diff');
+      core.warning('No GitHub token provided for PR diff');
       return null;
     }
-
-    console.log(`[DEBUG] Fetching PR changes for PR #${prNumber}`);
 
     // Use @actions/github instead of direct @octokit/rest to avoid ES module issues
     const github = require('@actions/github');
@@ -201,9 +182,6 @@ async function fetchPRDiffContext(context, githubToken) {
       pull_number: prNumber,
     });
 
-    console.log(`[DEBUG] Successfully fetched ${files.length} changed files from PR`);
-    console.log(`[DEBUG] Changed files: ${files.map(f => f.filename).join(', ')}`);
-
     const mappedFiles = files.map(file => ({
       filename: file.filename,
       status: file.status,
@@ -214,10 +192,7 @@ async function fetchPRDiffContext(context, githubToken) {
 
     return mappedFiles;
   } catch (error) {
-    console.error('Could not fetch PR changes:', error.message);
-    console.log('[DEBUG] GitHub API error details:', error.status || 'No status', error.response?.data?.message || 'No error message');
-
-    // Return null to continue without PR changes rather than failing completely
+    core.error(`Could not fetch PR changes: ${error.message}`);
     return null;
   }
 }
@@ -232,12 +207,6 @@ async function createAWSAPMPrompt(context, repoInfo, userRequest = '', githubTok
   const directPR = payload.pull_request;
   const issuePR = payload.issue?.pull_request;
   const isPR = !!(directPR || issuePR);
-
-  console.log(`[DEBUG] === NEW PR DETECTION LOGIC ACTIVE ===`);
-  console.log(`[DEBUG] PR detection in createGeneralPrompt:`);
-  console.log(`[DEBUG] - payload.pull_request: ${!!directPR}`);
-  console.log(`[DEBUG] - payload.issue.pull_request: ${!!issuePR}`);
-  console.log(`[DEBUG] - Final isPR: ${isPR}`);
 
   const repository = context.repo.owner + '/' + context.repo.repo;
 
@@ -275,22 +244,15 @@ Topics: ${repoInfo.topics.join(', ') || 'None'}`;
   const formattedBody = commentBody || userRequest || 'No description provided';
 
   // Get conversation context from previous comments
-  console.log(`[DEBUG] === FETCHING CONVERSATION CONTEXT ===`);
   const conversationComments = await fetchGitHubConversation(context, githubToken);
   const formattedComments = formatConversationHistory(conversationComments);
-  console.log(`[DEBUG] Conversation context: ${conversationComments.length} comments formatted`);
 
   // Get PR changes if this is a PR context
-  console.log(`[DEBUG] === ABOUT TO FETCH PR CHANGES ===`);
-  console.log(`[DEBUG] Attempting to fetch PR changes - isPR: ${isPR}`);
-  console.log(`[DEBUG] GitHub token available: ${!!githubToken}`);
   const prChanges = await fetchPRDiffContext(context, githubToken);
-  console.log(`[DEBUG] PR changes result: ${prChanges ? `${prChanges.length} files` : 'null'}`);
 
   // Build changed files section for PR reviews
   let changedFilesSection = '';
   if (isPR && prChanges && prChanges.length > 0) {
-    console.log(`[DEBUG] Building changed files section for ${prChanges.length} files`);
     changedFilesSection = `
 <changed_files>
 The following files were changed in this PR:
@@ -306,9 +268,6 @@ ${file.patch}
 ` : ''}
 `).join('\n')}
 </changed_files>`;
-    console.log(`[DEBUG] Changed files section created (${changedFilesSection.length} characters)`);
-  } else {
-    console.log(`[DEBUG] No changed files section created - isPR: ${isPR}, prChanges: ${!!prChanges}, length: ${prChanges?.length || 0}`);
   }
 
   // Build comprehensive prompt with repository context and PR changes
@@ -446,15 +405,6 @@ What You FOCUS On:
 - Clear explanations and examples
 
 Provide practical, actionable recommendations specific to this repository's technology stack and use case.`;
-
-  // Debug log the final prompt characteristics
-  console.log(`[DEBUG] Final prompt generated:`);
-  console.log(`[DEBUG] - Total length: ${prompt.length} characters`);
-  console.log(`[DEBUG] - Contains <comments>: ${prompt.includes('<comments>')}`);
-  console.log(`[DEBUG] - Contains <changed_files>: ${prompt.includes('<changed_files>')}`);
-  console.log(`[DEBUG] - Contains PR-specific instruction: ${prompt.includes('Focus ONLY on the files that were changed in this PR')}`);
-  console.log(`[DEBUG] - Event type: ${eventType}, isPR: ${isPR}`);
-  console.log(`[DEBUG] - Conversation comments count: ${conversationComments.length}`);
 
   return prompt;
 }

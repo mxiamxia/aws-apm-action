@@ -9,8 +9,6 @@ const fs = require('fs');
  */
 async function run() {
   try {
-    console.log('Updating GitHub comment with results...');
-
     const context = github.context;
 
     // Get environment variables
@@ -33,11 +31,6 @@ async function run() {
 
     const octokit = github.getOctokit(githubToken);
     const [owner, repo] = repository.split('/');
-
-    console.log(`Repository: ${repository}`);
-    console.log(`Issue/PR number: ${issueNumber}`);
-    console.log(`Comment ID: ${awsapmCommentId}`);
-    console.log(`Success: ${awsapmSuccess}`);
 
     let responseContent = '';
 
@@ -80,9 +73,8 @@ async function run() {
           comment_id: parseInt(awsapmCommentId),
           body: commentBody,
         });
-        console.log(`Updated existing comment: ${awsapmCommentId}`);
       } catch (error) {
-        console.error('Failed to update existing comment:', error.message);
+        core.error(`Failed to update existing comment: ${error.message}`);
         // Fall back to creating a new comment
         await createNewComment(octokit, owner, repo, issueNumber, commentBody);
       }
@@ -91,11 +83,9 @@ async function run() {
       await createNewComment(octokit, owner, repo, issueNumber, commentBody);
     }
 
-    console.log('Comment update completed successfully');
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`Comment update failed: ${errorMessage}`);
+    core.error(`Comment update failed: ${errorMessage}`);
 
     // Try to post an error comment if possible
     try {
@@ -120,7 +110,7 @@ async function run() {
         });
       }
     } catch (errorCommentError) {
-      console.error('Failed to post error comment:', errorCommentError.message);
+      core.error(`Failed to post error comment: ${errorCommentError.message}`);
     }
 
     core.setFailed(`Comment update failed with error: ${errorMessage}`);
@@ -133,20 +123,18 @@ async function run() {
  */
 async function createNewComment(octokit, owner, repo, issueNumber, commentBody) {
   if (!issueNumber) {
-    console.log('No issue number provided, skipping comment creation');
     return;
   }
 
   try {
-    const comment = await octokit.rest.issues.createComment({
+    await octokit.rest.issues.createComment({
       owner,
       repo,
       issue_number: parseInt(issueNumber),
       body: commentBody,
     });
-    console.log(`Created new comment: ${comment.data.id}`);
   } catch (error) {
-    console.error('Failed to create new comment:', error.message);
+    core.error(`Failed to create new comment: ${error.message}`);
     throw error;
   }
 }

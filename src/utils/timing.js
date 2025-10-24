@@ -1,3 +1,4 @@
+const core = require('@actions/core');
 const fs = require('fs');
 const path = require('path');
 
@@ -16,7 +17,6 @@ class TimingTracker {
    */
   start(phase) {
     this.startTimes.set(phase, Date.now());
-    console.log(`[TIMING] Starting: ${phase}`);
   }
 
   /**
@@ -27,7 +27,6 @@ class TimingTracker {
   end(phase, metadata = {}) {
     const startTime = this.startTimes.get(phase);
     if (!startTime) {
-      console.warn(`[TIMING] No start time found for: ${phase}`);
       return;
     }
 
@@ -42,8 +41,6 @@ class TimingTracker {
 
     this.timings.push(timing);
     this.startTimes.delete(phase);
-
-    console.log(`[TIMING] Completed: ${phase} (${timing.durationFormatted})`);
   }
 
   /**
@@ -62,7 +59,6 @@ class TimingTracker {
     };
 
     this.timings.push(timing);
-    console.log(`[TIMING] Recorded: ${phase} (${timing.durationFormatted})`);
   }
 
   /**
@@ -136,7 +132,6 @@ class TimingTracker {
     }
 
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-    console.log(`[TIMING] Saved timings to: ${filePath}`);
   }
 
   /**
@@ -151,9 +146,8 @@ class TimingTracker {
       try {
         const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
         tracker.timings = data.timings || [];
-        console.log(`[TIMING] Loaded ${tracker.timings.length} timings from: ${filePath}`);
       } catch (error) {
-        console.warn(`[TIMING] Failed to load timings: ${error.message}`);
+        core.warning(`Failed to load timings: ${error.message}`);
       }
     }
 
@@ -222,7 +216,6 @@ class TimingTracker {
     const summaryFile = process.env.GITHUB_STEP_SUMMARY;
 
     if (!summaryFile) {
-      console.warn('[TIMING] GITHUB_STEP_SUMMARY not set, skipping job summary');
       return;
     }
 
@@ -230,9 +223,8 @@ class TimingTracker {
 
     try {
       fs.appendFileSync(summaryFile, '\n' + markdown + '\n');
-      console.log('[TIMING] Job summary written to GitHub Actions');
     } catch (error) {
-      console.error(`[TIMING] Failed to write job summary: ${error.message}`);
+      core.error(`Failed to write job summary: ${error.message}`);
     }
   }
 }

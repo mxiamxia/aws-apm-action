@@ -1,3 +1,4 @@
+const core = require('@actions/core');
 const { BaseCLIExecutor } = require('./base-cli-executor');
 const { MCPConfigManager } = require('../config/mcp-config');
 const { OutputCleaner } = require('../utils/output-cleaner');
@@ -29,8 +30,6 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
   }
 
   getEnvironmentVariables() {
-    console.log(`Full command: AMAZON_Q_SIGV4=1 q ${this.getCommandArgs().join(' ')} < pipe`);
-
     return {
       ...process.env,
       AMAZON_Q_SIGV4: '1',  // Enable SIGV4 authentication
@@ -56,20 +55,14 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
     const execAsync = promisify(require('child_process').exec);
 
     try {
-      console.log('Setting up MCP configuration for Amazon Q CLI...');
-
       // Ensure uvx is installed for Amazon Q CLI
       try {
         await execAsync('uvx --version', { timeout: 10000 });
-        console.log('uvx is available for MCP server execution');
       } catch (uvxError) {
-        console.log('uvx not found, installing...');
         try {
           await execAsync('pip install uvx', { timeout: 60000 });
-          console.log('uvx installed successfully');
         } catch (installError) {
-          console.warn('Failed to install uvx:', installError.message);
-          console.warn('MCP functionality may not work properly');
+          core.warning(`Failed to install uvx: ${installError.message}`);
           return null;
         }
       }
@@ -80,7 +73,6 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
 
       if (!fs.existsSync(mcpConfigDir)) {
         fs.mkdirSync(mcpConfigDir, { recursive: true });
-        console.log(`Created MCP config directory: ${mcpConfigDir}`);
       }
 
       // Use MCPConfigManager to build configuration
@@ -90,33 +82,18 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
       // Create MCP configuration file
       const mcpConfigPath = path.join(mcpConfigDir, 'mcp.json');
       fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
-      console.log(`Created Amazon Q MCP configuration: ${mcpConfigPath}`);
 
-      // Log configuration details
-      console.log(`Full MCP config content:\n${JSON.stringify(mcpConfig, null, 2)}`);
-
-      // Log server status with detailed context
-      if (mcpConfigManager.hasAWSCredentials()) {
-        console.log('✓ AWS MCP server configured');
-      }
-      if (mcpConfigManager.hasGitHubToken()) {
-        console.log('✓ GitHub MCP server configured');
-        console.log(`  - GitHub Host: ${process.env.GITHUB_SERVER_URL || 'https://github.com'}`);
-        console.log(`  - Token available: ${process.env.GITHUB_TOKEN ? 'YES' : 'NO'}`);
-      } else {
-        console.warn('✗ GitHub token not available - PR creation will not work');
-      }
-      if (mcpConfigManager.hasCloudWatchAccess()) {
-        console.log('✓ CloudWatch MCP server configured');
-        console.log('  - Available tools: metrics, logs, alarms, dashboards, insights');
+      // Log critical configuration status
+      if (!mcpConfigManager.hasGitHubToken()) {
+        core.warning('GitHub token not available - PR creation will not work');
       }
 
       // Don't return the config path for cleanup since it's in home directory
       return null;
 
     } catch (error) {
-      console.warn('Failed to setup Amazon Q MCP configuration:', error.message);
-      console.warn('Amazon Q CLI will run without MCP tools');
+      core.warning(`Failed to setup Amazon Q MCP configuration: ${error.message}`);
+      core.warning('Amazon Q CLI will run without MCP tools');
       return null;
     }
   }
@@ -131,18 +108,14 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
    */
   extractToolTimings(output) {
     if (!this.timingTracker) {
-      console.log('[TIMING] No timing tracker available for tool extraction');
       return;
     }
-
-    console.log('[TIMING] Extracting tool timings from Amazon Q output...');
 
     // Strip ANSI codes first to ensure regex patterns match correctly
     const cleanedOutput = this.outputCleaner.removeAnsiCodes(output);
     const lines = cleanedOutput.split('\n');
 
     let currentTool = null;
-    let toolCount = 0;
 
     for (const line of lines) {
       const trimmed = line.trim();
@@ -151,7 +124,6 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
       const runningMatch = trimmed.match(/^●\s+Running\s+([^\s]+)/);
       if (runningMatch) {
         currentTool = runningMatch[1];
-        console.log(`[TIMING] Found tool start: ${currentTool}`);
         continue;
       }
 
@@ -164,8 +136,6 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
         // Convert to milliseconds
         const durationMs = unit === 's' ? duration * 1000 : duration;
 
-        console.log(`[TIMING] Tool ${currentTool} completed in ${durationMs}ms`);
-
         // Record tool timing
         this.timingTracker.record(
           `Tool: ${currentTool}`,
@@ -173,12 +143,9 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
           { toolName: currentTool }
         );
 
-        toolCount++;
         currentTool = null;
       }
     }
-
-    console.log(`[TIMING] Extracted ${toolCount} tool timings from output`);
   }
 
   /**

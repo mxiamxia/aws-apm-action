@@ -46,9 +46,9 @@ inputs:
     required: false
     default: ""
   tracing_mode:
-    description: "Enable tracing to show AI agent reasoning steps and MCP tool calls in workflow summary"
+    description: "Enable detailed timing summary in workflow output (shows execution time breakdown)"
     required: false
-    default: "true"
+    default: "false"
 
 outputs:
   execution_file:
@@ -175,8 +175,8 @@ runs:
         PREPARE_SUCCESS: ${{ steps.prepare.outcome == 'success' }}
 
     - name: Generate Timing Summary
-      if: steps.prepare.outputs.contains_trigger == 'true' && always()
+      if: steps.prepare.outputs.contains_trigger == 'true' && steps.prepare.outputs.TRACING_MODE == 'true' && always()
       shell: bash
       run: |
         cd ${GITHUB_ACTION_PATH}
-        node src/generate-timing-summary.js
+        node src/summary.js

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+const core = require('@actions/core');
 const { TimingTracker } = require('./utils/timing');
 const fs = require('fs');
 const path = require('path');
@@ -60,7 +61,6 @@ function addMissingStepPlaceholders(tracker) {
   // Add placeholders for missing steps
   for (const step of expectedSteps) {
     if (!existingPhases.has(step.phase)) {
-      console.log(`[TIMING] Adding placeholder for missing step: ${step.phase}`);
       tracker.record(step.phase, 0, {
         placeholder: true,
         category: step.category,
@@ -79,8 +79,6 @@ function addMissingStepPlaceholders(tracker) {
  */
 async function generateSummary() {
   try {
-    console.log('Generating timing summary...');
-
     const outputDir = path.join(process.env.RUNNER_TEMP || '/tmp', 'awsapm-output');
     const timingFile = path.join(outputDir, 'timing.json');
     const bashTimingFile = path.join(outputDir, 'timing-bash.json');
@@ -94,14 +92,12 @@ async function generateSummary() {
         const bashData = JSON.parse(fs.readFileSync(bashTimingFile, 'utf8'));
         const bashTimings = parseBashTimings(bashData.timings || []);
 
-        console.log(`[TIMING] Loaded ${bashTimings.length} bash-recorded timings`);
-
         // Add bash timings to tracker
         for (const timing of bashTimings) {
           tracker.record(timing.phase, timing.duration, { source: 'bash' });
         }
       } catch (error) {
-        console.warn(`[TIMING] Failed to load bash timings: ${error.message}`);
+        core.warning(`Failed to load bash timings: ${error.message}`);
       }
     }
 
@@ -109,16 +105,14 @@ async function generateSummary() {
     addMissingStepPlaceholders(tracker);
 
     if (tracker.getTimings().length === 0) {
-      console.log('No timing data available');
       return;
     }
 
     // Write to GitHub Actions Job Summary
     tracker.writeGitHubJobSummary();
 
-    console.log('Timing summary generated successfully');
   } catch (error) {
-    console.error(`Failed to generate timing summary: ${error.message}`);
+    core.error(`Failed to generate timing summary: ${error.message}`);
     // Don't fail the workflow if summary generation fails
   }
 }

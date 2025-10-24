@@ -6,14 +6,13 @@ const fs = require('fs');
 const path = require('path');
 const { AmazonQCLIExecutor } = require('./executors/amazonq-cli-executor');
 const { TimingTracker } = require('./utils/timing');
-// Note: createGeneralPrompt is now called in init.js
 
 /**
  * Main entry point for Application observability for AWS investigation
  */
 async function run() {
   try {
-    console.log('Starting Application observability for AWS investigation...');
+    core.info('Starting Application observability for AWS investigation...');
 
     const context = github.context;
 
@@ -24,18 +23,13 @@ async function run() {
     }
 
     const promptContent = fs.readFileSync(promptFile, 'utf8');
-    console.log('Prompt loaded successfully');
-    console.log(`[DEBUG] Prompt content length: ${promptContent.length} characters`);
-    console.log(`[DEBUG] Prompt contains <changed_files>: ${promptContent.includes('<changed_files>')}`);
-    console.log(`[DEBUG] Prompt contains PR-specific instruction: ${promptContent.includes('Focus ONLY on the files that were changed in this PR')}`);
 
-    // Check GitHub token availability
-    console.log(`[DEBUG] GITHUB_TOKEN environment variable available: ${!!process.env.GITHUB_TOKEN}`);
-
-    // Print the full prompt content for debugging
-    console.log('\n=== FULL PROMPT CONTENT START ===');
-    console.log(promptContent);
-    console.log('=== FULL PROMPT CONTENT END ===\n');
+    // Print the full prompt content for debugging (only in debug mode)
+    if (process.env.RUNNER_DEBUG === '1') {
+      core.debug('\n=== FULL PROMPT CONTENT START ===');
+      core.debug(promptContent);
+      core.debug('=== FULL PROMPT CONTENT END ===\n');
+    }
 
     // Setup AWS credentials if provided
     if (process.env.AWS_ACCESS_KEY_ID) {
@@ -64,12 +58,12 @@ async function run() {
     let investigationResult = '';
 
     try {
-      console.log('Running Amazon Q Developer CLI investigation...');
+      core.info('Running Amazon Q Developer CLI investigation...');
       const executor = new AmazonQCLIExecutor(timingTracker);
       investigationResult = await executor.execute(promptContent);
-      console.log('Amazon Q Developer CLI investigation completed');
+      core.info('Amazon Q Developer CLI investigation completed');
     } catch (error) {
-      console.error('Amazon Q Developer CLI failed:', error.message);
+      core.error(`Amazon Q Developer CLI failed: ${error.message}`);
 
       // Return the actual error message
       investigationResult = `❌ **Amazon Q Investigation Failed**
@@ -86,7 +80,6 @@ Please check the workflow logs for more details and ensure proper authentication
     fs.writeFileSync(resultFile, investigationResult);
 
     // Use the investigation result directly
-    console.log('Using Amazon Q Developer CLI results directly...');
     const finalResponse = investigationResult;
 
     // Save the final response
@@ -103,11 +96,11 @@ Please check the workflow logs for more details and ensure proper authentication
     core.setOutput('investigation_result', investigationResult);
     core.setOutput('final_response', finalResponse);
 
-    console.log('Investigation and response generation completed');
+    core.info('Investigation completed');
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`Investigation failed: ${errorMessage}`);
+    core.error(`Investigation failed: ${errorMessage}`);
     core.setFailed(`Investigation failed with error: ${errorMessage}`);
 
     // Still try to set some outputs for error handling

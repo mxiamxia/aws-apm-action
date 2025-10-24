@@ -1,3 +1,4 @@
+const core = require('@actions/core');
 const { spawn } = require('child_process');
 const { promisify } = require('util');
 const fs = require('fs');
@@ -79,7 +80,6 @@ class BaseCLIExecutor {
         timeout: 10000,
         stdio: 'pipe'
       });
-      console.log(`${commandName} CLI found in PATH`);
       return true;
     } catch (error) {
       throw new Error(`${commandName} CLI not found in PATH`);
@@ -100,7 +100,6 @@ class BaseCLIExecutor {
     }
 
     await execAsync(`mkfifo "${pipePath}"`);
-    console.log(`Created named pipe: ${pipePath}`);
   }
 
   /**
@@ -110,8 +109,6 @@ class BaseCLIExecutor {
    */
   writePromptToFile(promptContent, tempPromptFile) {
     fs.writeFileSync(tempPromptFile, promptContent);
-    console.log(`Prompt file size: ${promptContent.length} bytes`);
-    console.log(`Prompt file: ${tempPromptFile}`);
   }
 
   /**
@@ -129,7 +126,7 @@ class BaseCLIExecutor {
     catProcess.stdout.pipe(pipeWriteStream);
 
     catProcess.on('error', (error) => {
-      console.error('Error reading prompt file:', error);
+      core.error(`Error reading prompt file: ${error.message}`);
       pipeWriteStream.destroy();
     });
 
@@ -145,8 +142,6 @@ class BaseCLIExecutor {
    * @returns {ChildProcess} Spawned process
    */
   spawnCLIProcess(command, args, env, cwd) {
-    console.log(`Full command: ${command} ${args.join(' ')}`);
-    console.log(`Working directory: ${cwd}`);
 
     return spawn(command, args, {
       stdio: ['pipe', 'pipe', 'inherit'],
@@ -166,7 +161,7 @@ class BaseCLIExecutor {
     pipeReadProcess.stdout.pipe(cliProcess.stdin);
 
     pipeReadProcess.on('error', (error) => {
-      console.error('Error reading from named pipe:', error);
+      core.error(`Error reading from named pipe: ${error.message}`);
       cliProcess.kill('SIGTERM');
     });
 
@@ -196,7 +191,7 @@ class BaseCLIExecutor {
       });
 
       cliProcess.stdout.on('error', (error) => {
-        console.error(`Error reading ${this.getCommandName()} stdout:`, error);
+        core.error(`Error reading ${this.getCommandName()} stdout: ${error.message}`);
         reject(error);
       });
 
@@ -205,7 +200,7 @@ class BaseCLIExecutor {
       });
 
       cliProcess.on('error', (error) => {
-        console.error(`${this.getCommandName()} process error:`, error);
+        core.error(`${this.getCommandName()} process error: ${error.message}`);
         reject(error);
       });
     });
@@ -237,9 +232,6 @@ class BaseCLIExecutor {
           await execAsync(`rm -f "${file}"`);
         } else if (fs.existsSync(file)) {
           fs.unlinkSync(file);
-          if (file.includes('.mcp.json')) {
-            console.log('Cleaned up MCP configuration file');
-          }
         }
       } catch (e) {
         // Ignore cleanup errors
@@ -257,13 +249,10 @@ class BaseCLIExecutor {
     const commandName = this.getCommandName();
 
     try {
-      console.log(`Executing ${commandName} CLI commands...`);
-      console.log(`[DEBUG] Using pre-generated prompt (${promptContent.length} characters)`);
+      core.info(`Running ${commandName} CLI investigation...`);
 
       // Test if CLI is available
       await this.testCLIAvailable();
-
-      console.log(`${commandName} CLI found, running investigation...`);
 
       // Setup CLI-specific configuration
       if (this.timingTracker) {
@@ -280,13 +269,9 @@ class BaseCLIExecutor {
 
       // Write prompt to file
       this.writePromptToFile(promptContent, tempPromptFile);
-      console.log(`Running ${commandName} with prompt from file: ${tempPromptFile}`);
 
       // Create named pipe
       await this.createNamedPipe(pipePath);
-
-      // Ensure CLI runs from the target repository directory
-      console.log(`[DEBUG] Executing ${commandName} from directory: ${this.targetRepoDir}`);
 
       // Start streaming prompt to pipe
       const { catProcess, pipeWriteStream } = this.startPromptStreaming(tempPromptFile, pipePath);
@@ -296,12 +281,11 @@ class BaseCLIExecutor {
       const env = this.getEnvironmentVariables();
 
       // Spawn CLI process
-      console.log(`Starting ${commandName} process with named pipe...`);
       const cliProcess = this.spawnCLIProcess(commandName, args, env, this.targetRepoDir);
 
       // Handle CLI process errors
       cliProcess.on('error', (error) => {
-        console.error(`Error spawning ${commandName} process:`, error);
+        core.error(`Error spawning ${commandName} process: ${error.message}`);
         pipeWriteStream.destroy();
         throw error;
       });
@@ -332,7 +316,7 @@ class BaseCLIExecutor {
 
       // Check exit code and parse output
       if (exitCode === 0) {
-        console.log(`${commandName} CLI completed successfully`);
+        core.info(`${commandName} CLI completed successfully`);
         const result = this.parseOutput(output.trim());
         return result || 'AI Agent investigation completed, but no output was generated.';
       } else {
