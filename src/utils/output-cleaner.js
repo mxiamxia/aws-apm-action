@@ -24,47 +24,36 @@ class OutputCleaner {
   }
 
   /**
-   * Remove tool execution blocks from CLI output
-   * Removes content between "Using tool:" and "● Completed in"
-   * @param {string} text - Text containing tool execution blocks
-   * @returns {string} Cleaned text
+   * Remove tool execution blocks and UI noise from CLI output
+   * Drops everything up to and including the last "● Completed in" line
+   * This removes all banner, tips, tool executions, and other UI elements
+   * @param {string} text - Text containing tool execution blocks and UI elements
+   * @returns {string} Cleaned analysis result
    */
   removeToolExecutionBlocks(text) {
     const lines = text.split('\n');
-    const filteredLines = [];
-    let insideToolBlock = false;
 
-    for (const line of lines) {
-      const trimmed = line.trim();
-
-      // Start of tool execution block
-      if (trimmed.match(/^🛠️\s*Using tool:/)) {
-        insideToolBlock = true;
-        continue;
+    // Find the last occurrence of "● Completed in" (final tool execution)
+    let lastToolCompletionIndex = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].trim().match(/^●\s*Completed in/)) {
+        lastToolCompletionIndex = i;
+        break;
       }
-
-      // End of tool execution block
-      if (insideToolBlock && trimmed.match(/^●\s*Completed in/)) {
-        insideToolBlock = false;
-        continue;
-      }
-
-      // Skip everything inside tool execution blocks
-      if (insideToolBlock) {
-        continue;
-      }
-
-      // Skip thinking/reasoning statements (lines starting with ">")
-      // These are Amazon Q's internal thought process, not actual results
-      if (trimmed.startsWith('>')) {
-        continue;
-      }
-
-      // Keep all other lines (including blank lines for proper markdown spacing)
-      filteredLines.push(line);
     }
 
-    return filteredLines.join('\n').trim();
+    // If found, drop everything up to and including that line
+    // If not found, keep all lines (no tool executions)
+    const startIndex = lastToolCompletionIndex >= 0 ? lastToolCompletionIndex + 1 : 0;
+    const filteredLines = lines.slice(startIndex);
+
+    // Still remove thinking statements (lines starting with ">")
+    const finalLines = filteredLines.filter(line => {
+      const trimmed = line.trim();
+      return !trimmed.startsWith('>');
+    });
+
+    return finalLines.join('\n').trim();
   }
 
   /**
