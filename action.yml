@@ -114,7 +114,7 @@ runs:
         # Step 1: Update apt cache to prevent mirror errors
         sudo apt-get update
         # Step 2: Download the .deb package
-        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/latest/amazon-q.deb
+        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.18.1/amazon-q.deb
         # Step 3: Install the package with fix-missing flag for mirror resilience
         sudo apt-get install -y --fix-missing ./amazon-q.deb || sudo apt-get install -y -f
         # Step 4: Verify Amazon Q CLI installation
