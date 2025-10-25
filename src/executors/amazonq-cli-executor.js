@@ -153,7 +153,18 @@ class AmazonQCLIExecutor extends BaseCLIExecutor {
    * Use OutputCleaner to remove ANSI codes and tool execution blocks
    */
   parseOutput(output) {
+    // Debug: log output length
+    core.debug(`Amazon Q raw output: ${output.length} chars`);
+
     const cleanOutput = this.outputCleaner.cleanAmazonQOutput(output);
+
+    core.debug(`Amazon Q cleaned output: ${cleanOutput.length} chars`);
+
+    // If empty output, log first 500 chars of raw output for debugging
+    if (!cleanOutput && output.length > 0) {
+      core.debug(`Raw output sample:\n${output.substring(0, 500)}`);
+    }
+
     return cleanOutput;
   }
 }

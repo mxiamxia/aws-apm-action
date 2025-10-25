@@ -114,7 +114,8 @@ runs:
         # Step 1: Update apt cache to prevent mirror errors
         sudo apt-get update
         # Step 2: Download the .deb package
-        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.18.1/amazon-q.deb
+        # curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.18.1/amazon-q.deb
+        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/latest/amazon-q.deb
         # Step 3: Install the package with fix-missing flag for mirror resilience
         sudo apt-get install -y --fix-missing ./amazon-q.deb || sudo apt-get install -y -f
         # Step 4: Verify Amazon Q CLI installation
@@ -124,7 +125,7 @@ runs:
         else
           echo "Amazon Q CLI installation may have failed"
           echo "Checking if q command is available..."
-          which q || echo "q command not found in PATH"
+          which q || echo "q command not found in PATH" 
         fi
         # Verify uvx is available for MCP (needed for CloudWatch MCP)
         if command -v uvx &> /dev/null; then
