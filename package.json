@@ -1,7 +1,7 @@
 {
   "name": "aws-apm-action",
   "version": "1.0.0",
-  "description": "GitHub automation with Amazon Q Developer CLI for APM investigation",
+  "description": "GitHub Integration with CloudWatch Application Signals MCP and AI Agent for Application Observability",
   "main": "src/prepare.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -9,7 +9,7 @@
   "dependencies": {
     "@actions/core": "^1.10.1",
     "@actions/github": "^6.0.1",
-    "@octokit/rest": "^21.1.1",
+    "@octokit/rest": "^22.0.0",
     "node-fetch": "^3.3.2",
     "jsonwebtoken": "^9.0.2"
   },

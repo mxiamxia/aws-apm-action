@@ -5,7 +5,7 @@ const github = require('@actions/github');
 const fs = require('fs');
 
 /**
- * Update the GitHub comment with the final results from AWS APM investigation
+ * Update the GitHub comment with the final results from Application observability for AWS investigation
  */
 async function run() {
   try {
@@ -44,7 +44,7 @@ async function run() {
       // Read the AI response from the output file
       responseContent = fs.readFileSync(outputFile, 'utf8');
     } else {
-      responseContent = '❌ **Investigation Failed**\n\nThe AWS APM investigation could not be completed. Please check the workflow logs for more details.';
+      responseContent = '❌ **Investigation Failed**\n\nThe Application observability for AWS investigation could not be completed. Please check the workflow logs for more details.';
     }
 
     // Create the final comment body
@@ -52,7 +52,7 @@ async function run() {
 
     let commentBody;
     if (awsapmSuccess) {
-      commentBody = `🎯 **AWS APM Investigation Complete**\n\n` +
+      commentBody = `🎯 **Application observability for AWS Investigation Complete**\n\n` +
         `Investigation completed successfully! Here are the results:\n\n` +
         `---\n\n` +
         `${responseContent}\n\n` +
@@ -62,7 +62,7 @@ async function run() {
         `🔗 **Workflow**: [View details](${workflowUrl})\n\n` +
         `*Powered by AI Agent*`;
     } else {
-      commentBody = `❌ **AWS APM Investigation Failed**\n\n` +
+      commentBody = `❌ **Application observability for AWS Investigation Failed**\n\n` +
         `The investigation could not be completed. Please check the workflow logs for more details.\n\n` +
         `👤 **Requested by**: @${triggerUsername}\n` +
         `🔗 **Workflow**: [View details](${workflowUrl})\n\n` +
@@ -106,7 +106,7 @@ async function run() {
         const octokit = github.getOctokit(githubToken);
         const [owner, repo] = repository.split('/');
 
-        const errorCommentBody = `❌ **AWS APM Action Error**\n\n` +
+        const errorCommentBody = `❌ **Application observability for AWS Action Error**\n\n` +
           `Failed to complete the investigation due to an internal error.\n\n` +
           `Error: \`${errorMessage}\`\n\n` +
           `Please check the [workflow logs](${context.payload.repository.html_url}/actions/runs/${process.env.GITHUB_RUN_ID}) for more details.`;

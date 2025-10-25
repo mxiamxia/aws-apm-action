@@ -69,7 +69,7 @@ function addMissingStepPlaceholders(tracker) {
     }
   }
 
-  // Note: "Run AWS APM Investigation" is tracked as "Q CLI Execution"
+  // Note: "Run Application observability for AWS Investigation" is tracked as "Q CLI Execution"
   // so we don't add a placeholder for it
 }
 

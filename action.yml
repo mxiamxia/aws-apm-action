@@ -1,4 +1,4 @@
-name: "AWS APM Action v1.0"
+name: "Application observability for AWS Action v0.1"
 description: "GitHub automation with Amazon Q Developer CLI. Auto-detects @awsapm mentions in PR comments and issues."
 branding:
   icon: "at-sign"
@@ -13,7 +13,7 @@ inputs:
     description: "The branch to use as the base/source when creating new branches (defaults to repository default branch)"
     required: false
   branch_prefix:
-    description: "The prefix to use for AWS APM branches (defaults to 'awsapm/', use 'awsapm-' for dash format)"
+    description: "The prefix to use for Application observability for AWS branches (defaults to 'awsapm/', use 'awsapm-' for dash format)"
     required: false
     default: "awsapm/"
   allowed_bots:
@@ -89,7 +89,7 @@ outputs:
     description: "Path to the Amazon Q Developer CLI execution output file"
     value: ${{ steps.aws-apm-cli.outputs.execution_file }}
   branch_name:
-    description: "The branch created by AWS APM Action for this execution"
+    description: "The branch created by Application observability for AWS Action for this execution"
     value: ${{ steps.prepare.outputs.AWSAPM_BRANCH }}
   github_token:
     description: "The GitHub token used by the action"
@@ -119,7 +119,7 @@ runs:
       id: prepare
       shell: bash
       run: |
-        node ${GITHUB_ACTION_PATH}/src/prepare.js
+        node ${GITHUB_ACTION_PATH}/src/init.js
       env:
         PROMPT: ${{ inputs.prompt }}
         TRIGGER_PHRASE: ${{ inputs.trigger_phrase }}
@@ -177,13 +177,13 @@ runs:
 
         record_timing_end "Install CLI Tools"
 
-    - name: Run AWS APM Investigation
+    - name: Run Application observability for AWS Investigation
       id: aws-apm-cli
       if: steps.prepare.outputs.contains_trigger == 'true'
       shell: bash
       run: |
         cd ${GITHUB_ACTION_PATH}
-        node src/run-investigation.js
+        node src/execute.js
       env:
         GITHUB_TOKEN: ${{ steps.prepare.outputs.GITHUB_TOKEN }}
         AWS_ACCESS_KEY_ID: ${{ inputs.aws_access_key_id }}
@@ -198,7 +198,7 @@ runs:
       shell: bash
       run: |
         cd ${GITHUB_ACTION_PATH}
-        node src/update-comment.js
+        node src/post-result.js
       env:
         REPOSITORY: ${{ github.repository }}
         PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
