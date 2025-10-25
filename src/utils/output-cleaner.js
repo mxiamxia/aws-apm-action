@@ -25,26 +25,41 @@ class OutputCleaner {
 
   /**
    * Remove tool execution blocks and UI noise from CLI output
-   * Drops everything up to and including the last "● Completed in" line
-   * This removes all banner, tips, tool executions, and other UI elements
+   * Looks for the result marker "🎯 **Application observability for AWS Investigation Complete**"
+   * and keeps everything from that line onward
+   * Falls back to "● Completed in" marker if result marker not found
    * @param {string} text - Text containing tool execution blocks and UI elements
    * @returns {string} Cleaned analysis result
    */
   removeToolExecutionBlocks(text) {
+    const core = require('@actions/core');
     const lines = text.split('\n');
+    let startIndex = 0;
+    let filterMethod = 'none';
 
-    // Find the last occurrence of "● Completed in" (final tool execution)
-    let lastToolCompletionIndex = -1;
-    for (let i = lines.length - 1; i >= 0; i--) {
-      if (lines[i].trim().match(/^●\s*Completed in/)) {
-        lastToolCompletionIndex = i;
+    // First, try to find the result marker (most reliable)
+    const resultMarker = '🎯 **Application observability for AWS Investigation Complete**';
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim() === resultMarker) {
+        startIndex = i;
+        filterMethod = 'result_marker';
         break;
       }
     }
 
-    // If found, drop everything up to and including that line
-    // If not found, keep all lines (no tool executions)
-    const startIndex = lastToolCompletionIndex >= 0 ? lastToolCompletionIndex + 1 : 0;
+    // Fallback: if result marker not found, use the last "● Completed in" line
+    if (startIndex === 0) {
+      for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].trim().match(/^●\s*Completed in/)) {
+          startIndex = i + 1; // Start from line after completion
+          filterMethod = 'tool_completion';
+          break;
+        }
+      }
+    }
+
+    core.debug(`Output filtering method: ${filterMethod}, starting from line ${startIndex} of ${lines.length}`);
+
     const filteredLines = lines.slice(startIndex);
 
     // Still remove thinking statements (lines starting with ">")
