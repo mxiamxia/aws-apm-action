@@ -14,12 +14,20 @@ class OutputCleaner {
     }
 
     return text
-      .replace(/\x1b\[[0-9;]*[mGKHF]/g, '')  // Most common ANSI sequences
-      .replace(/\u001b\[[0-9;]*[mGKHF]/g, '') // Unicode escape sequences
-      .replace(/\x1b\[[0-9;]*[ABCD]/g, '')   // Cursor movement
-      .replace(/\x1b\[[0-9;]*[JK]/g, '')     // Clear screen/line
-      .replace(/�\[[0-9;]*[mGKHF]/g, '')     // Malformed sequences
-      .replace(/�/g, '')                     // Remove any remaining replacement characters
+      // Remove proper ANSI escape sequences
+      .replace(/\x1b\[[0-9;]*[mGKHF]/g, '')     // Most common ANSI sequences
+      .replace(/\u001b\[[0-9;]*[mGKHF]/g, '')   // Unicode escape sequences
+      .replace(/\x1b\[[0-9;]*[ABCD]/g, '')      // Cursor movement
+      .replace(/\x1b\[[0-9;]*[JK]/g, '')        // Clear screen/line
+      .replace(/\x1b\[\?[0-9;]*[lh]/g, '')      // Cursor visibility
+      .replace(/\x1b\[[0-9]*[A-Za-z]/g, '')     // Any other ANSI sequences
+      // Remove malformed ANSI sequences (with � replacement character)
+      .replace(/�\[\?[0-9;]*[lh]/g, '')         // Malformed cursor visibility
+      .replace(/�\[[?0-9;]*[A-Za-z]/g, '')      // Other malformed sequences
+      .replace(/�/g, '')                        // Any remaining replacement characters
+      // Remove orphaned ANSI fragments that got partially decoded
+      .replace(/\[?\?25[lh]/g, '')              // Leftover cursor control fragments
+      .replace(/\[[0-9;]*[mGKHF]/g, '')         // Leftover CSI sequences without ESC
       .trim();
   }
 
@@ -27,7 +35,7 @@ class OutputCleaner {
    * Remove tool execution blocks and UI noise from CLI output
    * Looks for the result marker "🎯 **Application observability for AWS Assistant Result**"
    * and keeps everything from that line onward
-   * Falls back to "● Completed in" marker if result marker not found
+   * Falls back to cursor control sequence or "● Completed in" marker if result marker not found
    * @param {string} text - Text containing tool execution blocks and UI elements
    * @returns {string} Cleaned analysis result
    */
@@ -47,7 +55,18 @@ class OutputCleaner {
       }
     }
 
-    // Fallback: if result marker not found, use the last "● Completed in" line
+    // Fallback 1: Look for the last cursor control sequence (marks start of actual output)
+    if (startIndex === 0) {
+      for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].includes('�[?25l')) {
+          startIndex = i + 1; // Start from line after cursor control
+          filterMethod = 'cursor_control';
+          break;
+        }
+      }
+    }
+
+    // Fallback 2: Use the last "● Completed in" line
     if (startIndex === 0) {
       for (let i = lines.length - 1; i >= 0; i--) {
         if (lines[i].trim().match(/^●\s*Completed in/)) {
