@@ -384,7 +384,7 @@ Follow these steps:
 
 6. Deliver Results:
    - [CRITICAL!] Start your response with EXACTLY this line as the very first line:
-     🎯 **Application observability for AWS Investigation Complete**
+     🎯 **Application observability for AWS Assistant Result**
    - This marker MUST be the first line of your response (no content before it)
    - Keep responses SHORT and CONCISE
    - Use bullet points and brief sentences

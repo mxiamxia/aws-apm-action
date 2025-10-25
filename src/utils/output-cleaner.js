@@ -25,7 +25,7 @@ class OutputCleaner {
 
   /**
    * Remove tool execution blocks and UI noise from CLI output
-   * Looks for the result marker "🎯 **Application observability for AWS Investigation Complete**"
+   * Looks for the result marker "🎯 **Application observability for AWS Assistant Result**"
    * and keeps everything from that line onward
    * Falls back to "● Completed in" marker if result marker not found
    * @param {string} text - Text containing tool execution blocks and UI elements
@@ -38,7 +38,7 @@ class OutputCleaner {
     let filterMethod = 'none';
 
     // First, try to find the result marker (most reliable)
-    const resultMarker = '🎯 **Application observability for AWS Investigation Complete**';
+    const resultMarker = '🎯 **Application observability for AWS Assistant Result**';
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].trim() === resultMarker) {
         startIndex = i;

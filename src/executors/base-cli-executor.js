@@ -181,7 +181,6 @@ class BaseCLIExecutor {
       // Capture stdout
       cliProcess.stdout.on('data', (data) => {
         const text = data.toString();
-        core.debug(`[STDOUT] Received ${text.length} chars`);
 
         // Allow subclasses to customize output handling
         if (this.onOutputData) {
@@ -196,7 +195,6 @@ class BaseCLIExecutor {
       // Capture stderr
       cliProcess.stderr.on('data', (data) => {
         const text = data.toString();
-        core.debug(`[STDERR] Received ${text.length} chars`);
         process.stderr.write(text);  // Still show in workflow logs
         stderrData += text;
       });
