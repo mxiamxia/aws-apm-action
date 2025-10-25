@@ -144,7 +144,7 @@ class BaseCLIExecutor {
   spawnCLIProcess(command, args, env, cwd) {
 
     return spawn(command, args, {
-      stdio: ['pipe', 'pipe', 'inherit'],
+      stdio: ['pipe', 'pipe', 'pipe'],  // Capture stderr for output
       cwd: cwd,
       env: env
     });
@@ -175,10 +175,13 @@ class BaseCLIExecutor {
    */
   captureOutput(cliProcess) {
     return new Promise((resolve, reject) => {
-      let output = '';
+      let stdoutData = '';
+      let stderrData = '';
 
+      // Capture stdout
       cliProcess.stdout.on('data', (data) => {
         const text = data.toString();
+        core.debug(`[STDOUT] Received ${text.length} chars`);
 
         // Allow subclasses to customize output handling
         if (this.onOutputData) {
@@ -187,7 +190,15 @@ class BaseCLIExecutor {
           process.stdout.write(text);
         }
 
-        output += text;
+        stdoutData += text;
+      });
+
+      // Capture stderr
+      cliProcess.stderr.on('data', (data) => {
+        const text = data.toString();
+        core.debug(`[STDERR] Received ${text.length} chars`);
+        process.stderr.write(text);  // Still show in workflow logs
+        stderrData += text;
       });
 
       cliProcess.stdout.on('error', (error) => {
@@ -195,7 +206,20 @@ class BaseCLIExecutor {
         reject(error);
       });
 
+      cliProcess.stderr.on('error', (error) => {
+        core.error(`Error reading ${this.getCommandName()} stderr: ${error.message}`);
+        reject(error);
+      });
+
       cliProcess.on('close', (code) => {
+        // Log final captured sizes
+        core.debug(`[SUMMARY] Total stdout: ${stdoutData.length} chars, Total stderr: ${stderrData.length} chars`);
+
+        // Amazon Q 1.19.0 writes output to stderr, 1.18.1 writes to stdout
+        // Prefer stderr if it has content, otherwise use stdout
+        const output = stderrData || stdoutData;
+        core.debug(`[SUMMARY] Using ${stderrData ? 'stderr' : 'stdout'} as output source`);
+
         resolve({ output, exitCode: code || 0 });
       });
 
