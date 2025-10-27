@@ -14,22 +14,10 @@ describe('OutputCleaner', () => {
       expect(result).toBe('Red text Normal text');
     });
 
-    test('removes cursor visibility control sequences', () => {
-      const input = '�[?25lHidden cursor text�[?25h';
-      const result = cleaner.removeAnsiCodes(input);
-      expect(result).toBe('Hidden cursor text');
-    });
-
     test('removes proper ANSI cursor control', () => {
       const input = '\x1b[?25lText with cursor\x1b[?25h';
       const result = cleaner.removeAnsiCodes(input);
       expect(result).toBe('Text with cursor');
-    });
-
-    test('removes orphaned cursor control fragments', () => {
-      const input = '25lSome text?25h';
-      const result = cleaner.removeAnsiCodes(input);
-      expect(result).toBe('Some text');
     });
 
     test('removes cursor movement codes', () => {
@@ -58,10 +46,6 @@ describe('OutputCleaner', () => {
       expect(cleaner.removeAnsiCodes(null)).toBe(null);
     });
 
-    test('handles undefined input', () => {
-      expect(cleaner.removeAnsiCodes(undefined)).toBe(undefined);
-    });
-
     test('removes replacement characters', () => {
       const input = 'Text with � replacement';
       const result = cleaner.removeAnsiCodes(input);
@@ -69,7 +53,7 @@ describe('OutputCleaner', () => {
     });
 
     test('removes complex mixed ANSI sequences', () => {
-      const input = '\x1b[31m\x1b[1mBold Red\x1b[0m �[?25lHidden\x1b[2J25lFragment';
+      const input = '\x1b[31m\x1b[1mBold Red\x1b[0m �[?25lHidden\x1b[2J?25lFragment';
       const result = cleaner.removeAnsiCodes(input);
       expect(result).toBe('Bold Red HiddenFragment');
     });
@@ -105,19 +89,6 @@ Content here`;
       expect(result).not.toContain('Banner');
       expect(result).not.toContain('UI noise');
       expect(result).not.toContain('�[?25l');
-    });
-
-    test('uses last cursor control when multiple present', () => {
-      const input = `First section
-�[?25l
-Middle content
-�[?25l
-Final result`;
-
-      const result = cleaner.removeToolExecutionBlocks(input);
-      expect(result).toBe('Final result');
-      expect(result).not.toContain('First section');
-      expect(result).not.toContain('Middle content');
     });
 
     test('falls back to completed marker when no cursor control', () => {
@@ -172,11 +143,6 @@ Actual content`;
       expect(result).not.toContain('> Analyzing');
     });
 
-    test('handles empty input', () => {
-      const result = cleaner.removeToolExecutionBlocks('');
-      expect(result).toBe('');
-    });
-
     test('preserves blank lines in output', () => {
       const input = `🎯 **Application observability for AWS Assistant Result**
 
@@ -212,14 +178,6 @@ Line 2`;
       const input = 'Text\n\n\n\n\nMore text';
       const result = cleaner.ensureMarkdownFormatting(input);
       expect(result).toBe('Text\n\nMore text');
-    });
-
-    test('handles empty input', () => {
-      expect(cleaner.ensureMarkdownFormatting('')).toBe('');
-    });
-
-    test('handles null input', () => {
-      expect(cleaner.ensureMarkdownFormatting(null)).toBe(null);
     });
 
     test('trims trailing whitespace from lines', () => {

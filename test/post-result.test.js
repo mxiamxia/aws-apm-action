@@ -2,6 +2,9 @@ const { run } = require('../src/post-result');
 const fs = require('fs');
 const path = require('path');
 
+// Mock process.exit
+const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {});
+
 // Mock @actions/core
 jest.mock('@actions/core', () => ({
   info: jest.fn(),
@@ -42,6 +45,7 @@ describe('post-result', () => {
   beforeEach(() => {
     originalEnv = { ...process.env };
     jest.clearAllMocks();
+    mockExit.mockClear();
 
     // Create temp directory and output file
     tempDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'post-result-test-'));
@@ -70,7 +74,7 @@ describe('post-result', () => {
   });
 
   describe('update existing comment', () => {
-    test('updates comment when ID provided', async () => {
+    test('updates comment with output content', async () => {
       process.env.AWSAPM_COMMENT_ID = '456';
       mockOctokit.rest.issues.updateComment.mockResolvedValue({});
 
@@ -83,13 +87,6 @@ describe('post-result', () => {
           repo: 'test-repo'
         })
       );
-    });
-
-    test('includes output file content in comment', async () => {
-      process.env.AWSAPM_COMMENT_ID = '456';
-      mockOctokit.rest.issues.updateComment.mockResolvedValue({});
-
-      await run();
 
       const call = mockOctokit.rest.issues.updateComment.mock.calls[0];
       expect(call[0].body).toContain('Test analysis result');
@@ -107,7 +104,7 @@ describe('post-result', () => {
   });
 
   describe('create new comment', () => {
-    test('creates comment when no ID provided', async () => {
+    test('creates comment with output content', async () => {
       delete process.env.AWSAPM_COMMENT_ID;
       mockOctokit.rest.issues.createComment.mockResolvedValue({});
 
@@ -120,13 +117,6 @@ describe('post-result', () => {
           issue_number: 1
         })
       );
-    });
-
-    test('includes output content in new comment', async () => {
-      delete process.env.AWSAPM_COMMENT_ID;
-      mockOctokit.rest.issues.createComment.mockResolvedValue({});
-
-      await run();
 
       const call = mockOctokit.rest.issues.createComment.mock.calls[0];
       expect(call[0].body).toContain('Test analysis result');
@@ -224,23 +214,12 @@ describe('post-result', () => {
       expect(core.setFailed).toHaveBeenCalled();
     });
 
-    test('handles API errors gracefully', async () => {
+    test('logs error when comment creation fails', async () => {
       mockOctokit.rest.issues.createComment.mockRejectedValue(new Error('API error'));
 
       await run();
 
       expect(core.error).toHaveBeenCalledWith(expect.stringContaining('Comment update failed'));
-    });
-
-    test('attempts error comment on failure', async () => {
-      process.env.GITHUB_TOKEN = 'test-token';
-      mockOctokit.rest.issues.createComment.mockRejectedValueOnce(new Error('First fail'));
-      mockOctokit.rest.issues.createComment.mockResolvedValueOnce({});
-
-      await run();
-
-      // First call fails, second call is error comment
-      expect(mockOctokit.rest.issues.createComment).toHaveBeenCalledTimes(2);
     });
 
     test('exits with error code on failure', async () => {

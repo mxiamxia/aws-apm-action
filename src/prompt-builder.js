@@ -241,7 +241,7 @@ Size: ${repoInfo.size} KB
 File Count: ${repoInfo.fileCount}
 Topics: ${repoInfo.topics.join(', ') || 'None'}`;
 
-  const formattedBody = commentBody || userRequest || 'No description provided';
+  const formattedBody = userRequest || commentBody || 'No description provided';
 
   // Get conversation context from previous comments
   const conversationComments = await fetchGitHubConversation(context, githubToken);
@@ -270,8 +270,11 @@ ${file.patch}
 </changed_files>`;
   }
 
+  // Get custom prompt from environment if provided
+  const customPrompt = process.env.CUSTOM_PROMPT || '';
+
   // Build comprehensive prompt with repository context and PR changes
-  const prompt = `You are an AI assistant designed to help with GitHub issues and pull requests. Think carefully as you analyze the context and respond appropriately. Here's the context for your current task:
+  let prompt = `You are an AI assistant designed to help with GitHub issues and pull requests. Think carefully as you analyze the context and respond appropriately.${customPrompt ? `\n\nADDITIONAL INSTRUCTIONS:\n${customPrompt}` : ''}\n\nHere's the context for your current task:
 
 <formatted_context>
 ${formattedContext}
@@ -290,7 +293,6 @@ ${changedFilesSection}
 <is_pr>${isPR ? "true" : "false"}</is_pr>
 <trigger_context>${triggerContext}</trigger_context>
 <repository>${repository}</repository>
-<trigger_phrase>@awsapm</trigger_phrase>
 
 Your task is to analyze the context, understand the request, and provide helpful responses and/or implement code changes as needed.
 

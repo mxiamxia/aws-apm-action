@@ -22,10 +22,10 @@ async function run() {
     const customPrompt = process.env.CUSTOM_PROMPT || '';
     const tracingMode = process.env.TRACING_MODE || 'false';
 
-    // Function to check for "@awsapm" trigger phrase
+    // Function to check for bot name trigger phrase
     function containsTriggerPhrase(text) {
       if (!text) return false;
-      return text.includes('@awsapm');
+      return text.toLowerCase().includes(botName.toLowerCase());
     }
 
     // Check if trigger phrase is present in the event
@@ -218,11 +218,14 @@ async function run() {
       };
     }
 
+    // Remove bot name from the user's request
+    const cleanedUserRequest = triggerText.replace(new RegExp(botName, 'gi'), '').trim();
+
     // Use the dynamic prompt generation with PR context
     const { createGeneralPrompt } = require('./prompt-builder');
 
     try {
-      const finalPrompt = await createGeneralPrompt(context, repoInfo, customPrompt, githubToken);
+      const finalPrompt = await createGeneralPrompt(context, repoInfo, cleanedUserRequest, githubToken);
       fs.writeFileSync(promptFile, finalPrompt);
     } catch (promptError) {
       core.error(`Failed to generate dynamic prompt: ${promptError.message}`);
@@ -233,7 +236,7 @@ async function run() {
         fallbackPrompt = customPrompt + '\n\n';
       }
       fallbackPrompt += `Please analyze this ${isPR ? 'pull request' : 'issue'} using AI Agent for insights.\n\n`;
-      fallbackPrompt += `Original request: ${triggerText}\n\n`;
+      fallbackPrompt += `Original request: ${cleanedUserRequest}\n\n`;
       fallbackPrompt += `Context: This is a ${context.eventName} event in ${context.repo.owner}/${context.repo.repo}`;
 
       fs.writeFileSync(promptFile, fallbackPrompt);

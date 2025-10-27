@@ -5,7 +5,6 @@ const github = require('@actions/github');
 const fs = require('fs');
 const path = require('path');
 const { AmazonQCLIExecutor } = require('./executors/amazonq-cli-executor');
-const { TimingTracker } = require('./utils/timing');
 
 /**
  * Main entry point for Application observability for AWS investigation
@@ -24,12 +23,8 @@ async function run() {
 
     const promptContent = fs.readFileSync(promptFile, 'utf8');
 
-    // Print the full prompt content for debugging (only in debug mode)
-    if (process.env.RUNNER_DEBUG === '1') {
-      core.debug('\n=== FULL PROMPT CONTENT START ===');
-      core.debug(promptContent);
-      core.debug('=== FULL PROMPT CONTENT END ===\n');
-    }
+    // Print the full prompt content for debugging
+    core.debug(promptContent);
 
     // Setup AWS credentials if provided
     if (process.env.AWS_ACCESS_KEY_ID) {
@@ -51,15 +46,12 @@ async function run() {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    // Initialize timing tracker
-    const timingTracker = new TimingTracker();
-
     // Run Amazon Q Developer CLI investigation
     let investigationResult = '';
 
     try {
       core.info('Running Amazon Q Developer CLI investigation...');
-      const executor = new AmazonQCLIExecutor(timingTracker);
+      const executor = new AmazonQCLIExecutor(null);
       investigationResult = await executor.execute(promptContent);
       core.info('Amazon Q Developer CLI investigation completed');
     } catch (error) {
@@ -85,10 +77,6 @@ Please check the workflow logs for more details and ensure proper authentication
     // Save the final response
     const responseFile = path.join(outputDir, 'awsapm-response.txt');
     fs.writeFileSync(responseFile, finalResponse);
-
-    // Save timing data
-    const timingFile = path.join(outputDir, 'timing.json');
-    timingTracker.save(timingFile);
 
     // Set outputs
     core.setOutput('execution_file', responseFile);

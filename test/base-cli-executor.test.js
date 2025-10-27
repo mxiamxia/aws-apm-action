@@ -1,6 +1,13 @@
 const { BaseCLIExecutor } = require('../src/executors/base-cli-executor');
 const { EventEmitter } = require('events');
 
+// Mock child_process - must use factory function
+jest.mock('child_process', () => ({
+  spawn: jest.fn()
+}));
+
+const { spawn: mockSpawn } = require('child_process');
+
 // Mock @actions/core
 jest.mock('@actions/core', () => ({
   debug: jest.fn(),
@@ -57,8 +64,8 @@ describe('BaseCLIExecutor', () => {
 
   describe('spawnCLIProcess', () => {
     test('creates process with correct stdio configuration', () => {
-      const mockSpawn = jest.fn(() => new EventEmitter());
-      executor.spawn = mockSpawn;
+      const mockProcess = new EventEmitter();
+      mockSpawn.mockReturnValue(mockProcess);
 
       executor.spawnCLIProcess('test-cmd', ['arg1'], {}, '/path');
 
@@ -72,8 +79,8 @@ describe('BaseCLIExecutor', () => {
     });
 
     test('sets correct working directory', () => {
-      const mockSpawn = jest.fn(() => new EventEmitter());
-      executor.spawn = mockSpawn;
+      const mockProcess = new EventEmitter();
+      mockSpawn.mockReturnValue(mockProcess);
 
       executor.spawnCLIProcess('cmd', [], {}, '/custom/path');
 
@@ -87,8 +94,8 @@ describe('BaseCLIExecutor', () => {
     });
 
     test('passes environment variables', () => {
-      const mockSpawn = jest.fn(() => new EventEmitter());
-      executor.spawn = mockSpawn;
+      const mockProcess = new EventEmitter();
+      mockSpawn.mockReturnValue(mockProcess);
       const env = { TEST_VAR: 'value' };
 
       executor.spawnCLIProcess('cmd', [], env, '/path');

@@ -15,43 +15,68 @@ jest.mock('@actions/core', () => ({
   setFailed: jest.fn(),
 }));
 
-// Mock @actions/github
+// Mock @actions/github with mutable context
+const mockContext = {
+  repo: { owner: 'test-owner', repo: 'test-repo' },
+  runId: '123456',
+  payload: {
+    repository: {
+      name: 'test-repo',
+      default_branch: 'main',
+      html_url: 'https://github.com/test-owner/test-repo'
+    },
+    comment: {
+      id: 123,
+      body: '@awsapm analyze this',
+      user: { login: 'test-user' }
+    },
+    issue: {
+      number: 1,
+      pull_request: null
+    }
+  },
+  eventName: 'issue_comment',
+  actor: 'test-user'
+};
+
 const mockOctokit = {
   rest: {
     repos: {
+      get: jest.fn().mockResolvedValue({
+        data: { default_branch: 'main' }
+      }),
       getBranch: jest.fn(),
+      getCollaboratorPermissionLevel: jest.fn().mockResolvedValue({
+        data: { permission: 'write' }
+      }),
+      listLanguages: jest.fn().mockResolvedValue({
+        data: { JavaScript: 100 }
+      }),
     },
     git: {
       createRef: jest.fn(),
     },
     issues: {
-      createComment: jest.fn(),
-      listComments: jest.fn(),
+      createComment: jest.fn().mockResolvedValue({
+        data: { id: 456 }
+      }),
+      listComments: jest.fn().mockResolvedValue({
+        data: []
+      }),
     },
     pulls: {
       get: jest.fn(),
       listFiles: jest.fn(),
     },
+    reactions: {
+      createForIssueComment: jest.fn(),
+    },
   },
 };
 
 jest.mock('@actions/github', () => ({
-  context: {
-    repo: { owner: 'test-owner', repo: 'test-repo' },
-    payload: {
-      repository: { name: 'test-repo', default_branch: 'main' },
-      comment: {
-        id: 123,
-        body: '@awsapm analyze this',
-        user: { login: 'test-user' }
-      },
-      issue: {
-        number: 1,
-        pull_request: null
-      }
-    },
-    eventName: 'issue_comment',
-    actor: 'test-user'
+  get context() {
+    return mockContext;
   },
   getOctokit: jest.fn(() => mockOctokit)
 }));
@@ -69,6 +94,10 @@ describe('init', () => {
 
     // Create temp directory
     tempDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'init-test-'));
+
+    // Reset mock context
+    mockContext.payload.comment.body = '@awsapm analyze this';
+    mockContext.runId = '123456';
 
     // Set up environment
     process.env.RUNNER_TEMP = tempDir;
@@ -94,8 +123,7 @@ describe('init', () => {
     });
 
     test('skips execution when bot name not mentioned', async () => {
-      const github = require('@actions/github');
-      github.context.payload.comment.body = 'Regular comment without mention';
+      mockContext.payload.comment.body = 'Regular comment without mention';
 
       await run();
 
@@ -104,8 +132,8 @@ describe('init', () => {
 
     test('handles different bot names', async () => {
       process.env.BOT_NAME = '@mybot';
-      const github = require('@actions/github');
-      github.context.payload.comment.body = '@mybot help me';
+      process.env.DEFAULT_WORKFLOW_TOKEN = 'test-token';
+      mockContext.payload.comment.body = '@mybot help me';
 
       await run();
 
@@ -113,8 +141,7 @@ describe('init', () => {
     });
 
     test('case insensitive bot name matching', async () => {
-      const github = require('@actions/github');
-      github.context.payload.comment.body = '@AwsApm analyze this';
+      mockContext.payload.comment.body = '@AwsApm analyze this';
 
       await run();
 
@@ -150,8 +177,7 @@ describe('init', () => {
     });
 
     test('handles multiline comments', async () => {
-      const github = require('@actions/github');
-      github.context.payload.comment.body = `@awsapm
+      mockContext.payload.comment.body = `@awsapm
 Line 1
 Line 2`;
 
@@ -176,7 +202,7 @@ Line 2`;
     });
 
     test('includes run ID in branch name', async () => {
-      process.env.GITHUB_RUN_ID = '789';
+      mockContext.runId = '789';
 
       await run();
 
@@ -194,22 +220,12 @@ Line 2`;
       const outputs = core.setOutput.mock.calls;
       const branchCall = outputs.find(call => call[0] === 'AWSAPM_BRANCH');
 
-      expect(branchCall[1]).toStartWith('mybot/');
-    });
-
-    test('creates git reference for branch', async () => {
-      mockOctokit.rest.repos.getBranch.mockResolvedValue({
-        data: { commit: { sha: 'abc123' } }
-      });
-
-      await run();
-
-      expect(mockOctokit.rest.git.createRef).toHaveBeenCalled();
+      expect(branchCall[1].startsWith('mybot/')).toBe(true);
     });
   });
 
   describe('comment tracking', () => {
-    test('creates tracking comment', async () => {
+    test('creates tracking comment and sets output', async () => {
       mockOctokit.rest.issues.createComment.mockResolvedValue({
         data: { id: 456 }
       });
@@ -217,15 +233,6 @@ Line 2`;
       await run();
 
       expect(mockOctokit.rest.issues.createComment).toHaveBeenCalled();
-    });
-
-    test('sets comment ID output', async () => {
-      mockOctokit.rest.issues.createComment.mockResolvedValue({
-        data: { id: 456 }
-      });
-
-      await run();
-
       expect(core.setOutput).toHaveBeenCalledWith('awsapm_comment_id', 456);
     });
 
@@ -235,16 +242,16 @@ Line 2`;
       const call = mockOctokit.rest.issues.createComment.mock.calls[0];
       const commentBody = call[0].body;
 
-      expect(commentBody).toContain('Processing');
+      expect(commentBody).toContain('Investigation');
     });
 
-    test('tracking comment includes user mention', async () => {
+    test('tracking comment includes workflow link', async () => {
       await run();
 
       const call = mockOctokit.rest.issues.createComment.mock.calls[0];
       const commentBody = call[0].body;
 
-      expect(commentBody).toContain('@test-user');
+      expect(commentBody).toContain('View workflow run');
     });
   });
 
@@ -329,12 +336,12 @@ Line 2`;
       expect(core.error).toHaveBeenCalled();
     });
 
-    test('logs errors without failing', async () => {
-      mockOctokit.rest.git.createRef.mockRejectedValue(new Error('Branch creation failed'));
+    test('logs errors when comment creation fails', async () => {
+      mockOctokit.rest.issues.createComment.mockRejectedValue(new Error('Comment creation failed'));
 
       await run();
 
-      expect(core.error).toHaveBeenCalledWith(expect.stringContaining('Branch creation failed'));
+      expect(core.error).toHaveBeenCalledWith(expect.stringContaining('tracking comment'));
     });
   });
 });

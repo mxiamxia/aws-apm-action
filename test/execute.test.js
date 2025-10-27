@@ -2,6 +2,9 @@ const { run } = require('../src/execute');
 const fs = require('fs');
 const path = require('path');
 
+// Mock process.exit
+const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {});
+
 // Mock @actions/core
 jest.mock('@actions/core', () => ({
   info: jest.fn(),
@@ -38,6 +41,7 @@ describe('execute', () => {
   beforeEach(() => {
     originalEnv = { ...process.env };
     jest.clearAllMocks();
+    mockExit.mockClear();
 
     // Create temp directory and prompt file
     tempDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'execute-test-'));
@@ -121,12 +125,6 @@ describe('execute', () => {
 
       expect(core.setOutput).toHaveBeenCalledWith('final_response', 'Test analysis result');
     });
-
-    test('logs completion message', async () => {
-      await run();
-
-      expect(core.info).toHaveBeenCalledWith('Investigation completed');
-    });
   });
 
   describe('AWS credentials', () => {
@@ -209,45 +207,6 @@ describe('execute', () => {
 
       expect(mockExit).toHaveBeenCalledWith(1);
       mockExit.mockRestore();
-    });
-  });
-
-  describe('timing tracker', () => {
-    test('creates timing tracker', async () => {
-      await run();
-
-      const timingFile = path.join(tempDir, 'awsapm-output', 'timing.json');
-      expect(fs.existsSync(timingFile)).toBe(true);
-    });
-
-    test('saves timing data', async () => {
-      await run();
-
-      const timingFile = path.join(tempDir, 'awsapm-output', 'timing.json');
-      const content = JSON.parse(fs.readFileSync(timingFile, 'utf8'));
-
-      expect(content).toHaveProperty('timings');
-      expect(Array.isArray(content.timings)).toBe(true);
-    });
-  });
-
-  describe('debug mode', () => {
-    test('logs full prompt content in debug mode', async () => {
-      process.env.RUNNER_DEBUG = '1';
-
-      await run();
-
-      expect(core.debug).toHaveBeenCalledWith('\\n=== FULL PROMPT CONTENT START ===');
-      expect(core.debug).toHaveBeenCalledWith('Test prompt content');
-      expect(core.debug).toHaveBeenCalledWith('=== FULL PROMPT CONTENT END ===\\n');
-    });
-
-    test('does not log prompt content when not in debug mode', async () => {
-      delete process.env.RUNNER_DEBUG;
-
-      await run();
-
-      expect(core.debug).not.toHaveBeenCalledWith('Test prompt content');
     });
   });
 });

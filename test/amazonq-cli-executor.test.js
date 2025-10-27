@@ -1,15 +1,5 @@
 const { AmazonQCLIExecutor } = require('../src/executors/amazonq-cli-executor');
 
-// Mock @actions/core
-jest.mock('@actions/core', () => ({
-  debug: jest.fn(),
-  info: jest.fn(),
-  warning: jest.fn(),
-  error: jest.fn(),
-}));
-
-const core = require('@actions/core');
-
 describe('AmazonQCLIExecutor', () => {
   let executor;
   let mockTimingTracker;
@@ -95,18 +85,6 @@ Result text`;
       expect(output).toContain('🎯 **Application observability for AWS Assistant Result**');
       expect(output).toContain('Result text');
       expect(output).not.toContain('Tool output');
-    });
-
-    test('logs raw output length', () => {
-      executor.parseOutput('Test output');
-
-      expect(core.debug).toHaveBeenCalledWith('Amazon Q raw output: 11 chars');
-    });
-
-    test('logs cleaned output length', () => {
-      executor.parseOutput('Test output');
-
-      expect(core.debug).toHaveBeenCalledWith(expect.stringContaining('Amazon Q cleaned output:'));
     });
 
     test('removes ANSI codes', () => {

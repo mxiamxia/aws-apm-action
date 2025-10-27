@@ -37,8 +37,8 @@ inputs:
     description: "AWS region for Amazon Q Developer CLI and Application Signals MCP"
     required: false
     default: "us-east-1"
-  enable_cloudwatch_mcp:
-    description: "Enable CloudWatch Application Signals MCP server integration for live telemetry access"
+  enable_application_signals_mcp:
+    description: "Enable AWS Application Signals MCP server integration for live telemetry access"
     required: false
     default: "false"
   custom_prompt:
@@ -150,7 +150,7 @@ runs:
         AWS_SECRET_ACCESS_KEY: ${{ inputs.aws_secret_access_key }}
         AWS_SESSION_TOKEN: ${{ inputs.aws_session_token }}
         AWS_REGION: ${{ inputs.aws_region }}
-        ENABLE_CLOUDWATCH_MCP: ${{ inputs.enable_cloudwatch_mcp }}
+        ENABLE_APPLICATION_SIGNALS_MCP: ${{ inputs.enable_application_signals_mcp }}
         INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
 
     - name: Update comment with results
