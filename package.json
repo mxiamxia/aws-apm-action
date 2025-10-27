@@ -4,7 +4,9 @@
   "description": "A GitHub Action that provides automated application observability assistant for AWS customers",
   "main": "src/init.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "repository": {
     "type": "git",
@@ -33,7 +35,9 @@
     "node-fetch": "^3.3.2",
     "jsonwebtoken": "^9.0.2"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
   "engines": {
     "node": ">=20.0.0"
   }
