@@ -46,9 +46,9 @@ inputs:
     required: false
     default: ""
   tracing_mode:
-    description: "Enable detailed timing summary in workflow output (shows execution time breakdown)"
+    description: "Enable tracing to show AI agent reasoning steps and MCP tool calls in workflow summary"
     required: false
-    default: "false"
+    default: "true"
 
 outputs:
   execution_file:
