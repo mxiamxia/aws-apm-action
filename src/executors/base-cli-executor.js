@@ -213,10 +213,10 @@ class BaseCLIExecutor {
         // Log final captured sizes
         core.debug(`[SUMMARY] Total stdout: ${stdoutData.length} chars, Total stderr: ${stderrData.length} chars`);
 
-        // Amazon Q 1.19.0 writes output to stderr, 1.18.1 writes to stdout
-        // Prefer stderr if it has content, otherwise use stdout
-        const output = stderrData || stdoutData;
-        core.debug(`[SUMMARY] Using ${stderrData ? 'stderr' : 'stdout'} as output source`);
+        // Prefer stdout if it has content (structured output), otherwise use stderr
+        // Amazon Q CLI may write to either depending on version and mode
+        const output = stdoutData || stderrData;
+        core.debug(`[SUMMARY] Using ${stdoutData ? 'stdout' : 'stderr'} as output source`);
 
         resolve({ output, exitCode: code || 0 });
       });
