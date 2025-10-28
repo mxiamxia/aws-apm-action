@@ -37,10 +37,6 @@ inputs:
     description: "AWS region for Amazon Q Developer CLI and Application Signals MCP"
     required: false
     default: "us-east-1"
-  enable_cloudwatch_mcp:
-    description: "Enable CloudWatch Application Signals MCP server integration for live telemetry access"
-    required: false
-    default: "false"
   custom_prompt:
     description: "Custom instructions to guide the AI agent's analysis and actions"
     required: false
@@ -53,31 +49,130 @@ inputs:
 outputs:
   execution_file:
     description: "Path to the Amazon Q Developer CLI execution output file"
-    value: ${{ steps.placeholder.outputs.execution_file }}
+    value: ${{ steps.aws-apm-cli.outputs.execution_file }}
   branch_name:
     description: "The branch created by Application observability for AWS Action for this execution"
-    value: ${{ steps.placeholder.outputs.branch_name }}
+    value: ${{ steps.init.outputs.AWSAPM_BRANCH }}
   github_token:
     description: "The GitHub token used by the action"
-    value: ${{ steps.placeholder.outputs.github_token }}
+    value: ${{ steps.init.outputs.GITHUB_TOKEN }}
 
 runs:
   using: "composite"
   steps:
-    - name: Placeholder - Initialization
-      id: placeholder
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install Dependencies
       shell: bash
       run: |
-        echo "🚧 Phase 1: Skeleton only - implementation coming in future PRs"
-        echo "This action will:"
-        echo "  1. Detect @awsapm trigger in comments"
-        echo "  2. Build comprehensive prompt with GitHub context"
-        echo "  3. Execute Amazon Q Developer CLI analysis"
-        echo "  4. Post results back to GitHub"
-        echo ""
-        echo "::notice::Action skeleton created - awaiting Phase 2+ implementation"
+        # Source timing utility
+        source ${GITHUB_ACTION_PATH}/src/utils/record-timing.sh
+        record_timing_start "Install Dependencies"
 
-        # Set dummy outputs for skeleton
-        echo "execution_file=/tmp/placeholder" >> $GITHUB_OUTPUT
-        echo "branch_name=awsapm/placeholder" >> $GITHUB_OUTPUT
-        echo "github_token=placeholder" >> $GITHUB_OUTPUT
+        cd ${GITHUB_ACTION_PATH}
+        npm install
+
+        record_timing_end "Install Dependencies"
+
+    - name: Init action
+      id: init
+      shell: bash
+      run: |
+        node ${GITHUB_ACTION_PATH}/src/init.js
+      env:
+        CUSTOM_PROMPT: ${{ inputs.custom_prompt }}
+        BOT_NAME: ${{ inputs.bot_name }}
+        TARGET_BRANCH: ${{ inputs.target_branch }}
+        BRANCH_PREFIX: ${{ inputs.branch_prefix }}
+        OVERRIDE_GITHUB_TOKEN: ${{ inputs.github_token }}
+        ALLOWED_NON_WRITE_USERS: ${{ inputs.allowed_non_write_users }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        DEFAULT_WORKFLOW_TOKEN: ${{ github.token }}
+        TRACING_MODE: ${{ inputs.tracing_mode }}
+
+    - name: Install CLI Tools
+      if: steps.init.outputs.contains_trigger == 'true'
+      shell: bash
+      run: |
+        # Source timing utility
+        source ${GITHUB_ACTION_PATH}/src/utils/record-timing.sh
+        record_timing_start "Install CLI Tools"
+
+        # Install uv/uvx for MCP server execution (needed for AWS CloudWatch MCP)
+        echo "Installing uv package manager for MCP server support..."
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+        echo "Installing Amazon Q Developer CLI..."
+        # Step 1: Update apt cache to prevent mirror errors
+        sudo apt-get update
+        # Step 2: Download the .deb package
+        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.18.1/amazon-q.deb
+        # curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/latest/amazon-q.deb
+        # Step 3: Install the package with fix-missing flag for mirror resilience
+        sudo apt-get install -y --fix-missing ./amazon-q.deb || sudo apt-get install -y -f
+        # Step 4: Verify Amazon Q CLI installation
+        if command -v q &> /dev/null; then
+          echo "Amazon Q CLI installed successfully"
+          q --version
+        else
+          echo "Amazon Q CLI installation may have failed"
+          echo "Checking if q command is available..."
+          which q || echo "q command not found in PATH" 
+        fi
+        # Verify uvx is available for MCP (needed for CloudWatch MCP)
+        if command -v uvx &> /dev/null; then
+          echo "uvx available for Amazon Q MCP server execution"
+          uvx --version
+        else
+          echo "uvx not found - Amazon Q MCP tools may not work properly"
+        fi
+
+        record_timing_end "Install CLI Tools"
+
+    - name: Run Application observability for AWS Investigation
+      id: aws-apm-cli
+      if: steps.init.outputs.contains_trigger == 'true'
+      shell: bash
+      run: |
+        cd ${GITHUB_ACTION_PATH}
+        node src/execute.js
+      env:
+        GITHUB_TOKEN: ${{ steps.init.outputs.GITHUB_TOKEN }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.aws_access_key_id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.aws_secret_access_key }}
+        AWS_SESSION_TOKEN: ${{ inputs.aws_session_token }}
+        AWS_REGION: ${{ inputs.aws_region }}
+        INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
+
+    - name: Update comment with results
+      if: steps.init.outputs.contains_trigger == 'true' && steps.init.outputs.awsapm_comment_id && always()
+      shell: bash
+      run: |
+        cd ${GITHUB_ACTION_PATH}
+        node src/post-result.js
+      env:
+        REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+        AWSAPM_COMMENT_ID: ${{ steps.init.outputs.awsapm_comment_id }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        GITHUB_TOKEN: ${{ steps.init.outputs.GITHUB_TOKEN }}
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        TRIGGER_COMMENT_ID: ${{ github.event.comment.id }}
+        AWSAPM_BRANCH: ${{ steps.init.outputs.AWSAPM_BRANCH }}
+        IS_PR: ${{ github.event.issue.pull_request != null || github.event_name == 'pull_request_review_comment' }}
+        TARGET_BRANCH: ${{ steps.init.outputs.TARGET_BRANCH }}
+        AWSAPM_SUCCESS: ${{ steps.aws-apm-cli.outputs.conclusion == 'success' }}
+        OUTPUT_FILE: ${{ steps.aws-apm-cli.outputs.execution_file || '' }}
+        TRIGGER_USERNAME: ${{ github.event.comment.user.login || github.event.issue.user.login || github.event.pull_request.user.login || github.event.sender.login || github.triggering_actor || github.actor || '' }}
+        INIT_SUCCESS: ${{ steps.init.outcome == 'success' }}
+
+    - name: Generate Timing Summary
+      if: steps.init.outputs.contains_trigger == 'true' && steps.init.outputs.TRACING_MODE == 'true' && always()
+      shell: bash
+      run: |
+        cd ${GITHUB_ACTION_PATH}
+        node src/summary.js
