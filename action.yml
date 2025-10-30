@@ -68,14 +68,8 @@ runs:
     - name: Install Dependencies
       shell: bash
       run: |
-        # Source timing utility
-        source ${GITHUB_ACTION_PATH}/src/utils/record-timing.sh
-        record_timing_start "Install Dependencies"
-
         cd ${GITHUB_ACTION_PATH}
         npm install
-
-        record_timing_end "Install Dependencies"
 
     - name: Init action
       id: init
@@ -97,10 +91,6 @@ runs:
       if: steps.init.outputs.contains_trigger == 'true'
       shell: bash
       run: |
-        # Source timing utility
-        source ${GITHUB_ACTION_PATH}/src/utils/record-timing.sh
-        record_timing_start "Install CLI Tools"
-
         # Install uv/uvx for MCP server execution (needed for AWS CloudWatch MCP)
         echo "Installing uv package manager for MCP server support..."
         curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -121,7 +111,7 @@ runs:
         else
           echo "Amazon Q CLI installation may have failed"
           echo "Checking if q command is available..."
-          which q || echo "q command not found in PATH" 
+          which q || echo "q command not found in PATH"
         fi
         # Verify uvx is available for MCP (needed for CloudWatch MCP)
         if command -v uvx &> /dev/null; then
@@ -130,8 +120,6 @@ runs:
         else
           echo "uvx not found - Amazon Q MCP tools may not work properly"
         fi
-
-        record_timing_end "Install CLI Tools"
 
     - name: Run Application observability for AWS Investigation
       id: aws-apm-cli
@@ -169,10 +157,3 @@ runs:
         OUTPUT_FILE: ${{ steps.aws-apm-cli.outputs.execution_file || '' }}
         TRIGGER_USERNAME: ${{ github.event.comment.user.login || github.event.issue.user.login || github.event.pull_request.user.login || github.event.sender.login || github.triggering_actor || github.actor || '' }}
         INIT_SUCCESS: ${{ steps.init.outcome == 'success' }}
-
-    - name: Generate Timing Summary
-      if: steps.init.outputs.contains_trigger == 'true' && steps.init.outputs.TRACING_MODE == 'true' && always()
-      shell: bash
-      run: |
-        cd ${GITHUB_ACTION_PATH}
-        node src/summary.js
