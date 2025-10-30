@@ -169,7 +169,7 @@ class BaseCLIExecutor {
   }
 
   /**
-   * Capture CLI process output
+   * Capture CLI process output with enhanced logging
    * @param {ChildProcess} cliProcess CLI process
    * @returns {Promise<string>} Captured output
    */
@@ -177,25 +177,46 @@ class BaseCLIExecutor {
     return new Promise((resolve, reject) => {
       let stdoutData = '';
       let stderrData = '';
+      let outputBuffer = [];
 
-      // Capture stdout
+      // Capture stdout with real-time logging
       cliProcess.stdout.on('data', (data) => {
         const text = data.toString();
+        const timestamp = new Date().toISOString();
+        
+        // Store with timestamp for debugging
+        outputBuffer.push({ timestamp, source: 'stdout', data: text });
 
         // Allow subclasses to customize output handling
         if (this.onOutputData) {
           this.onOutputData(text);
         } else {
-          process.stdout.write(text);
+          // Enhanced logging with MCP detection
+          if (text.includes('Running ') || text.includes('Completed in') || text.includes('MCP')) {
+            core.info(`[${this.getCommandName().toUpperCase()}] ${text.trim()}`);
+          } else {
+            process.stdout.write(text);
+          }
         }
 
         stdoutData += text;
       });
 
-      // Capture stderr
+      // Capture stderr with enhanced logging
       cliProcess.stderr.on('data', (data) => {
         const text = data.toString();
-        process.stderr.write(text);  // Still show in workflow logs
+        const timestamp = new Date().toISOString();
+        
+        // Store with timestamp for debugging
+        outputBuffer.push({ timestamp, source: 'stderr', data: text });
+        
+        // Enhanced stderr logging
+        if (text.includes('MCP') || text.includes('server') || text.includes('tool')) {
+          core.warning(`[${this.getCommandName().toUpperCase()} MCP] ${text.trim()}`);
+        } else {
+          process.stderr.write(text);
+        }
+        
         stderrData += text;
       });
 
@@ -210,13 +231,16 @@ class BaseCLIExecutor {
       });
 
       cliProcess.on('close', (code) => {
+        // Save detailed output buffer for debugging
+        this.saveOutputBuffer(outputBuffer);
+        
         // Log final captured sizes
-        core.debug(`[SUMMARY] Total stdout: ${stdoutData.length} chars, Total stderr: ${stderrData.length} chars`);
+        core.info(`[SUMMARY] Total stdout: ${stdoutData.length} chars, Total stderr: ${stderrData.length} chars`);
 
         // Prefer stdout if it has content (structured output), otherwise use stderr
         // Amazon Q CLI may write to either depending on version and mode
         const output = stdoutData || stderrData;
-        core.debug(`[SUMMARY] Using ${stdoutData ? 'stdout' : 'stderr'} as output source`);
+        core.info(`[SUMMARY] Using ${stdoutData ? 'stdout' : 'stderr'} as output source`);
 
         resolve({ output, exitCode: code || 0 });
       });
@@ -226,6 +250,26 @@ class BaseCLIExecutor {
         reject(error);
       });
     });
+  }
+
+  /**
+   * Save detailed output buffer for debugging
+   * @param {Array} outputBuffer Timestamped output data
+   */
+  saveOutputBuffer(outputBuffer) {
+    try {
+      const outputDir = path.join(process.env.RUNNER_TEMP || '/tmp', 'awsapm-output');
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+      }
+      
+      const bufferFile = path.join(outputDir, `${this.getCommandName()}-output-buffer.json`);
+      fs.writeFileSync(bufferFile, JSON.stringify(outputBuffer, null, 2));
+      
+      core.debug(`Output buffer saved to: ${bufferFile}`);
+    } catch (error) {
+      core.warning(`Failed to save output buffer: ${error.message}`);
+    }
   }
 
   /**

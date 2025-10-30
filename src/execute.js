@@ -90,8 +90,15 @@ Please check the workflow logs for more details and ensure proper authentication
     const timingFile = path.join(outputDir, 'timing.json');
     timingTracker.save(timingFile);
 
-    // Set outputs
+    // Set outputs including MCP logs
+    const mcpLogsFile = path.join(outputDir, 'mcp-server-logs.json');
+    const toolCallsFile = path.join(outputDir, 'mcp-tool-calls.json');
+    const summaryFile = path.join(outputDir, 'mcp-interaction-summary.md');
+    
     core.setOutput('execution_file', responseFile);
+    core.setOutput('mcp_logs_file', fs.existsSync(mcpLogsFile) ? mcpLogsFile : '');
+    core.setOutput('tool_calls_file', fs.existsSync(toolCallsFile) ? toolCallsFile : '');
+    core.setOutput('mcp_summary_file', fs.existsSync(summaryFile) ? summaryFile : '');
     core.setOutput('conclusion', 'success');
     core.setOutput('investigation_result', investigationResult);
     core.setOutput('final_response', finalResponse);
@@ -104,8 +111,14 @@ Please check the workflow logs for more details and ensure proper authentication
     core.setFailed(`Investigation failed with error: ${errorMessage}`);
 
     // Still try to set some outputs for error handling
+    const outputDir = path.join(process.env.RUNNER_TEMP || '/tmp', 'awsapm-output');
+    const mcpLogsFile = path.join(outputDir, 'mcp-server-logs.json');
+    const toolCallsFile = path.join(outputDir, 'mcp-tool-calls.json');
+    
     core.setOutput('conclusion', 'failure');
     core.setOutput('error_message', errorMessage);
+    core.setOutput('mcp_logs_file', fs.existsSync(mcpLogsFile) ? mcpLogsFile : '');
+    core.setOutput('tool_calls_file', fs.existsSync(toolCallsFile) ? toolCallsFile : '');
 
     process.exit(1);
   }

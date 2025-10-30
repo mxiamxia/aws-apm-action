@@ -24,6 +24,11 @@ async function run() {
     const useStickyComment = true;
     const issueNumber = process.env.PR_NUMBER;
     const isPR = process.env.IS_PR === 'true';
+    
+    // MCP logging files
+    const mcpLogsFile = process.env.MCP_LOGS_FILE;
+    const toolCallsFile = process.env.TOOL_CALLS_FILE;
+    const mcpSummaryFile = process.env.MCP_SUMMARY_FILE;
 
     if (!githubToken) {
       throw new Error('GitHub token is required');
@@ -43,6 +48,21 @@ async function run() {
 
     // Create the final comment body
     const workflowUrl = `${context.payload.repository.html_url}/actions/runs/${githubRunId}`;
+    
+    // Get MCP interaction summary if available
+    let mcpSummary = '';
+    if (mcpSummaryFile && fs.existsSync(mcpSummaryFile)) {
+      try {
+        const summaryContent = fs.readFileSync(mcpSummaryFile, 'utf8');
+        // Extract just the tool calls section for the comment
+        const toolCallsMatch = summaryContent.match(/## Tool Calls([\s\S]*?)(?=##|$)/);
+        if (toolCallsMatch) {
+          mcpSummary = `\n\n<details>\n<summary>🔧 MCP Tool Interactions (Click to expand)</summary>\n\n${toolCallsMatch[1].trim()}\n\n</details>`;
+        }
+      } catch (error) {
+        core.warning(`Failed to read MCP summary: ${error.message}`);
+      }
+    }
 
     let commentBody;
     if (awsapmSuccess) {
@@ -53,7 +73,8 @@ async function run() {
         `---\n\n` +
         `✅ **Status**: Complete\n` +
         `👤 **Requested by**: @${triggerUsername}\n` +
-        `🔗 **Workflow**: [View details](${workflowUrl})\n\n` +
+        `🔗 **Workflow**: [View details](${workflowUrl})\n` +
+        `📊 **Artifacts**: [MCP Logs](${workflowUrl}#artifacts)${mcpSummary}\n\n` +
         `*Powered by AI Agent*`;
     } else {
       commentBody = `❌ **Application observability for AWS Investigation Failed**\n\n` +

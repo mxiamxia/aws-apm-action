@@ -54,6 +54,15 @@ outputs:
   execution_file:
     description: "Path to the Amazon Q Developer CLI execution output file"
     value: ${{ steps.aws-apm-cli.outputs.execution_file }}
+  mcp_logs_file:
+    description: "Path to the MCP server logs JSON file"
+    value: ${{ steps.aws-apm-cli.outputs.mcp_logs_file }}
+  tool_calls_file:
+    description: "Path to the MCP tool calls JSON file"
+    value: ${{ steps.aws-apm-cli.outputs.tool_calls_file }}
+  mcp_summary_file:
+    description: "Path to the human-readable MCP interaction summary"
+    value: ${{ steps.aws-apm-cli.outputs.mcp_summary_file }}
   branch_name:
     description: "The branch created by Application observability for AWS Action for this execution"
     value: ${{ steps.prepare.outputs.AWSAPM_BRANCH }}
@@ -174,6 +183,22 @@ runs:
         OUTPUT_FILE: ${{ steps.aws-apm-cli.outputs.execution_file || '' }}
         TRIGGER_USERNAME: ${{ github.event.comment.user.login || github.event.issue.user.login || github.event.pull_request.user.login || github.event.sender.login || github.triggering_actor || github.actor || '' }}
         PREPARE_SUCCESS: ${{ steps.prepare.outcome == 'success' }}
+        MCP_LOGS_FILE: ${{ steps.aws-apm-cli.outputs.mcp_logs_file }}
+        TOOL_CALLS_FILE: ${{ steps.aws-apm-cli.outputs.tool_calls_file }}
+        MCP_SUMMARY_FILE: ${{ steps.aws-apm-cli.outputs.mcp_summary_file }}
+
+    - name: Upload MCP Logs as Artifacts
+      if: steps.prepare.outputs.contains_trigger == 'true' && always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: mcp-logs-${{ github.run_id }}
+        path: |
+          ${{ runner.temp }}/awsapm-output/mcp-*.json
+          ${{ runner.temp }}/awsapm-output/mcp-*.md
+          ${{ runner.temp }}/awsapm-output/amazonq-*.log
+          ${{ runner.temp }}/awsapm-output/*-output-buffer.json
+        retention-days: 7
+        if-no-files-found: ignore
 
     - name: Generate Timing Summary
       if: steps.prepare.outputs.contains_trigger == 'true' && steps.prepare.outputs.TRACING_MODE == 'true' && always()
