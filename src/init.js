@@ -21,6 +21,7 @@ async function run() {
     const allowedNonWriteUsers = process.env.ALLOWED_NON_WRITE_USERS || '';
     const customPrompt = process.env.CUSTOM_PROMPT || '';
     const tracingMode = process.env.TRACING_MODE || 'false';
+    const testMode = process.env.TEST_MODE || 'false';
 
     // Function to check for "@awsapm" trigger phrase
     function containsTriggerPhrase(text) {
@@ -70,6 +71,11 @@ async function run() {
         isEditEvent = payload.action === 'edited';
         triggerUsername = issue.user?.login || 'unknown';
       }
+    } else if (testMode === 'true') {
+      // In test mode, always trigger and use custom prompt
+      containsTrigger = true;
+      triggerText = customPrompt || 'Integration test execution';
+      triggerUsername = 'integration-test';
     }
 
     // Set output for action.yml to check
@@ -95,11 +101,13 @@ async function run() {
     // Create Octokit instance
     const octokit = github.getOctokit(githubToken);
 
-    // Check user permissions
-    const hasPermissions = await checkUserPermissions(octokit, context, issueNumber, allowedNonWriteUsers);
-    if (!hasPermissions) {
-      core.setOutput('contains_trigger', 'false');
-      return;
+    // Check user permissions (skip for integration test)
+    if (testMode !== 'true') {
+      const hasPermissions = await checkUserPermissions(octokit, context, issueNumber, allowedNonWriteUsers);
+      if (!hasPermissions) {
+        core.setOutput('contains_trigger', 'false');
+        return;
+      }
     }
 
     // Add immediate eye reaction to show the action is triggered
@@ -218,25 +226,31 @@ async function run() {
       };
     }
 
-    // Use the dynamic prompt generation with PR context
-    const { createGeneralPrompt } = require('./prompt-builder');
+    if (testMode === 'true') {
+      // For integration test, use custom prompt directly
+      const testPrompt = customPrompt;
+      fs.writeFileSync(promptFile, testPrompt);
+    } else {
+      // Use the dynamic prompt generation with PR context
+      const { createGeneralPrompt } = require('./prompt-builder');
 
-    try {
-      const finalPrompt = await createGeneralPrompt(context, repoInfo, customPrompt, githubToken);
-      fs.writeFileSync(promptFile, finalPrompt);
-    } catch (promptError) {
-      core.error(`Failed to generate dynamic prompt: ${promptError.message}`);
+      try {
+        const finalPrompt = await createGeneralPrompt(context, repoInfo, customPrompt, githubToken);
+        fs.writeFileSync(promptFile, finalPrompt);
+      } catch (promptError) {
+        core.error(`Failed to generate dynamic prompt: ${promptError.message}`);
 
-      // Fallback to basic prompt if dynamic generation fails
-      let fallbackPrompt = '';
-      if (customPrompt) {
-        fallbackPrompt = customPrompt + '\n\n';
+        // Fallback to basic prompt if dynamic generation fails
+        let fallbackPrompt = '';
+        if (customPrompt) {
+          fallbackPrompt = customPrompt + '\n\n';
+        }
+        fallbackPrompt += `Please analyze this ${isPR ? 'pull request' : 'issue'} using AI Agent for insights.\n\n`;
+        fallbackPrompt += `Original request: ${triggerText}\n\n`;
+        fallbackPrompt += `Context: This is a ${context.eventName} event in ${context.repo.owner}/${context.repo.repo}`;
+
+        fs.writeFileSync(promptFile, fallbackPrompt);
       }
-      fallbackPrompt += `Please analyze this ${isPR ? 'pull request' : 'issue'} using AI Agent for insights.\n\n`;
-      fallbackPrompt += `Original request: ${triggerText}\n\n`;
-      fallbackPrompt += `Context: This is a ${context.eventName} event in ${context.repo.owner}/${context.repo.repo}`;
-
-      fs.writeFileSync(promptFile, fallbackPrompt);
     }
 
     // Set outputs
