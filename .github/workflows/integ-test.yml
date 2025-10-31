@@ -33,3 +33,13 @@ jobs:
           tracing_mode: "true"  # Show AI agent reasoning steps
           test_mode: "true"  # Enable integration test mode
           custom_prompt: "Which of my services are currently actively running on CloudWatch?"
+
+      - name: Upload test outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-outputs
+          path: |
+            ${{ runner.temp }}/awsapm-output/
+            ${{ runner.temp }}/awsapm-prompts/
+          retention-days: 7
