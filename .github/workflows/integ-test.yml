@@ -29,10 +29,10 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
           bot_name: "@awsapm"
-          enable_cloudwatch_mcp: "true"  # Enable CloudWatch Application Signals MCP
+          enable_cloudwatch_mcp: "false"  # Temporarily disable MCP to test fallback behavior
           tracing_mode: "true"  # Show AI agent reasoning steps
           test_mode: "true"  # Enable integration test mode
-          custom_prompt: "Which of my services are currently actively running on CloudWatch?"
+          custom_prompt: "Use the list_monitored_services tool to show me all services currently monitored by AWS Application Signals. I need to see the complete list of monitored services."
 
       - name: Upload test outputs
         if: always()
