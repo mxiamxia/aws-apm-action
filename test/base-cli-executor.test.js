@@ -47,13 +47,6 @@ describe('BaseCLIExecutor', () => {
       expect(executor.targetRepoDir).toBeDefined();
     });
 
-    test('accepts timing tracker', () => {
-      const mockTracker = { start: jest.fn(), end: jest.fn() };
-      const executorWithTracker = new TestCLIExecutor(mockTracker);
-
-      expect(executorWithTracker.timingTracker).toBe(mockTracker);
-    });
-
     test('uses GITHUB_WORKSPACE for target directory', () => {
       process.env.GITHUB_WORKSPACE = '/test/workspace';
       const executorWithWorkspace = new TestCLIExecutor();
@@ -243,6 +236,129 @@ describe('BaseCLIExecutor', () => {
 
     test('parseOutput throws when not implemented', () => {
       expect(() => baseExecutor.parseOutput('test')).toThrow('must be implemented by subclass');
+    });
+  });
+
+  describe('getEnvironmentVariables', () => {
+    test('returns process.env by default', () => {
+      const env = executor.getEnvironmentVariables();
+      expect(env).toEqual(process.env);
+    });
+  });
+
+  describe('getWorkingDirectory', () => {
+    test('returns targetRepoDir', () => {
+      const dir = executor.getWorkingDirectory();
+      expect(dir).toBe(executor.targetRepoDir);
+    });
+  });
+
+  describe('testCLIAvailable', () => {
+    test('returns true when CLI command exists', async () => {
+      // Mock execSync in the module being tested
+      const childProcess = require('child_process');
+      const originalExecSync = childProcess.execSync;
+      childProcess.execSync = jest.fn().mockReturnValue('help text');
+
+      const result = await executor.testCLIAvailable();
+
+      expect(result).toBe(true);
+
+      childProcess.execSync = originalExecSync;
+    });
+
+    test('throws error when CLI not found', async () => {
+      const childProcess = require('child_process');
+      const originalExecSync = childProcess.execSync;
+      childProcess.execSync = jest.fn().mockImplementation(() => {
+        throw new Error('Command not found');
+      });
+
+      await expect(executor.testCLIAvailable()).rejects.toThrow('test-command CLI not found in PATH');
+
+      childProcess.execSync = originalExecSync;
+    });
+  });
+
+  describe('writePromptToFile', () => {
+    const fs = require('fs');
+
+    test('writes content to file', () => {
+      const writeFileSyncSpy = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
+
+      executor.writePromptToFile('test content', '/tmp/test.txt');
+
+      expect(writeFileSyncSpy).toHaveBeenCalledWith('/tmp/test.txt', 'test content');
+      writeFileSyncSpy.mockRestore();
+    });
+  });
+
+  describe('startPromptStreaming', () => {
+    const fs = require('fs');
+    const { spawn } = require('child_process');
+
+    test('spawns cat process with correct arguments', () => {
+      const mockCatProcess = new EventEmitter();
+      const mockStdout = new EventEmitter();
+      mockStdout.pipe = jest.fn();
+      mockCatProcess.stdout = mockStdout;
+
+      mockSpawn.mockReturnValue(mockCatProcess);
+      jest.spyOn(fs, 'createWriteStream').mockReturnValue(new EventEmitter());
+
+      executor.startPromptStreaming('/tmp/prompt.txt', '/tmp/pipe');
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'cat',
+        ['/tmp/prompt.txt'],
+        expect.objectContaining({
+          stdio: ['ignore', 'pipe', 'inherit']
+        })
+      );
+    });
+
+    test('creates write stream for pipe', () => {
+      const mockCatProcess = new EventEmitter();
+      const mockStdout = new EventEmitter();
+      mockStdout.pipe = jest.fn();
+      mockCatProcess.stdout = mockStdout;
+
+      mockSpawn.mockReturnValue(mockCatProcess);
+      const mockWriteStream = new EventEmitter();
+      jest.spyOn(fs, 'createWriteStream').mockReturnValue(mockWriteStream);
+
+      executor.startPromptStreaming('/tmp/prompt.txt', '/tmp/pipe');
+
+      expect(fs.createWriteStream).toHaveBeenCalledWith('/tmp/pipe');
+    });
+
+    test('handles cat process error', () => {
+      const mockCatProcess = new EventEmitter();
+      const mockStdout = new EventEmitter();
+      mockStdout.pipe = jest.fn();
+      mockCatProcess.stdout = mockStdout;
+
+      mockSpawn.mockReturnValue(mockCatProcess);
+      const mockWriteStream = new EventEmitter();
+      mockWriteStream.destroy = jest.fn();
+      jest.spyOn(fs, 'createWriteStream').mockReturnValue(mockWriteStream);
+
+      const { catProcess, pipeWriteStream } = executor.startPromptStreaming('/tmp/prompt.txt', '/tmp/pipe');
+
+      catProcess.emit('error', new Error('Cat error'));
+
+      expect(core.error).toHaveBeenCalledWith(expect.stringContaining('Error reading prompt file'));
+      expect(mockWriteStream.destroy).toHaveBeenCalled();
+    });
+  });
+
+  describe('execute method', () => {
+    test('execute method exists and is async', () => {
+      expect(typeof executor.execute).toBe('function');
+      const result = executor.execute('test');
+      expect(result).toBeInstanceOf(Promise);
+      // Clean up the promise
+      result.catch(() => {});
     });
   });
 });

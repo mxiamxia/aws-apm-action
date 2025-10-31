@@ -23,6 +23,8 @@ async function run() {
     const tracingMode = process.env.TRACING_MODE || 'false';
 
     // Function to check for bot name trigger phrase
+    // Note: Phrases like "@awsapm-user" will be also considered valid.
+    // Keeping this logic simple by accepting such variations.
     function containsTriggerPhrase(text) {
       if (!text) return false;
       return text.toLowerCase().includes(botName.toLowerCase());

@@ -95,9 +95,25 @@ describe('init', () => {
     // Create temp directory
     tempDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'init-test-'));
 
-    // Reset mock context
-    mockContext.payload.comment.body = '@awsapm analyze this';
+    // Reset mock context to default state
+    mockContext.eventName = 'issue_comment';
     mockContext.runId = '123456';
+    mockContext.payload = {
+      repository: {
+        name: 'test-repo',
+        default_branch: 'main',
+        html_url: 'https://github.com/test-owner/test-repo'
+      },
+      comment: {
+        id: 123,
+        body: '@awsapm analyze this',
+        user: { login: 'test-user' }
+      },
+      issue: {
+        number: 1,
+        pull_request: null
+      }
+    };
 
     // Set up environment
     process.env.RUNNER_TEMP = tempDir;
@@ -342,6 +358,294 @@ Line 2`;
       await run();
 
       expect(core.error).toHaveBeenCalledWith(expect.stringContaining('tracking comment'));
+    });
+
+    test('throws error when no GitHub token available', async () => {
+      delete process.env.DEFAULT_WORKFLOW_TOKEN;
+      delete process.env.OVERRIDE_GITHUB_TOKEN;
+
+      await run();
+
+      expect(core.setFailed).toHaveBeenCalledWith(expect.stringContaining('GitHub token'));
+    });
+
+    test('handles reaction creation failure gracefully', async () => {
+      mockOctokit.rest.reactions.createForIssueComment.mockRejectedValue(new Error('Reaction failed'));
+
+      await run();
+
+      expect(core.warning).toHaveBeenCalledWith(expect.stringContaining('Failed to add reaction'));
+    });
+  });
+
+  describe('event type handling', () => {
+    test('handles pull_request_review_comment event', async () => {
+      mockContext.eventName = 'pull_request_review_comment';
+      mockContext.payload = {
+        repository: mockContext.payload.repository,
+        comment: {
+          id: 789,
+          body: '@awsapm review this code',
+          user: { login: 'test-user' }
+        },
+        pull_request: {
+          number: 456
+        },
+        action: 'created'
+      };
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith('contains_trigger', 'true');
+      expect(mockOctokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith(
+        expect.objectContaining({ comment_id: 789 })
+      );
+    });
+
+    test('detects edit action for pull_request_review_comment', async () => {
+      mockContext.eventName = 'pull_request_review_comment';
+      mockContext.payload = {
+        repository: mockContext.payload.repository,
+        comment: {
+          id: 789,
+          body: '@awsapm review this code',
+          user: { login: 'test-user' }
+        },
+        pull_request: {
+          number: 456
+        },
+        action: 'edited'
+      };
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith('contains_trigger', 'true');
+    });
+
+    test('handles issues event with trigger in body', async () => {
+      mockContext.eventName = 'issues';
+      mockContext.payload = {
+        repository: mockContext.payload.repository,
+        issue: {
+          number: 789,
+          body: '@awsapm help with this issue',
+          title: 'Test Issue',
+          user: { login: 'test-user' }
+        },
+        action: 'opened'
+      };
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith('contains_trigger', 'true');
+    });
+
+    test('handles issues event with trigger in title', async () => {
+      mockContext.eventName = 'issues';
+      mockContext.payload = {
+        repository: mockContext.payload.repository,
+        issue: {
+          number: 789,
+          body: 'Issue description',
+          title: '@awsapm Test Issue',
+          user: { login: 'test-user' }
+        },
+        action: 'opened'
+      };
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith('contains_trigger', 'true');
+    });
+
+    test('detects edit action for issues event', async () => {
+      mockContext.eventName = 'issues';
+      mockContext.payload = {
+        repository: mockContext.payload.repository,
+        issue: {
+          number: 789,
+          body: '@awsapm help with this issue',
+          title: 'Test Issue',
+          user: { login: 'test-user' }
+        },
+        action: 'edited'
+      };
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith('contains_trigger', 'true');
+    });
+  });
+
+  describe('permission checking', () => {
+    test('sets contains_trigger to false when user lacks permissions', async () => {
+      mockOctokit.rest.repos.getCollaboratorPermissionLevel.mockResolvedValue({
+        data: { permission: 'read' }
+      });
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith('contains_trigger', 'false');
+    });
+
+    test('allows user with write permission', async () => {
+      mockOctokit.rest.repos.getCollaboratorPermissionLevel.mockResolvedValue({
+        data: { permission: 'write' }
+      });
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith('contains_trigger', 'true');
+    });
+
+    test('allows user with admin permission', async () => {
+      mockOctokit.rest.repos.getCollaboratorPermissionLevel.mockResolvedValue({
+        data: { permission: 'admin' }
+      });
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith('contains_trigger', 'true');
+    });
+  });
+
+  describe('token handling', () => {
+    test('uses OVERRIDE_GITHUB_TOKEN when available', async () => {
+      process.env.OVERRIDE_GITHUB_TOKEN = 'override-token';
+      process.env.DEFAULT_WORKFLOW_TOKEN = 'default-token';
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith('GITHUB_TOKEN', 'override-token');
+    });
+
+    test('falls back to DEFAULT_WORKFLOW_TOKEN', async () => {
+      delete process.env.OVERRIDE_GITHUB_TOKEN;
+      process.env.DEFAULT_WORKFLOW_TOKEN = 'default-token';
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith('GITHUB_TOKEN', 'default-token');
+    });
+  });
+
+  describe('target branch handling', () => {
+    test('uses default branch when TARGET_BRANCH not specified', async () => {
+      delete process.env.TARGET_BRANCH;
+      mockOctokit.rest.repos.get.mockResolvedValue({
+        data: { default_branch: 'develop' }
+      });
+
+      await run();
+
+      expect(mockOctokit.rest.repos.get).toHaveBeenCalled();
+      expect(core.setOutput).toHaveBeenCalledWith('TARGET_BRANCH', 'develop');
+    });
+
+    test('uses TARGET_BRANCH from environment when specified', async () => {
+      process.env.TARGET_BRANCH = 'feature-branch';
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith('TARGET_BRANCH', 'feature-branch');
+    });
+  });
+
+  describe('edit event handling', () => {
+    test('updates existing comment when edit action is detected', async () => {
+      mockContext.payload.action = 'edited';
+      mockContext.payload.comment.body = '@awsapm updated request';
+
+      // Mock listComments to return an existing comment
+      mockOctokit.rest.issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: 999,
+            body: '🔍 **Application observability for AWS Investigation Started**\nOld content'
+          }
+        ]
+      });
+
+      mockOctokit.rest.issues.updateComment = jest.fn().mockResolvedValue({
+        data: { id: 999 }
+      });
+
+      await run();
+
+      expect(mockOctokit.rest.issues.listComments).toHaveBeenCalled();
+      expect(mockOctokit.rest.issues.updateComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          comment_id: 999,
+          body: expect.stringContaining('Re-investigating')
+        })
+      );
+    });
+
+    test('finds existing comment with Complete marker', async () => {
+      mockContext.payload.action = 'edited';
+
+      mockOctokit.rest.issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: 888,
+            body: '✅ **Application observability for AWS Investigation Complete**\nResults here'
+          }
+        ]
+      });
+
+      mockOctokit.rest.issues.updateComment = jest.fn().mockResolvedValue({
+        data: { id: 888 }
+      });
+
+      await run();
+
+      expect(mockOctokit.rest.issues.updateComment).toHaveBeenCalledWith(
+        expect.objectContaining({ comment_id: 888 })
+      );
+    });
+
+    test('finds existing comment with Failed marker', async () => {
+      mockContext.payload.action = 'edited';
+
+      mockOctokit.rest.issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: 777,
+            body: '❌ **Application observability for AWS Investigation Failed**\nError details'
+          }
+        ]
+      });
+
+      mockOctokit.rest.issues.updateComment = jest.fn().mockResolvedValue({
+        data: { id: 777 }
+      });
+
+      await run();
+
+      expect(mockOctokit.rest.issues.updateComment).toHaveBeenCalledWith(
+        expect.objectContaining({ comment_id: 777 })
+      );
+    });
+
+    test('truncates long trigger text in reinvestigate message', async () => {
+      const longText = '@awsapm ' + 'a'.repeat(400);
+      mockContext.payload.action = 'edited';
+      mockContext.payload.comment.body = longText;
+
+      mockOctokit.rest.issues.listComments.mockResolvedValue({
+        data: [
+          { id: 666, body: 'Application observability for AWS Investigation Started' }
+        ]
+      });
+
+      mockOctokit.rest.issues.updateComment = jest.fn().mockResolvedValue({
+        data: { id: 666 }
+      });
+
+      await run();
+
+      const updateCall = mockOctokit.rest.issues.updateComment.mock.calls[0][0];
+      expect(updateCall.body).toContain('...');
     });
   });
 });

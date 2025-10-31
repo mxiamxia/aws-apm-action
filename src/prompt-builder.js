@@ -235,11 +235,11 @@ async function createAWSAPMPrompt(context, repoInfo, userRequest = '', githubTok
 
   // Build comprehensive repository context
   const formattedContext = `Repository: ${repository}
-Primary Language: ${repoInfo.primaryLanguage}
-Description: ${repoInfo.description || 'No description provided'}
-Size: ${repoInfo.size} KB
-File Count: ${repoInfo.fileCount}
-Topics: ${repoInfo.topics.join(', ') || 'None'}`;
+Primary Language: ${repoInfo?.primaryLanguage || 'Unknown'}
+Description: ${repoInfo?.description || 'No description provided'}
+Size: ${repoInfo?.size || 0} KB
+File Count: ${repoInfo?.fileCount || 0}
+Topics: ${repoInfo?.topics?.join(', ') || 'None'}`;
 
   const formattedBody = userRequest || commentBody || 'No description provided';
 
@@ -371,15 +371,18 @@ Follow these steps:
       - Reference specific files and code sections when applicable
 
 5. When to Create Pull Requests:
-   ONLY create pull requests and implement code changes if the user explicitly requests:
-   - "fix this"
-   - "implement this"
-   - "create a PR"
-   - "make the changes"
+   Create pull requests and implement code changes when the user's request implies action, such as:
+   - Requests to fix issues (e.g., "fix the sqs issue", "resolve the bug", "patch the vulnerability")
+   - Implementation requests (e.g., "implement feature X", "add support for Y", "enable Z")
+   - Direct PR requests (e.g., "create a PR", "submit a pull request", "make the changes")
+   - Update/modification requests (e.g., "update the config", "change the handler", "modify the service")
 
-   Otherwise, provide analysis and recommendations only.
+   Do NOT create PRs when the user is:
+   - Only asking questions (e.g., "what causes the error?", "why is this happening?")
+   - Requesting analysis only (e.g., "analyze the issue", "review the code", "investigate the problem")
+   - Explicitly asking NOT to implement (e.g., "just explain", "don't change anything", "analysis only")
 
-   If user explicitly requests implementation:
+   If implementing code changes:
    Step 1: Create branch (mcp__github__create_branch)
    Step 2: Update files (mcp__github__create_or_update_file)
    Step 3: Create PR (mcp__github__create_pull_request)
@@ -415,5 +418,11 @@ Provide practical, actionable recommendations specific to this repository's tech
 }
 
 module.exports = {
-  createGeneralPrompt: createAWSAPMPrompt
+  createGeneralPrompt: createAWSAPMPrompt,
+  // Export utility functions for testing
+  getEventTriggerTime,
+  filterCommentsByTriggerTime,
+  fetchGitHubConversation,
+  formatConversationHistory,
+  fetchPRDiffContext
 };

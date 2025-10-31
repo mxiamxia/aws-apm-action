@@ -63,7 +63,7 @@ runs:
     - name: Install Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
 
     - name: Install Dependencies
       shell: bash
@@ -91,35 +91,35 @@ runs:
       if: steps.init.outputs.contains_trigger == 'true'
       shell: bash
       run: |
-        # Install uv/uvx for MCP server execution (needed for AWS CloudWatch MCP)
+        set -e  # Exit immediately if any command fails
+
+        # Install uv/uvx for MCP server execution
         echo "Installing uv package manager for MCP server support..."
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
+        # Verify uvx installation
+        if ! command -v uvx &> /dev/null; then
+          echo "::error::uvx installation failed - Amazon Q MCP tools will not work"
+          exit 1
+        fi
+        echo "uvx installed successfully"
+        uvx --version
+
+        # Install Amazon Q Developer CLI
         echo "Installing Amazon Q Developer CLI..."
-        # Step 1: Update apt cache to prevent mirror errors
         sudo apt-get update
-        # Step 2: Download the .deb package
         curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.18.1/amazon-q.deb
-        # curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/latest/amazon-q.deb
-        # Step 3: Install the package with fix-missing flag for mirror resilience
         sudo apt-get install -y --fix-missing ./amazon-q.deb || sudo apt-get install -y -f
-        # Step 4: Verify Amazon Q CLI installation
-        if command -v q &> /dev/null; then
-          echo "Amazon Q CLI installed successfully"
-          q --version
-        else
-          echo "Amazon Q CLI installation may have failed"
-          echo "Checking if q command is available..."
-          which q || echo "q command not found in PATH"
+
+        # Verify Amazon Q CLI installation
+        if ! command -v q &> /dev/null; then
+          echo "::error::Amazon Q CLI installation failed - q command not found in PATH"
+          exit 1
         fi
-        # Verify uvx is available for MCP (needed for CloudWatch MCP)
-        if command -v uvx &> /dev/null; then
-          echo "uvx available for Amazon Q MCP server execution"
-          uvx --version
-        else
-          echo "uvx not found - Amazon Q MCP tools may not work properly"
-        fi
+        echo "Amazon Q CLI installed successfully"
+        q --version
+        
 
     - name: Run Application observability for AWS Investigation
       id: aws-apm-cli

@@ -10,10 +10,9 @@ const path = require('path');
  * Uses template method pattern - subclasses override specific methods
  */
 class BaseCLIExecutor {
-  constructor(timingTracker = null) {
+  constructor() {
     this.tempDir = process.env.RUNNER_TEMP || '/tmp';
     this.targetRepoDir = process.env.GITHUB_WORKSPACE || process.cwd();
-    this.timingTracker = timingTracker;
   }
 
   /**
@@ -277,13 +276,7 @@ class BaseCLIExecutor {
       await this.testCLIAvailable();
 
       // Setup CLI-specific configuration
-      if (this.timingTracker) {
-        this.timingTracker.start('MCP Setup');
-      }
       const configPath = await this.setupConfiguration();
-      if (this.timingTracker) {
-        this.timingTracker.end('MCP Setup');
-      }
 
       // Prepare file paths
       const tempPromptFile = path.join(this.tempDir, `${commandName}-prompt.txt`);
@@ -316,13 +309,7 @@ class BaseCLIExecutor {
       const pipeReadProcess = this.connectPipeToCLI(pipePath, cliProcess);
 
       // Capture output and wait for completion (NO TIMEOUT)
-      if (this.timingTracker) {
-        this.timingTracker.start(`${commandName.toUpperCase()} CLI Execution`);
-      }
       const { output, exitCode } = await this.captureOutput(cliProcess);
-      if (this.timingTracker) {
-        this.timingTracker.end(`${commandName.toUpperCase()} CLI Execution`);
-      }
 
       // Cleanup processes and files
       const filesToClean = [pipePath, tempPromptFile];
@@ -330,11 +317,6 @@ class BaseCLIExecutor {
         filesToClean.push(configPath);
       }
       await this.cleanup([catProcess, pipeReadProcess], filesToClean);
-
-      // Extract tool call timings from output (if tracker available)
-      if (this.timingTracker && this.extractToolTimings) {
-        this.extractToolTimings(output);
-      }
 
       // Check exit code and parse output
       if (exitCode === 0) {

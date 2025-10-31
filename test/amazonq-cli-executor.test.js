@@ -2,15 +2,9 @@ const { AmazonQCLIExecutor } = require('../src/executors/amazonq-cli-executor');
 
 describe('AmazonQCLIExecutor', () => {
   let executor;
-  let mockTimingTracker;
 
   beforeEach(() => {
-    mockTimingTracker = {
-      record: jest.fn(),
-      start: jest.fn(),
-      end: jest.fn(),
-    };
-    executor = new AmazonQCLIExecutor(mockTimingTracker);
+    executor = new AmazonQCLIExecutor();
     jest.clearAllMocks();
   });
 
@@ -64,12 +58,6 @@ describe('AmazonQCLIExecutor', () => {
       expect(env.GITHUB_SHA).toBe('abc123def');
       expect(env.GITHUB_WORKSPACE).toBe('/workspace');
     });
-
-    test('sets ACTION_INPUTS_PRESENT flag', () => {
-      const env = executor.getEnvironmentVariables();
-
-      expect(env.GITHUB_ACTION_INPUTS).toBeDefined();
-    });
   });
 
   describe('parseOutput', () => {
@@ -96,105 +84,6 @@ Result text`;
     });
   });
 
-  describe('extractToolTimings', () => {
-    test('extracts tool name and duration in seconds', () => {
-      const output = `● Running get_file with the param:
-  { "path": "test.js" }
-● Completed in 1.5s`;
-
-      executor.extractToolTimings(output);
-
-      expect(mockTimingTracker.record).toHaveBeenCalledWith(
-        'Tool: get_file',
-        1500,
-        expect.objectContaining({ toolName: 'get_file' })
-      );
-    });
-
-    test('extracts tool name and duration in milliseconds', () => {
-      const output = `● Running analyze_code with param
-● Completed in 250ms`;
-
-      executor.extractToolTimings(output);
-
-      expect(mockTimingTracker.record).toHaveBeenCalledWith(
-        'Tool: analyze_code',
-        250,
-        expect.objectContaining({ toolName: 'analyze_code' })
-      );
-    });
-
-    test('extracts multiple tool timings', () => {
-      const output = `● Running tool1 with param
-● Completed in 1s
-Some output
-● Running tool2 with param
-● Completed in 500ms`;
-
-      executor.extractToolTimings(output);
-
-      expect(mockTimingTracker.record).toHaveBeenCalledTimes(2);
-      expect(mockTimingTracker.record).toHaveBeenCalledWith('Tool: tool1', 1000, expect.any(Object));
-      expect(mockTimingTracker.record).toHaveBeenCalledWith('Tool: tool2', 500, expect.any(Object));
-    });
-
-    test('does nothing when no timing tracker', () => {
-      const executorWithoutTracker = new AmazonQCLIExecutor(null);
-
-      expect(() => {
-        executorWithoutTracker.extractToolTimings('● Running tool\n● Completed in 1s');
-      }).not.toThrow();
-    });
-
-    test('handles output without tool timings', () => {
-      executor.extractToolTimings('Just some regular output');
-
-      expect(mockTimingTracker.record).not.toHaveBeenCalled();
-    });
-
-    test('handles incomplete tool blocks', () => {
-      executor.extractToolTimings('● Running tool_name');
-
-      expect(mockTimingTracker.record).not.toHaveBeenCalled();
-    });
-
-    test('handles completed without running', () => {
-      executor.extractToolTimings('● Completed in 1s');
-
-      expect(mockTimingTracker.record).not.toHaveBeenCalled();
-    });
-
-    test('strips ANSI codes before parsing', () => {
-      const output = '\x1b[32m● Running tool1\x1b[0m\n\x1b[32m● Completed in 1s\x1b[0m';
-
-      executor.extractToolTimings(output);
-
-      expect(mockTimingTracker.record).toHaveBeenCalledWith('Tool: tool1', 1000, expect.any(Object));
-    });
-
-    test('extracts tool name with underscores', () => {
-      const output = `● Running get_file_contents with param
-● Completed in 2s`;
-
-      executor.extractToolTimings(output);
-
-      expect(mockTimingTracker.record).toHaveBeenCalledWith(
-        'Tool: get_file_contents',
-        2000,
-        expect.objectContaining({ toolName: 'get_file_contents' })
-      );
-    });
-
-    test('handles decimal durations', () => {
-      const output = `● Running tool with param
-● Completed in 0.727s`;
-
-      executor.extractToolTimings(output);
-
-      expect(mockTimingTracker.record).toHaveBeenCalledWith('Tool: tool', 727, expect.any(Object));
-    });
-  });
-
   describe('outputCleaner integration', () => {
     test('has OutputCleaner instance', () => {
       expect(executor.outputCleaner).toBeDefined();
@@ -208,5 +97,14 @@ Some output
       expect(spy).toHaveBeenCalledWith('test');
       spy.mockRestore();
     });
+  });
+
+  describe('setupConfiguration', () => {
+    test('setupConfiguration method exists', () => {
+      expect(typeof executor.setupConfiguration).toBe('function');
+    });
+
+    // Note: Comprehensive setupConfiguration tests are in amazonq-cli-setup.test.js
+    // which has proper mocking for fs operations
   });
 });

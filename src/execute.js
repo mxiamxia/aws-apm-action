@@ -26,20 +26,6 @@ async function run() {
     // Print the full prompt content for debugging
     core.debug(promptContent);
 
-    // Setup AWS credentials if provided
-    if (process.env.AWS_ACCESS_KEY_ID) {
-      process.env.AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
-    }
-    if (process.env.AWS_SECRET_ACCESS_KEY) {
-      process.env.AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
-    }
-    if (process.env.AWS_SESSION_TOKEN) {
-      process.env.AWS_SESSION_TOKEN = process.env.AWS_SESSION_TOKEN;
-    }
-    if (process.env.AWS_REGION) {
-      process.env.AWS_REGION = process.env.AWS_REGION;
-    }
-
     // Create output directory
     const outputDir = path.join(process.env.RUNNER_TEMP || '/tmp', 'awsapm-output');
     if (!fs.existsSync(outputDir)) {
@@ -67,22 +53,14 @@ async function run() {
 Please check the workflow logs for more details and ensure proper authentication is configured.`;
     }
 
-    // Save investigation results
-    const resultFile = path.join(outputDir, 'investigation-result.txt');
-    fs.writeFileSync(resultFile, investigationResult);
-
-    // Use the investigation result directly
-    const finalResponse = investigationResult;
-
-    // Save the final response
-    const responseFile = path.join(outputDir, 'awsapm-response.txt');
-    fs.writeFileSync(responseFile, finalResponse);
+    // Save the response with unique run ID to avoid conflicts on self-hosted runners
+    const runId = process.env.GITHUB_RUN_ID || Date.now();
+    const responseFile = path.join(outputDir, `awsapm-response-${runId}.txt`);
+    fs.writeFileSync(responseFile, investigationResult);
 
     // Set outputs
     core.setOutput('execution_file', responseFile);
     core.setOutput('conclusion', 'success');
-    core.setOutput('investigation_result', investigationResult);
-    core.setOutput('final_response', finalResponse);
 
     core.info('Investigation completed');
 

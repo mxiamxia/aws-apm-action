@@ -51,6 +51,7 @@ describe('execute', () => {
     // Set up environment
     process.env.INPUT_PROMPT_FILE = promptFile;
     process.env.RUNNER_TEMP = tempDir;
+    process.env.GITHUB_RUN_ID = '12345';
   });
 
   afterEach(() => {
@@ -85,18 +86,10 @@ describe('execute', () => {
       expect(mockExecutor.execute).toHaveBeenCalled();
     });
 
-    test('saves investigation result to file', async () => {
+    test('saves response to file with unique run ID', async () => {
       await run();
 
-      const resultFile = path.join(tempDir, 'awsapm-output', 'investigation-result.txt');
-      expect(fs.existsSync(resultFile)).toBe(true);
-      expect(fs.readFileSync(resultFile, 'utf8')).toBe('Test analysis result');
-    });
-
-    test('saves response to awsapm-response.txt', async () => {
-      await run();
-
-      const responseFile = path.join(tempDir, 'awsapm-output', 'awsapm-response.txt');
+      const responseFile = path.join(tempDir, 'awsapm-output', 'awsapm-response-12345.txt');
       expect(fs.existsSync(responseFile)).toBe(true);
       expect(fs.readFileSync(responseFile, 'utf8')).toBe('Test analysis result');
     });
@@ -104,7 +97,7 @@ describe('execute', () => {
     test('sets execution_file output', async () => {
       await run();
 
-      const responseFile = path.join(tempDir, 'awsapm-output', 'awsapm-response.txt');
+      const responseFile = path.join(tempDir, 'awsapm-output', 'awsapm-response-12345.txt');
       expect(core.setOutput).toHaveBeenCalledWith('execution_file', responseFile);
     });
 
@@ -112,18 +105,6 @@ describe('execute', () => {
       await run();
 
       expect(core.setOutput).toHaveBeenCalledWith('conclusion', 'success');
-    });
-
-    test('sets investigation_result output', async () => {
-      await run();
-
-      expect(core.setOutput).toHaveBeenCalledWith('investigation_result', 'Test analysis result');
-    });
-
-    test('sets final_response output', async () => {
-      await run();
-
-      expect(core.setOutput).toHaveBeenCalledWith('final_response', 'Test analysis result');
     });
   });
 
@@ -170,24 +151,28 @@ describe('execute', () => {
 
       await run();
 
-      const responseFile = path.join(tempDir, 'awsapm-output', 'awsapm-response.txt');
+      const responseFile = path.join(tempDir, 'awsapm-output', 'awsapm-response-12345.txt');
       const content = fs.readFileSync(responseFile, 'utf8');
 
       expect(content).toContain('❌ **Amazon Q Investigation Failed**');
       expect(content).toContain('Test error');
     });
 
-    test('sets conclusion to failure on error', async () => {
+    test('sets conclusion to success even when executor fails (graceful degradation)', async () => {
       AmazonQCLIExecutor.mockImplementation(() => ({
         execute: jest.fn().mockRejectedValue(new Error('Test error'))
       }));
 
       await run();
 
-      // Should still complete but with error content
-      const outputs = core.setOutput.mock.calls;
-      const conclusionCall = outputs.find(call => call[0] === 'conclusion');
-      expect(conclusionCall).toBeDefined();
+      // Action completes successfully even if executor fails (writes error to response file)
+      expect(core.setOutput).toHaveBeenCalledWith('conclusion', 'success');
+
+      // Verify the response file contains the error message for the user
+      const responseFile = path.join(tempDir, 'awsapm-output', 'awsapm-response-12345.txt');
+      const content = fs.readFileSync(responseFile, 'utf8');
+      expect(content).toContain('❌ **Amazon Q Investigation Failed**');
+      expect(content).toContain('Test error');
     });
 
     test('sets error_message output on failure', async () => {
