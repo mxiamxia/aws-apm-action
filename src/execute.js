@@ -56,10 +56,17 @@ async function run() {
 
     // Run Amazon Q Developer CLI investigation
     let investigationResult = '';
+    let rawOutput = '';
 
     try {
       core.info('Running Amazon Q Developer CLI investigation...');
       const executor = new AmazonQCLIExecutor(timingTracker);
+      
+      // Capture raw output before cleaning
+      executor.onRawOutput = (output) => {
+        rawOutput = output;
+      };
+      
       investigationResult = await executor.execute(promptContent);
       core.info('Amazon Q Developer CLI investigation completed');
     } catch (error) {
@@ -85,6 +92,12 @@ Please check the workflow logs for more details and ensure proper authentication
     // Save the final response
     const responseFile = path.join(outputDir, 'awsapm-response.txt');
     fs.writeFileSync(responseFile, finalResponse);
+
+    // Save raw output for debugging (contains tool calls)
+    if (rawOutput) {
+      const rawOutputFile = path.join(outputDir, 'raw-output.txt');
+      fs.writeFileSync(rawOutputFile, rawOutput);
+    }
 
     // Save timing data
     const timingFile = path.join(outputDir, 'timing.json');
