@@ -10,9 +10,8 @@ With a one-time setup of Application Observability for AWS Action workflow for y
 
 1. **Troubleshoot Production Issues**: Investigate and fix production problems using live telemetry and SLO data from AWS Application Signals via MCP
 2. **Application Observability Enablement Assistance**: Get help enabling Application Signals with integrated ApplicationSignals MCP and domain knowledge as context
-3. **Dynamic Telemetry Instrumentation**: Add telemetry data dynamically or permanently to help root-cause production problems
-4. **AI-Powered Analysis**: Leverage Amazon Q Developer CLI for intelligent code analysis and recommendations
-5. **Automated Workflows**: Responds to `@awsapm` mentions in issues and PR comments, working around the clock
+3. **AI-Powered Analysis**: Leverage Amazon Q Developer CLI for intelligent code analysis and recommendations
+4. **Automated Workflows**: Responds to `@awsapm` mentions in issues and PR comments, working around the clock
 
 ## 📋 Prerequisites
 
@@ -98,9 +97,7 @@ Hi @awsapm, I want to know how many GenAI tokens have been used by my services?
 | `aws_secret_access_key` | AWS Secret Key for Q Developer CLI & MCP | Yes | - |
 | `aws_session_token` | AWS session token for temporary credentials | No | - |
 | `aws_region` | AWS Region | No | `us-east-1` |
-| `enable_cloudwatch_mcp` | Enable Application Signals MCP integration | No | `false` |
 | `custom_prompt` | Custom instructions for the AI agent | No | - |
-| `tracing_mode` | Show agent reasoning steps and tool calls | No | `true` |
 
 ### Required Permissions
 
