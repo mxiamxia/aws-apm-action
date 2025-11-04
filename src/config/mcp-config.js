@@ -13,6 +13,9 @@ class MCPConfigManager {
     return {
       command: "uvx",
       args: ["awslabs.cloudwatch-appsignals-mcp-server@latest"],
+      env: {
+        MCP_CALLER: "apm-github-action"
+      },
       transportType: "stdio"
     };
   }
