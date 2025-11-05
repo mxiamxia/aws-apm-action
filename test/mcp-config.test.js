@@ -124,7 +124,7 @@ describe('MCPConfigManager', () => {
       expect(config.args).toBeDefined();
       expect(Array.isArray(config.args)).toBe(true);
       expect(config.transportType).toBe('stdio');
-      expect(config.env.MCP_CALLER).toBe('apm-github-action');
+      expect(config.env.MCP_RUN_FROM).toBe('awsapm-gh');
     });
 
     test('getGitHubServerConfig returns Docker config', () => {
