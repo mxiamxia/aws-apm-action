@@ -1,7 +1,7 @@
-name: "Application observability for AWS Action v0.1"
-description: "GitHub automation with Amazon Q Developer CLI. Auto-detects @awsapm mentions in PR comments and issues."
+name: "Application observability for AWS Action"
+description: "Curated Application Observability Agentic AI Troubleshooting and Resolution Experience from AWS."
 branding:
-  icon: "at-sign"
+  icon: "cloud"
   color: "orange"
 
 inputs:
