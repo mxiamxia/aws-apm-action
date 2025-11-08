@@ -7,7 +7,7 @@ class MCPConfigManager {
   }
 
   /**
-   * Get AWS CloudWatch ApplicationSignals MCP server configuration
+   * Get AWS CloudWatch Application Signals MCP server configuration
    */
   getApplicationSignalsServerConfig() {
     return {
@@ -42,7 +42,7 @@ class MCPConfigManager {
   }
 
   /**
-   * Get list of AWS CloudWatch ApplicationSignals MCP tools for auto-approval
+   * Get list of AWS CloudWatch Application Signals MCP tools for auto-approval
    */
   getApplicationSignalsToolsList() {
     return [
@@ -85,7 +85,7 @@ class MCPConfigManager {
   buildMCPConfig() {
     const config = { mcpServers: {} };
 
-    // Add AWS CloudWatch ApplicationSignals MCP server if credentials available
+    // Add AWS CloudWatch Application Signals MCP server if credentials available
     if (this.hasAWSCredentials()) {
       const applicationSignalsConfig = this.getApplicationSignalsServerConfig();
 

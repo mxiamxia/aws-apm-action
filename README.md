@@ -1,6 +1,6 @@
 # Application Observability for AWS Action
 
-A GitHub Action that brings Agentic AI capabilities directly into GitHub, enabling service issue investigation with live production context, automated ApplicationSignals enablement, and AI-powered bug fixing with live telemetry data.
+A GitHub Action that brings Agentic AI capabilities directly into GitHub, enabling service issue investigation with live production context, automated Application Signals enablement, and AI-powered bug fixing with live telemetry data.
 
 This action is powered by the [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server) and works with Amazon Q Developer CLI. When you mention `@awsapm` in GitHub issues or pull request comments, it helps you troubleshoot production issues, implement fixes, and enhance observability coverage on demand.
 
@@ -9,7 +9,7 @@ This action is powered by the [AWS Application Signals MCP](https://github.com/a
 With a one-time setup of Application Observability for AWS Action workflow for your GitHub repository, developers can:
 
 1. **Troubleshoot Production Issues**: Investigate and fix production problems using live telemetry and SLO data from AWS Application Signals via MCP
-2. **Application Observability Enablement Assistance**: Get help enabling Application Signals with integrated ApplicationSignals MCP and domain knowledge as context
+2. **Application Observability Enablement Assistance**: Get help enabling Application Signals with integrated Application Signals MCP and domain knowledge as context
 3. **AI-Powered Analysis**: Leverage Amazon Q Developer CLI for intelligent code analysis and recommendations
 4. **Automated Workflows**: Responds to `@awsapm` mentions in issues and PR comments, working around the clock
 
