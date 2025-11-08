@@ -555,12 +555,17 @@ Line 2`;
     test('updates existing comment when edit action is detected', async () => {
       mockContext.payload.action = 'edited';
       mockContext.payload.comment.body = '@awsapm updated request';
+      mockContext.payload.comment.id = 123; // Trigger comment ID
 
-      // Mock listComments to return an existing comment
+      // Mock listComments to return the trigger comment followed by the result comment
       mockOctokit.rest.issues.listComments.mockResolvedValue({
         data: [
           {
-            id: 999,
+            id: 123, // Trigger comment (the one being edited)
+            body: '@awsapm updated request'
+          },
+          {
+            id: 999, // Result comment that comes after trigger
             body: '🔍 **Application observability for AWS Investigation Started**\nOld content'
           }
         ]
@@ -583,11 +588,16 @@ Line 2`;
 
     test('finds existing comment with Complete marker', async () => {
       mockContext.payload.action = 'edited';
+      mockContext.payload.comment.id = 123; // Trigger comment ID
 
       mockOctokit.rest.issues.listComments.mockResolvedValue({
         data: [
           {
-            id: 888,
+            id: 123, // Trigger comment
+            body: '@awsapm analyze this'
+          },
+          {
+            id: 888, // Result comment after trigger
             body: '✅ **Application observability for AWS Investigation Complete**\nResults here'
           }
         ]
@@ -606,11 +616,16 @@ Line 2`;
 
     test('finds existing comment with Failed marker', async () => {
       mockContext.payload.action = 'edited';
+      mockContext.payload.comment.id = 123; // Trigger comment ID
 
       mockOctokit.rest.issues.listComments.mockResolvedValue({
         data: [
           {
-            id: 777,
+            id: 123, // Trigger comment
+            body: '@awsapm analyze this'
+          },
+          {
+            id: 777, // Result comment after trigger
             body: '❌ **Application observability for AWS Investigation Failed**\nError details'
           }
         ]
@@ -631,10 +646,18 @@ Line 2`;
       const longText = '@awsapm ' + 'a'.repeat(400);
       mockContext.payload.action = 'edited';
       mockContext.payload.comment.body = longText;
+      mockContext.payload.comment.id = 123; // Trigger comment ID
 
       mockOctokit.rest.issues.listComments.mockResolvedValue({
         data: [
-          { id: 666, body: 'Application observability for AWS Investigation Started' }
+          {
+            id: 123, // Trigger comment
+            body: longText
+          },
+          {
+            id: 666, // Result comment after trigger
+            body: 'Application observability for AWS Investigation Started'
+          }
         ]
       });
 

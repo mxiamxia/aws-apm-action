@@ -145,15 +145,18 @@ async function run() {
             per_page: 100,
           });
 
-          // Find the most recent result comment (contains our markers)
-          const existingComment = comments
-            .find(c =>
-              c.body && (
-                c.body.includes('Application observability for AWS Investigation Complete') ||
-                c.body.includes('Application observability for AWS Investigation Failed') ||
-                c.body.includes('Application observability for AWS Investigation Started')
-              )
-            );
+          // Find the index of the current trigger comment
+          const triggerCommentIndex = comments.findIndex(c => c.id === commentId);
+
+          // Search forward from the trigger comment to find the next result comment
+          let existingComment = null;
+          if (triggerCommentIndex !== -1) {
+            existingComment = comments
+              .slice(triggerCommentIndex + 1) // Start from next comment after trigger
+              .find(c =>
+                c.body && c.body.includes('Application observability for AWS Investigation')
+              );
+          }
 
           if (existingComment) {
             awsapmCommentId = existingComment.id;
