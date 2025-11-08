@@ -20,7 +20,7 @@ describe('MCPConfigManager', () => {
   });
 
   describe('buildMCPConfig', () => {
-    test('includes AppSignals server when AWS credentials present', () => {
+    test('includes ApplicationSignals server when AWS credentials present', () => {
       process.env.AWS_ACCESS_KEY_ID = 'AKIATEST123';
       process.env.AWS_SECRET_ACCESS_KEY = 'secretkey';
 
@@ -117,8 +117,8 @@ describe('MCPConfigManager', () => {
   });
 
   describe('server configuration getters', () => {
-    test('getAppSignalsServerConfig returns valid config', () => {
-      const config = manager.getAppSignalsServerConfig();
+    test('getApplicationSignalsServerConfig returns valid config', () => {
+      const config = manager.getApplicationSignalsServerConfig();
 
       expect(config.command).toBe('uvx');
       expect(config.args).toBeDefined();
@@ -138,8 +138,8 @@ describe('MCPConfigManager', () => {
   });
 
   describe('tool lists', () => {
-    test('getAppSignalsToolsList returns array', () => {
-      const tools = manager.getAppSignalsToolsList();
+    test('getApplicationSignalsToolsList returns array', () => {
+      const tools = manager.getApplicationSignalsToolsList();
 
       expect(Array.isArray(tools)).toBe(true);
       expect(tools.length).toBeGreaterThan(0);
