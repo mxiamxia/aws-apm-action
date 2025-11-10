@@ -160,9 +160,7 @@ async function run() {
             const reinvestigateBody = `🔄 **Re-investigating...**\n\n` +
               `Request updated by @${triggerUsername}.\n\n` +
               `Updated request:\n> ${triggerText.substring(0, 300)}${triggerText.length > 300 ? '...' : ''}\n\n` +
-              `⏳ Investigation in progress - [View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})\n\n` +
-              `Branch: \`${awsapmBranch}\`\n\n` +
-              `*Powered by AI Agent*`;
+              `⏳ Investigation in progress - [View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
 
             await octokit.rest.issues.updateComment({
               owner: context.repo.owner,
