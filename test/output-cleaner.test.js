@@ -185,6 +185,16 @@ Line 2`;
       const result = cleaner.ensureMarkdownFormatting(input);
       expect(result).toBe('Line with spaces\nAnother line');
     });
+
+    test('handles null input', () => {
+      const result = cleaner.ensureMarkdownFormatting(null);
+      expect(result).toBeNull();
+    });
+
+    test('handles non-string input', () => {
+      const result = cleaner.ensureMarkdownFormatting(123);
+      expect(result).toBe(123);
+    });
   });
 
   describe('cleanAmazonQOutput (integration)', () => {

@@ -41,8 +41,8 @@ inputs:
     description: "Custom instructions to guide the AI agent's analysis and actions"
     required: false
     default: ""
-  tracing_mode:
-    description: "Enable tracing to show AI agent reasoning steps and MCP tool calls in workflow summary"
+  enable_cloudwatch_mcp:
+    description: "Enable CloudWatch MCP server for metrics, alarms, and log insights"
     required: false
     default: "true"
 
@@ -85,7 +85,6 @@ runs:
         ALLOWED_NON_WRITE_USERS: ${{ inputs.allowed_non_write_users }}
         GITHUB_RUN_ID: ${{ github.run_id }}
         DEFAULT_WORKFLOW_TOKEN: ${{ github.token }}
-        TRACING_MODE: ${{ inputs.tracing_mode }}
 
     - name: Install CLI Tools
       if: steps.init.outputs.contains_trigger == 'true'
@@ -134,6 +133,7 @@ runs:
         AWS_SECRET_ACCESS_KEY: ${{ inputs.aws_secret_access_key }}
         AWS_SESSION_TOKEN: ${{ inputs.aws_session_token }}
         AWS_REGION: ${{ inputs.aws_region }}
+        ENABLE_CLOUDWATCH_MCP: ${{ inputs.enable_cloudwatch_mcp }}
         INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
 
     - name: Update comment with results

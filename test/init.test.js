@@ -333,14 +333,6 @@ Line 2`;
       expect(core.setOutput).toHaveBeenCalledWith('AWSAPM_BRANCH', expect.any(String));
       expect(core.setOutput).toHaveBeenCalledWith('TARGET_BRANCH', expect.any(String));
     });
-
-    test('sets tracing mode from environment', async () => {
-      process.env.TRACING_MODE = 'true';
-
-      await run();
-
-      expect(core.setOutput).toHaveBeenCalledWith('TRACING_MODE', 'true');
-    });
   });
 
   describe('error handling', () => {
@@ -479,7 +471,7 @@ Line 2`;
 
   describe('permission checking', () => {
     test('sets contains_trigger to false when user lacks permissions', async () => {
-      mockOctokit.rest.repos.getCollaboratorPermissionLevel.mockResolvedValue({
+      mockOctokit.rest.repos.getCollaboratorPermissionLevel.mockResolvedValueOnce({
         data: { permission: 'read' }
       });
 
@@ -489,7 +481,7 @@ Line 2`;
     });
 
     test('allows user with write permission', async () => {
-      mockOctokit.rest.repos.getCollaboratorPermissionLevel.mockResolvedValue({
+      mockOctokit.rest.repos.getCollaboratorPermissionLevel.mockResolvedValueOnce({
         data: { permission: 'write' }
       });
 
@@ -499,13 +491,63 @@ Line 2`;
     });
 
     test('allows user with admin permission', async () => {
-      mockOctokit.rest.repos.getCollaboratorPermissionLevel.mockResolvedValue({
+      mockOctokit.rest.repos.getCollaboratorPermissionLevel.mockResolvedValueOnce({
         data: { permission: 'admin' }
       });
 
       await run();
 
       expect(core.setOutput).toHaveBeenCalledWith('contains_trigger', 'true');
+    });
+
+    test('allows specific user in ALLOWED_NON_WRITE_USERS list', async () => {
+      process.env.ALLOWED_NON_WRITE_USERS = 'test-user,another-user';
+      mockOctokit.rest.repos.getCollaboratorPermissionLevel.mockResolvedValueOnce({
+        data: { permission: 'read' }
+      });
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith('contains_trigger', 'true');
+      delete process.env.ALLOWED_NON_WRITE_USERS;
+    });
+
+    test('allows all users when wildcard (*) is used', async () => {
+      process.env.ALLOWED_NON_WRITE_USERS = '*';
+      mockOctokit.rest.repos.getCollaboratorPermissionLevel.mockResolvedValueOnce({
+        data: { permission: 'read' }
+      });
+
+      await run();
+
+      expect(core.setOutput).toHaveBeenCalledWith('contains_trigger', 'true');
+      delete process.env.ALLOWED_NON_WRITE_USERS;
+    });
+
+    test('posts access denied comment when permissions insufficient', async () => {
+      mockOctokit.rest.repos.getCollaboratorPermissionLevel.mockResolvedValueOnce({
+        data: { permission: 'read' }
+      });
+
+      await run();
+
+      expect(mockOctokit.rest.issues.createComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.stringContaining('Access Denied')
+        })
+      );
+      expect(core.warning).toHaveBeenCalledWith(expect.stringContaining('insufficient permissions'));
+    });
+
+    test('handles comment post error when access denied', async () => {
+      mockOctokit.rest.repos.getCollaboratorPermissionLevel.mockResolvedValueOnce({
+        data: { permission: 'read' }
+      });
+      mockOctokit.rest.issues.createComment.mockRejectedValueOnce(new Error('API error'));
+
+      await run();
+
+      expect(core.error).toHaveBeenCalledWith(expect.stringContaining('Failed to post access denied comment'));
     });
   });
 

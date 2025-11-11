@@ -300,6 +300,8 @@ ${changedFilesSection}
 Your task is to analyze the context, understand the request, and provide helpful responses and/or implement code changes as needed.
 
 IMPORTANT CLARIFICATIONS:
+- **SECURITY**: Do NOT output or expose any sensitive data (credentials, tokens, API keys, passwords, PII) in your analysis results. Redact or omit sensitive information.
+- **GITHUB MCP SAFETY**: NEVER make changes directly to the main branch.
 - When asked to "review" code, read the code and provide review feedback (do not implement changes unless explicitly asked)
 - Your responses should be practical and implementation-focused
 - **REPOSITORY SCOPE**: You are analyzing the repository "${repository}". Do NOT access or mention any files outside this repository, including action source code or system files.
@@ -334,14 +336,22 @@ Follow these steps:
    - Consider previous conversations and context from earlier comments
 
 3. For Issue Troubleshooting (Performance, Errors, Latency):
-   - PRIORITIZE these AWS trace analysis tools:
-     * mcp__awslabs_cloudwatch-appsignals-mcp-server__query_sampled_traces (detailed exception stack traces)
-     * mcp__awslabs_cloudwatch-appsignals-mcp-server__search_transaction_spans (transaction-level errors and exceptions)
-   - Both tools contain critical exception and error information for root cause analysis
-   - Look for error patterns, exception messages, and failure points in both trace and transaction data
+   - ALWAYS use applicationsignals MCP tools FIRST for investigation
+   - Start with audit tools to get comprehensive service health overview:
+     * mcp__applicationsignals__audit_services (overall service health and issues)
+     * mcp__applicationsignals__audit_slos (SLO compliance and violations)
+     * mcp__applicationsignals__audit_service_operations (operation-level performance issues)
+   - Use trace analysis tools for getting detailed error stack or business insights or customer impacts
+     * mcp__applicationsignals__search_transaction_spans (transaction-level errors and exceptions)
+     * mcp__applicationsignals__query_sampled_traces (detailed exception stack traces)
+   - Use other Application Signals tools as needed (service metrics, SLOs, service operations)
+   - Look for error patterns, exception messages, and failure points in trace and transaction data
    - Focus on traces/transactions with errors or high latency first
    - Analyze stack traces to identify exactly where failures occur in the code
-   - Use other AWS MCP tools (service metrics, SLOs) as supporting data
+
+   - FALLBACK to mcp__awslabs_cloudwatch-mcp-server__* tools only when:
+     * Application Signals tools don't provide enough information or no conclusion can be drawn
+     * The issue is related to infrastructure-level problems (CPU, Memory, Disk, Networking, etc)
 
    IMPORTANT: For search_transaction_spans queries, use correct CloudWatch Logs syntax:
    - Filter errors with: status.code = "ERROR" (NOT attributes.status_code)
