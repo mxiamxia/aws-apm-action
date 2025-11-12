@@ -24,19 +24,6 @@ inputs:
     description: "GitHub token to use for API calls. If not provided, uses the default GitHub Actions token."
     required: false
     default: ${{ github.token }}
-  aws_access_key_id:
-    description: "AWS access key ID for Amazon Q Developer CLI and Application Signals MCP"
-    required: true
-  aws_secret_access_key:
-    description: "AWS secret access key for Amazon Q Developer CLI and Application Signals MCP"
-    required: true
-  aws_session_token:
-    description: "AWS session token (optional, for temporary credentials)"
-    required: false
-  aws_region:
-    description: "AWS region for Amazon Q Developer CLI and Application Signals MCP"
-    required: false
-    default: "us-east-1"
   custom_prompt:
     description: "Custom instructions to guide the AI agent's analysis and actions"
     required: false
@@ -130,10 +117,6 @@ runs:
         node src/execute.js
       env:
         GITHUB_TOKEN: ${{ steps.init.outputs.GITHUB_TOKEN }}
-        AWS_ACCESS_KEY_ID: ${{ inputs.aws_access_key_id }}
-        AWS_SECRET_ACCESS_KEY: ${{ inputs.aws_secret_access_key }}
-        AWS_SESSION_TOKEN: ${{ inputs.aws_session_token }}
-        AWS_REGION: ${{ inputs.aws_region }}
         INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
 
     - name: Update comment with results
