@@ -108,7 +108,7 @@ runs:
         # Install Amazon Q Developer CLI
         echo "Installing Amazon Q Developer CLI..."
         sudo apt-get update
-        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.18.1/amazon-q.deb
+        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.19.4/amazon-q.deb
         sudo apt-get install -y --fix-missing ./amazon-q.deb || sudo apt-get install -y -f
 
         # Verify Amazon Q CLI installation
