@@ -27,7 +27,7 @@ With a one-time setup of Application Observability for AWS Action workflow for y
 
 This action relies on the [aws-actions/configure-aws-credentials](https://github.com/aws-actions/configure-aws-credentials) action to set up AWS authentication in your Github Actions Environment. We **highly recommend** using OpenID Connect (OIDC) to authenticate with AWS. OIDC allows your GitHub Actions workflows to access AWS resources using short-lived AWS credentials so you do not have to store long-term credentials in your repository.
 
-To use OIDC authentication, you must configure a trust policy in AWS IAM that allows GitHub Actions to assume an IAM role. Here's an example trust policy:
+To use OIDC authentication, you must configure a trust policy in AWS IAM that allows GitHub Actions to assume an IAM role using this template:
 
 ```
 {
