@@ -57,6 +57,20 @@ describe('OutputCleaner', () => {
       const result = cleaner.removeAnsiCodes(input);
       expect(result).toBe('Bold Red HiddenFragment');
     });
+
+    test('preserves backticks for code blocks', () => {
+      const input = 'Here is code: ```python\nprint("hello")\n```';
+      const result = cleaner.removeAnsiCodes(input);
+      expect(result).toContain('```python');
+      expect(result).toContain('```');
+      expect(result).toContain('print("hello")');
+    });
+
+    test('preserves inline code with backticks', () => {
+      const input = 'Use `variableName` in your code';
+      const result = cleaner.removeAnsiCodes(input);
+      expect(result).toBe('Use `variableName` in your code');
+    });
   });
 
   describe('removeToolExecutionBlocks', () => {
@@ -258,6 +272,34 @@ Result text\x1b[0m`;
       expect(result).not.toContain('● Running');
       expect(result).not.toContain('\x1b');
       expect(result).not.toContain('�');
+    });
+
+    test('preserves code blocks with backticks in full pipeline', () => {
+      const input = `\x1b[31mBanner\x1b[0m
+● Running analysis
+● Completed in 1s
+🎯 **Application observability for AWS Assistant Result**
+
+> Analyzing code...
+> Code Fix:
+
+Fix the issue by updating:
+
+\`\`\`python
+def hello():
+    print("world")
+\`\`\`
+
+Use \`variableName\` in the code.`;
+
+      const result = cleaner.cleanAmazonQOutput(input);
+      expect(result).toContain('```python');
+      expect(result).toContain('def hello():');
+      expect(result).toContain('```');
+      expect(result).toContain('`variableName`');
+      expect(result).toContain('Code Fix:');
+      expect(result).not.toContain('> Analyzing code...');
+      expect(result).not.toContain('Banner');
     });
 
     test('handles real Amazon Q 1.19.0 style output', () => {

@@ -324,6 +324,7 @@ Follow these steps:
 
 1. Understand the Request:
    - Extract the actual question or request from the trigger comment
+   - Identify if a specific service name is mentioned - if so, limit investigation to that service only
    - Classify if it's a question, code review, implementation request, or combination
    - Assess what type of assistance is being requested
 
@@ -337,6 +338,10 @@ Follow these steps:
 
 3. For Issue Troubleshooting (Performance, Errors, Latency):
    - ALWAYS use applicationsignals MCP tools FIRST for investigation
+   - [IMPORTANT] If the user specifies a particular service name in their request:
+     * Focus your investigation ONLY on that specific service
+     * Do NOT investigate or analyze other services unless explicitly asked
+     * Only expand to other services if the issue clearly originates from dependencies or related services
    - Start with audit tools to get comprehensive service health overview:
      * mcp__applicationsignals__audit_services (overall service health and issues)
      * mcp__applicationsignals__audit_slos (SLO compliance and violations)
@@ -408,7 +413,6 @@ Follow these steps:
      * Use ## for section headers (e.g., ## Root Cause, ## Analysis)
      * Use **bold** for emphasis on important terms
      * Use bullet points (•, -, *) for lists
-     * Use code blocks with \`\`\` for code snippets
      * Use inline code with \` for variable names, file paths, function names
      * Ensure proper spacing around headers (blank line before and after)
    - Keep responses SHORT and CONCISE
