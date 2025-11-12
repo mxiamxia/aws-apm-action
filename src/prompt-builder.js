@@ -404,6 +404,13 @@ Follow these steps:
    - [CRITICAL!] Start your response with EXACTLY this line as the very first line:
      🎯 **Application observability for AWS Assistant Result**
    - This marker MUST be the first line of your response (no content before it)
+   - [CRITICAL!] ALWAYS use proper markdown formatting in your response:
+     * Use ## for section headers (e.g., ## Root Cause, ## Analysis)
+     * Use **bold** for emphasis on important terms
+     * Use bullet points (•, -, *) for lists
+     * Use code blocks with \`\`\` for code snippets
+     * Use inline code with \` for variable names, file paths, function names
+     * Ensure proper spacing around headers (blank line before and after)
    - Keep responses SHORT and CONCISE
    - Use bullet points and brief sentences
    - Focus on key findings and actionable next steps

@@ -105,6 +105,45 @@ Result here`;
       expect(result).not.toContain('● Running');
     });
 
+    test('removes thinking statements but keeps the last one (strips >)', () => {
+      const input = `🎯 **Application observability for AWS Assistant Result**
+
+> Analyzing the traces...
+> Let me check the metrics...
+> SLO Status for customers-service-java:
+
+• SLO Name: "Availability"
+• Current Status: ✅ COMPLIANT
+
+## Root Cause
+
+The issue is...`;
+
+      const result = cleaner.removeToolExecutionBlocks(input);
+      expect(result).toContain('SLO Status for customers-service-java:');
+      expect(result).not.toContain('> SLO Status for customers-service-java:');
+      expect(result).toContain('• SLO Name: "Availability"');
+      expect(result).toContain('## Root Cause');
+      expect(result).not.toContain('> Analyzing the traces...');
+      expect(result).not.toContain('> Let me check the metrics...');
+    });
+
+    test('keeps only the last line starting with > and strips the >', () => {
+      const input = `🎯 **Application observability for AWS Assistant Result**
+
+> Checking the code now...
+> Looking at line 184...
+> Code Problem: Missing error handling
+
+Line 184 has an issue`;
+
+      const result = cleaner.removeToolExecutionBlocks(input);
+      expect(result).toContain('Code Problem: Missing error handling');
+      expect(result).not.toContain('> Code Problem: Missing error handling');
+      expect(result).not.toContain('> Checking the code now...');
+      expect(result).not.toContain('> Looking at line 184...');
+    });
+
     test('uses last completed marker when multiple tools executed', () => {
       const input = `● Running tool1
 ● Completed in 1s
@@ -128,17 +167,20 @@ No tool markers`;
       expect(result).toBe(input.trim());
     });
 
-    test('removes thinking statements (lines starting with >)', () => {
+    test('removes thinking statements but keeps last > line (strips >)', () => {
       const input = `🎯 **Application observability for AWS Assistant Result**
 
 > Thinking about the problem
 > Analyzing data
+> Final result summary
 ## Result
 Actual content`;
 
       const result = cleaner.removeToolExecutionBlocks(input);
       expect(result).toContain('## Result');
       expect(result).toContain('Actual content');
+      expect(result).toContain('Final result summary');
+      expect(result).not.toContain('> Final result summary');
       expect(result).not.toContain('> Thinking');
       expect(result).not.toContain('> Analyzing');
     });
