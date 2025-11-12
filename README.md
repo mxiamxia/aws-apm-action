@@ -23,17 +23,36 @@ With a one-time setup of Application Observability for AWS Action workflow for y
 
 ### Setup Steps (One-Time)
 
-#### 1. Add AWS Credentials as Repository Secrets
+#### 1. Set up AWS Credentials
 
-Navigate to your repository Settings > Secrets and variables > Actions, and add:
+This action relies on the [aws-actions/configure-aws-credentials](https://github.com/aws-actions/configure-aws-credentials) action to set up AWS authentication in your Github Actions Environment. We **highly recommend** using OpenID Connect (OIDC) to authenticate with AWS. OIDC allows your GitHub Actions workflows to access AWS resources using short-lived AWS credentials so you do not have to store long-term credentials in your repository.
+
+To use OIDC authentication, you must configure a trust policy in AWS IAM that allows GitHub Actions to assume an IAM role. Here's an example trust policy:
 
 ```
-AWS_ACCESS_KEY_ID         # Your AWS Access Key
-AWS_SECRET_ACCESS_KEY     # Your AWS Secret Key
-AWS_REGION                # Optional, defaults to us-east-1
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:your-org/your-repo:*"
+        }
+      }
+    }
+  ]
+}
 ```
 
-These credentials will be used to set up Amazon Q Developer CLI and the APM MCP server.
+See the [configure-aws-credentials OIDC Quick Start Guide](https://github.com/aws-actions/configure-aws-credentials/tree/main?tab=readme-ov-file#quick-start-oidc-recommended) for more information about setting up OIDC with AWS.
 
 #### 2. Add Workflow Configuration
 
@@ -59,16 +78,19 @@ jobs:
       pull-requests: write   # To post comments on PRs
       issues: write          # To post comments on issues
       checks: write          # To create check runs with detailed results
+      id-token: write        # required to configure AWS credentials using OIDC 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # this should be the ARN of the IAM role created for Github Actions
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Run AWS APM Agent
         uses: aws-actions/apm-action@v1
-        with:
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_region: ${{ secrets.AWS_REGION }}
 ```
 
 #### 3. Start Using the Action
@@ -93,10 +115,6 @@ Hi @awsapm, I want to know how many GenAI tokens have been used by my services?
 | `target_branch` | The branch to merge PRs into | No | Repository default |
 | `branch_prefix` | Prefix for created branches | No | `awsapm/` |
 | `github_token` | GitHub token for API calls | No | `${{ github.token }}` |
-| `aws_access_key_id` | AWS Access Key for Q Developer CLI & MCP | Yes | - |
-| `aws_secret_access_key` | AWS Secret Key for Q Developer CLI & MCP | Yes | - |
-| `aws_session_token` | AWS session token for temporary credentials | No | - |
-| `aws_region` | AWS Region | No | `us-east-1` |
 | `custom_prompt` | Custom instructions for the AI agent | No | - |
 
 ### Required Permissions
