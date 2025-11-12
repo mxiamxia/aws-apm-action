@@ -36,7 +36,7 @@ To use OIDC authentication, you must configure a trust policy in AWS IAM that al
     {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+        "Federated": "arn:aws:iam::<AWS_ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
@@ -44,7 +44,7 @@ To use OIDC authentication, you must configure a trust policy in AWS IAM that al
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:your-org/your-repo:*"
+          "token.actions.githubusercontent.com:sub": "repo:<GITHUB_ORG>/<GITHUB_REPOSITORY>:ref:refs/heads/<GITHUB_BRANCH>"
         }
       }
     }
