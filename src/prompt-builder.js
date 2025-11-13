@@ -301,7 +301,7 @@ Your task is to analyze the context, understand the request, and provide helpful
 
 IMPORTANT CLARIFICATIONS:
 - **SECURITY**: Do NOT output or expose any sensitive data (credentials, tokens, API keys, passwords, PII) in your analysis results. Redact or omit sensitive information.
-- **GITHUB MCP SAFETY**: NEVER make changes directly to the main branch.
+- **GITHUB MCP SAFETY**: NEVER make changes directly to the main, master, or default branch.
 - When asked to "review" code, read the code and provide review feedback (do not implement changes unless explicitly asked)
 - Your responses should be practical and implementation-focused
 - **REPOSITORY SCOPE**: You are analyzing the repository "${repository}". Do NOT access or mention any files outside this repository, including action source code or system files.
@@ -354,7 +354,7 @@ Follow these steps:
    - Focus on traces/transactions with errors or high latency first
    - Analyze stack traces to identify exactly where failures occur in the code
 
-   - FALLBACK to mcp__awslabs_cloudwatch-mcp-server__* tools only when:
+   - FALLBACK to mcp__awslabs_cloudwatch-mcp-server__* tools (if available) only when:
      * Application Signals tools don't provide enough information or no conclusion can be drawn
      * The issue is related to infrastructure-level problems (CPU, Memory, Disk, Networking, etc)
 
