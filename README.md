@@ -32,7 +32,7 @@ To use OIDC authentication, you need to first create an IAM Identity Provider th
 * **Provider URL**: `https://token.actions.githubusercontent.com`
 * **Audience**: `sts.amazonaws.com`
 
-Next, create a new IAM policy with the required permissions for this GitHub Action. See the [Required Permissions](#required-permissions) section for more details.
+Next, create a new IAM policy with the required permissions for this GitHub Action. See the [Required Permissions](#required-permissions) section below for more details.
 
 Finally, create an IAM Role via the AWS Management Console with the following details:
 * **Trusted entity type**: Web identity
@@ -50,7 +50,7 @@ See the [configure-aws-credentials OIDC Quick Start Guide](https://github.com/aw
 
 Go to your repository → Settings → Secrets and variables → Actions.
 
-Create a new repository secret `AWS_ROLE_TO_ASSUME` and set it to the IAM role you created in the previous step.
+Create a new repository secret `AWSAPM_ROLE_ARN` and set it to the IAM role you created in the previous step.
 You can also specify your region by setting a repository variable `AWS_REGION`.
 
 Create `.github/workflows/awsapm.yml` in your repository:
@@ -82,7 +82,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # this should be the ARN of the IAM role you created for GitHub Actions
+          role-to-assume: ${{ secrets.AWSAPM_ROLE_ARN }} # this should be the ARN of the IAM role you created for GitHub Actions
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
       - name: Run Application observability for AWS Investigation
