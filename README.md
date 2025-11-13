@@ -46,7 +46,7 @@ In the **Permissions policies** page, add the IAM policy you created.
 
 See the [configure-aws-credentials OIDC Quick Start Guide](https://github.com/aws-actions/configure-aws-credentials/tree/main?tab=readme-ov-file#quick-start-oidc-recommended) for more information about setting up OIDC with AWS.
 
-#### 2. Add Workflow Secrets and Configuration
+#### 2. Configure Secrets and Add Workflow
 
 Go to your repository → Settings → Secrets and variables → Actions.
 
