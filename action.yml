@@ -28,8 +28,8 @@ inputs:
     description: "Custom instructions to guide the AI agent's analysis and actions"
     required: false
     default: ""
-  tracing_mode:
-    description: "Enable tracing to show AI agent reasoning steps and MCP tool calls in workflow summary"
+  enable_cloudwatch_mcp:
+    description: "Enable CloudWatch MCP server for metrics, alarms, and log insights"
     required: false
     default: "true"
 
@@ -72,7 +72,6 @@ runs:
         ALLOWED_NON_WRITE_USERS: ${{ inputs.allowed_non_write_users }}
         GITHUB_RUN_ID: ${{ github.run_id }}
         DEFAULT_WORKFLOW_TOKEN: ${{ github.token }}
-        TRACING_MODE: ${{ inputs.tracing_mode }}
 
     - name: Install CLI Tools
       if: steps.init.outputs.contains_trigger == 'true'
@@ -96,7 +95,7 @@ runs:
         # Install Amazon Q Developer CLI
         echo "Installing Amazon Q Developer CLI..."
         sudo apt-get update
-        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.18.1/amazon-q.deb
+        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.19.4/amazon-q.deb
         sudo apt-get install -y --fix-missing ./amazon-q.deb || sudo apt-get install -y -f
 
         # Verify Amazon Q CLI installation
@@ -117,6 +116,7 @@ runs:
         node src/execute.js
       env:
         GITHUB_TOKEN: ${{ steps.init.outputs.GITHUB_TOKEN }}
+        ENABLE_CLOUDWATCH_MCP: ${{ inputs.enable_cloudwatch_mcp }}
         INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
 
     - name: Update comment with results

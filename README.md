@@ -1,4 +1,4 @@
-# Application Observability for AWS Action
+# Application observability for AWS Action
 
 A GitHub Action that brings Agentic AI capabilities directly into GitHub, enabling service issue investigation with live production context, automated Application Signals enablement, and AI-powered bug fixing with live telemetry data.
 
@@ -6,7 +6,7 @@ This action is powered by the [AWS Application Signals MCP](https://github.com/a
 
 ## ✨ Features
 
-With a one-time setup of Application Observability for AWS Action workflow for your GitHub repository, developers can:
+With a one-time setup of Application observability for AWS Action workflow for your GitHub repository, developers can:
 
 1. **Troubleshoot Production Issues**: Investigate and fix production problems using live telemetry and SLO data from AWS Application Signals via MCP
 2. **Application Observability Enablement Assistance**: Get help enabling Application Signals with integrated Application Signals MCP and domain knowledge as context
@@ -59,7 +59,7 @@ See the [configure-aws-credentials OIDC Quick Start Guide](https://github.com/aw
 Create `.github/workflows/awsapm.yml` in your repository:
 
 ```yaml
-name: Application Observability
+name: Application observability for AWS
 
 on:
   issue_comment:
@@ -89,8 +89,8 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # this should be the ARN of the IAM role created for Github Actions
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Run AWS APM Agent
-        uses: aws-actions/apm-action@v1
+      - name: Run Application observability for AWS Investigation
+        uses: aws-actions/application-observability-for-aws@v1
 ```
 
 #### 3. Start Using the Action
