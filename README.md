@@ -55,21 +55,20 @@ name: Application observability for AWS
 
 on:
   issue_comment:
-    types: [created]
-  pull_request_review_comment:
-    types: [created]
+    types: [created, edited]
   issues:
-    types: [opened, assigned]
+    types: [opened, assigned, edited]
 
 jobs:
   apm-analysis:
-    if: contains(github.event.comment.body, '@awsapm') || contains(github.event.issue.body, '@awsapm')
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@awsapm')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@awsapm') || contains(github.event.issue.title, '@awsapm')))
     runs-on: ubuntu-latest
     permissions:
       contents: write        # To create branches for PRs
       pull-requests: write   # To post comments on PRs
       issues: write          # To post comments on issues
-      checks: write          # To create check runs with detailed results
       id-token: write        # required to configure AWS credentials using OIDC 
     steps:
       - name: Checkout repository
@@ -79,7 +78,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # this should be the ARN of the IAM role you created for GitHub Actions
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
       - name: Run Application observability for AWS Investigation
         uses: aws-actions/application-observability-for-aws@v1
