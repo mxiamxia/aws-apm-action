@@ -25,32 +25,24 @@ With a one-time setup of Application observability for AWS Action workflow for y
 
 #### 1. Set up AWS Credentials
 
-This action relies on the [aws-actions/configure-aws-credentials](https://github.com/aws-actions/configure-aws-credentials) action to set up AWS authentication in your Github Actions Environment. We **highly recommend** using OpenID Connect (OIDC) to authenticate with AWS. OIDC allows your GitHub Actions workflows to access AWS resources using short-lived AWS credentials so you do not have to store long-term credentials in your repository.
+This action relies on the [aws-actions/configure-aws-credentials](https://github.com/aws-actions/configure-aws-credentials) action to set up AWS authentication in your GitHub Actions Environment. We **highly recommend** using OpenID Connect (OIDC) to authenticate with AWS. OIDC allows your GitHub Actions workflows to access AWS resources using short-lived AWS credentials so you do not have to store long-term credentials in your repository.
 
-To use OIDC authentication, you must configure a trust policy in AWS IAM that allows GitHub Actions to assume an IAM role using this template:
+To use OIDC authentication, you need to first create an IAM Identity Provider that trusts GitHub's OIDC endpoint. This can be done the AWS Management Console by adding a new Identity Provider with the following details:
+* **Provider Type**: OpenID Connect
+* **Provider URL**: `https://token.actions.githubusercontent.com`
+* **Audience**: `sts.amazonaws.com`
 
-```
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Federated": "arn:aws:iam::<AWS_ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
-      },
-      "Action": "sts:AssumeRoleWithWebIdentity",
-      "Condition": {
-        "StringEquals": {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-        },
-        "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:<GITHUB_ORG>/<GITHUB_REPOSITORY>:ref:refs/heads/<GITHUB_BRANCH>"
-        }
-      }
-    }
-  ]
-}
-```
+Next, create a new IAM policy with the required permissions for this GitHub Action. See the [Permissions] section for more details.
+
+Finally, create an IAM Role via the AWS Management Console with the following details:
+* **Trusted entity type**: Web identity
+* **Identity provider**: token.actions.githubusercontent.com
+* **Audience**: sts.awsamazon.com
+* **GitHub organization**: <your GitHub organization or account name>
+* **GitHub repository**: <your GitHub repository name, use * if not specified>
+* **GitHub branch**: <your GitHub branch, use * if not specified>
+
+In the **Permissions policies** page, add the IAM policy you created.
 
 See the [configure-aws-credentials OIDC Quick Start Guide](https://github.com/aws-actions/configure-aws-credentials/tree/main?tab=readme-ov-file#quick-start-oidc-recommended) for more information about setting up OIDC with AWS.
 
@@ -86,7 +78,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # this should be the ARN of the IAM role created for Github Actions
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # this should be the ARN of the IAM role you created for GitHub Actions
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Run Application observability for AWS Investigation
