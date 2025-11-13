@@ -46,7 +46,12 @@ In the **Permissions policies** page, add the IAM policy you created.
 
 See the [configure-aws-credentials OIDC Quick Start Guide](https://github.com/aws-actions/configure-aws-credentials/tree/main?tab=readme-ov-file#quick-start-oidc-recommended) for more information about setting up OIDC with AWS.
 
-#### 2. Add Workflow Configuration
+#### 2. Add Workflow Secrets and Configuration
+
+Go to your repository → Settings → Secrets and variables → Actions.
+
+Create a new repository secret `AWS_ROLE_TO_ASSUME` and set it to the IAM role you created in the previous step.
+You can also specify your region by setting a repository variable `AWS_REGION`.
 
 Create `.github/workflows/awsapm.yml` in your repository:
 
