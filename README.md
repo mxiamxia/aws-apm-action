@@ -32,7 +32,7 @@ To use OIDC authentication, you need to first create an IAM Identity Provider th
 * **Provider URL**: `https://token.actions.githubusercontent.com`
 * **Audience**: `sts.amazonaws.com`
 
-Next, create a new IAM policy with the required permissions for this GitHub Action. See the [Permissions] section for more details.
+Next, create a new IAM policy with the required permissions for this GitHub Action. See the [Required Permissions](#required-permissions) section for more details.
 
 Finally, create an IAM Role via the AWS Management Console with the following details:
 * **Trusted entity type**: Web identity
@@ -113,7 +113,51 @@ Hi @awsapm, I want to know how many GenAI tokens have been used by my services?
 
 The action requires:
 
-1. **AWS Permissions**: Same as [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server#configuration)
+1. **AWS Permissions**: 
+The IAM role assumed by GitHub Actions needs to have a permission policy with the following permissions in order to gain full access to the Application Signals MCP Tool Call suite.
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "q:SendMessage",
+                "application-signals:ListServices",
+                "application-signals:GetService",
+                "application-signals:ListServiceOperations",
+                "application-signals:ListServiceLevelObjectives",
+                "application-signals:GetServiceLevelObjective",
+                "application-signals:ListAuditFindings",
+                "cloudwatch:DescribeAlarms",
+                "cloudwatch:DescribeAlarmHistory",
+                "cloudwatch:ListMetrics",
+                "cloudwatch:GetMetricData",
+                "cloudwatch:GetMetricStatistics",
+                "logs:DescribeLogGroups",
+                "logs:DescribeQueryDefinitions",
+                "logs:ListLogAnomalyDetectors",
+                "logs:ListAnomalies",
+                "logs:StartQuery",
+                "logs:StopQuery",
+                "logs:GetQueryResults",
+                "logs:FilterLogEvents",
+                "xray:GetTraceSummaries",
+                "xray:GetTraceSegmentDestination",
+                "synthetics:GetCanary",
+                "synthetics:GetCanaryRuns",
+                "s3:GetObject",
+                "s3:ListBucket",
+                "iam:GetRole",
+                "iam:ListAttachedRolePolicies",
+                "iam:GetPolicy",
+                "iam:GetPolicyVersion"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
 2. **GitHub Permissions**:
    - `contents: write` - To create branches for PRs
    - `pull-requests: write` - To post comments on PRs
