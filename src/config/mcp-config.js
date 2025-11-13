@@ -182,7 +182,6 @@ class MCPConfigManager {
   /**
    * Get AWS environment variables for MCP server
    */
-  // TODO: support IAM role consumed by aws-actions/configure-aws-credentials
   getAWSEnvVars() {
     return {
       aws_access_key_id: process.env.AWS_ACCESS_KEY_ID,
