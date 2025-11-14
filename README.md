@@ -34,15 +34,32 @@ To use OIDC authentication, you need to first create an IAM Identity Provider th
 
 Next, create a new IAM policy with the required permissions for this GitHub Action. See the [Required Permissions](#required-permissions) section below for more details.
 
-Finally, create an IAM Role via the AWS Management Console with the following details:
-* **Trusted entity type**: Web identity
-* **Identity provider**: token.actions.githubusercontent.com
-* **Audience**: sts.awsamazon.com
-* **GitHub organization**: <your GitHub organization or account name>
-* **GitHub repository**: <your GitHub repository name, use * if not specified>
-* **GitHub branch**: <your GitHub branch, use * if not specified>
+Finally, create an IAM Role via the AWS Management Console with the following trust policy:
 
-In the **Permissions policies** page, add the IAM policy you created.
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::<AWS_ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:<GITHUB_ORG>/<GITHUB_REPOSITORY>:ref:refs/heads/<GITHUB_BRANCH>"
+        }
+      }
+    }
+  ]
+}
+```
+
+In the **Permissions policies** page, add the IAM permissions policy you created.
 
 See the [configure-aws-credentials OIDC Quick Start Guide](https://github.com/aws-actions/configure-aws-credentials/tree/main?tab=readme-ov-file#quick-start-oidc-recommended) for more information about setting up OIDC with AWS.
 
