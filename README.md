@@ -70,7 +70,7 @@ Go to your repository → Settings → Secrets and variables → Actions.
 Create a new repository secret `AWSAPM_ROLE_ARN` and set it to the IAM role you created in the previous step.
 You can also specify your region by setting a repository variable `AWS_REGION`.
 
-Create `.github/workflows/awsapm.yml` in your repository:
+Example workflow file (e.g., `.github/workflows/awsapm.yml`):
 
 ```yaml
 name: Application observability for AWS
@@ -105,6 +105,8 @@ jobs:
       - name: Run Application observability for AWS Investigation
         uses: aws-actions/application-observability-for-aws@v1
 ```
+
+**Note:** You can create separate workflows for different regions or environments by customizing the bot name starting with `@awsapm` (e.g., `@awsapm-prod`, `@awsapm-staging`) and configuring each with environment-specific AWS IAM role credentials and region.
 
 #### 3. Start Using the Action
 
