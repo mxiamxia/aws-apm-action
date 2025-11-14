@@ -34,7 +34,7 @@ To use OIDC authentication, you need to first create an IAM Identity Provider th
 
 Next, create a new IAM policy with the required permissions for this GitHub Action. See the [Required Permissions](#required-permissions) section below for more details.
 
-Finally, create an IAM Role via the AWS Management Console with the following trust policy:
+Finally, create an IAM Role via the AWS Management Console with the following trust policy template:
 
 ```
 {
