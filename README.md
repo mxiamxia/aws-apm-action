@@ -1,25 +1,25 @@
 # Application observability for AWS Action
 
-A GitHub Action that brings Agentic AI capabilities directly into GitHub, enabling service issue investigation with live production context, automated Application Signals enablement, and AI-powered bug fixing with live telemetry data.
+This action brings Agentic AI capabilities directly into GitHub, enabling service issue investigation with live production context, automated Application Signals enablement, and AI-powered bug fixing with live telemetry data.
 
-This action is powered by the [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server) and works with Amazon Q Developer CLI. When you mention `@awsapm` in GitHub issues or pull request comments, it helps you troubleshoot production issues, implement fixes, and enhance observability coverage on demand.
+This action is powered by the [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server) and [AWS CloudWatch MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-mcp-server), and works with Amazon Q Developer CLI. When you mention `@awsapm` in GitHub issues, it helps you troubleshoot production issues, implement fixes, and enhance observability coverage on demand.
 
 ## ✨ Features
 
 With a one-time setup of Application observability for AWS Action workflow for your GitHub repository, developers can:
 
-1. **Troubleshoot Production Issues**: Investigate and fix production problems using live telemetry and SLO data from AWS Application Signals via MCP
-2. **Application Observability Enablement Assistance**: Get help enabling Application Signals with integrated Application Signals MCP and domain knowledge as context
-3. **AI-Powered Analysis**: Leverage Amazon Q Developer CLI for intelligent code analysis and recommendations
-4. **Automated Workflows**: Responds to `@awsapm` mentions in issues and PR comments, working around the clock
+1. **Troubleshoot Production Issues**: Investigate and fix production problems using live telemetry and SLO data
+2. **Instrumentation Assistance**: Automatically instrument your applications directly from GitHub
+3. **AI-Powered Analysis**: Leverage modern AI coding agents to analyze performance issues and provide recommendations
+4. **Automated Workflows**: Responds to `@awsapm` mentions in issues, working around the clock
 
 ## 📋 Prerequisites
 
-- AWS credentials with permissions for [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server#configuration)
-- GitHub token with appropriate permissions (automatically provided via `github.token`)
-- Repository write access for users triggering the action
+- **Repository Write Access**: Users must have write access or above to trigger the action
+- **AWS IAM Role**: Configure an IAM role with OIDC for GitHub Actions (see [Getting Started](#-getting-started) for setup)
+- **GitHub Token**: Workflow requires specific permissions (automatically provided via `GITHUB_TOKEN`)
 
-## 🚀 Quick Start
+## 🚀 Getting Started
 
 ### Setup Steps (One-Time)
 
@@ -70,7 +70,7 @@ Go to your repository → Settings → Secrets and variables → Actions.
 Create a new repository secret `AWSAPM_ROLE_ARN` and set it to the IAM role you created in the previous step.
 You can also specify your region by setting a repository variable `AWS_REGION`.
 
-Create `.github/workflows/awsapm.yml` in your repository:
+Example workflow file (e.g., `.github/workflows/awsapm.yml`):
 
 ```yaml
 name: Application observability for AWS
@@ -106,6 +106,8 @@ jobs:
         uses: aws-actions/application-observability-for-aws@v1
 ```
 
+**Note:** You can create separate workflows for different regions or environments by customizing the bot name starting with `@awsapm` (e.g., `@awsapm-prod`, `@awsapm-staging`) and configuring each with environment-specific AWS IAM role credentials and region.
+
 #### 3. Start Using the Action
 
 Simply mention `@awsapm` in any issue or pull request comment:
@@ -117,6 +119,18 @@ Hi @awsapm, can you enable Application Signals for lambda-audit-service? Post a 
 
 Hi @awsapm, I want to know how many GenAI tokens have been used by my services?
 ```
+
+## 🔒 Security
+
+This action prioritizes security with strict access controls, OIDC-based AWS authentication, and built-in protections against prompt injection attacks. Only users with repository write access can trigger the action, and all operations are scoped to the specific repository.
+
+For detailed security information, including:
+- Access control and token permissions
+- AWS IAM permissions and OIDC setup
+- Prompt injection risks and mitigations
+- Security best practices
+
+See the [Security Documentation](SECURITY.md).
 
 ## ⚙️ Configuration
 
@@ -194,30 +208,10 @@ The IAM role assumed by GitHub Actions needs to have a permission policy with th
 
 ## 📖 Documentation
 
-Comprehensive documentation coming soon! This includes:
+For more information, check out:
 
-- Detailed configuration guide
-- Authentication setup (GitHub tokens and Apps)
-- MCP integration guide
-- Troubleshooting common issues
-- Architecture overview
-
-## 🏗️ Architecture
-
-This GitHub Action enables a versatile APM AI Agent within your repository that:
-
-1. **Initialization** - Detects `@awsapm` mentions and validates permissions
-2. **Context Gathering** - Collects GitHub context (issues, PRs, comments, diffs) and AWS Application Signals data
-3. **AI Agent Execution** - Runs Amazon Q Developer CLI (or Claude Code/Codex) integrated with AWS Application Signals MCP
-4. **Action & Response** - Posts analysis, creates branches, submits PRs, or provides troubleshooting guidance
-
-### Integration with AWS Application Signals MCP
-
-The action leverages the [AWS Application Signals MCP server](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server) to provide:
-- Live telemetry and SLO data from production services
-- Service topology and dependency mapping
-- Metrics, traces, and logs correlation
-- GenAI token usage tracking and cost analysis
+- [AWS Application Signals Documentation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Application-Monitoring-Intro.html) - Learn about Application Signals features and capabilities
+- Application observability for AWS Action Public Documentation [link TBA] - Detailed guides and tutorials (coming soon)
 
 ## 🤝 Contributing
 
@@ -226,10 +220,6 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 ## 📄 License
 
 This project is licensed under the MIT-0 License - see the [LICENSE](LICENSE) file for details.
-
-## 🔒 Security
-
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for information on reporting security issues.
 
 ## 📞 Support
 

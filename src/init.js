@@ -22,11 +22,11 @@ async function run() {
     const customPrompt = process.env.CUSTOM_PROMPT || '';
 
     // Function to check for bot name trigger phrase
-    // Note: Phrases like "@awsapm-user" will be also considered valid.
-    // Keeping this logic simple by accepting such variations.
+    // Must contain "@awsapm" prefix (case-insensitive)
+    // Note: Phrases like "@awsapm-prod", "@awsapm-staging" are also valid.
     function containsTriggerPhrase(text) {
       if (!text) return false;
-      return text.toLowerCase().includes(botName.toLowerCase());
+      return text.toLowerCase().includes('@awsapm');
     }
 
     // Check if trigger phrase is present in the event
