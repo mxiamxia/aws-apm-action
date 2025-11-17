@@ -1,5 +1,5 @@
 name: "Application observability for AWS Action"
-description: "This action provides Agentic AI driven application performance investigation and resolution, using live production telemetry data."
+description: "Provides Agentic AI–driven performance investigation and resolution using live production telemetry."
 branding:
   icon: "cloud"
   color: "orange"
