@@ -173,6 +173,17 @@ class OutputCleaner {
   }
 
   /**
+   * Clean GitHub Copilot CLI output
+   * @param {string} text - Raw Copilot CLI output
+   * @returns {string} Cleaned output
+   */
+  cleanCopilotOutput(text) {
+    let cleaned = this.removeAnsiCodes(text);
+    cleaned = this.ensureMarkdownFormatting(cleaned);
+    return cleaned;
+  }
+
+  /**
    * Generic clean method - uses Amazon Q output cleaning
    * @param {string} text - Raw CLI output
    * @returns {string} Cleaned output

@@ -32,6 +32,10 @@ inputs:
     description: "Enable CloudWatch MCP server for metrics, alarms, and log insights"
     required: false
     default: "true"
+  cli_tool:
+    description: "CLI tool to use for analysis (q-developer, copilot)"
+    required: false
+    default: "q-developer"
 
 outputs:
   execution_file:
@@ -92,19 +96,41 @@ runs:
         echo "uvx installed successfully"
         uvx --version
 
-        # Install Amazon Q Developer CLI
-        echo "Installing Amazon Q Developer CLI..."
-        sudo apt-get update
-        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.19.4/amazon-q.deb
-        sudo apt-get install -y --fix-missing ./amazon-q.deb || sudo apt-get install -y -f
+        # Install CLI based on cli_tool input
+        CLI_TOOL="${{ inputs.cli_tool }}"
+        
+        if [ "$CLI_TOOL" = "copilot" ]; then
+          echo "Installing GitHub CLI and Copilot extension..."
+          # Install GitHub CLI
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt update
+          sudo apt install gh -y
+          
+          # Install Copilot extension
+          gh extension install github/gh-copilot
+          
+          # Verify installation
+          if ! command -v gh &> /dev/null; then
+            echo "::error::GitHub CLI installation failed"
+            exit 1
+          fi
+          echo "GitHub CLI with Copilot installed successfully"
+          gh --version
+        else
+          echo "Installing Amazon Q Developer CLI..."
+          sudo apt-get update
+          curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.19.4/amazon-q.deb
+          sudo apt-get install -y --fix-missing ./amazon-q.deb || sudo apt-get install -y -f
 
-        # Verify Amazon Q CLI installation
-        if ! command -v q &> /dev/null; then
-          echo "::error::Amazon Q CLI installation failed - q command not found in PATH"
-          exit 1
+          # Verify Amazon Q CLI installation
+          if ! command -v q &> /dev/null; then
+            echo "::error::Amazon Q CLI installation failed - q command not found in PATH"
+            exit 1
+          fi
+          echo "Amazon Q CLI installed successfully"
+          q --version
         fi
-        echo "Amazon Q CLI installed successfully"
-        q --version
         
 
     - name: Run Application observability for AWS Investigation
@@ -117,6 +143,7 @@ runs:
       env:
         GITHUB_TOKEN: ${{ steps.init.outputs.GITHUB_TOKEN }}
         ENABLE_CLOUDWATCH_MCP: ${{ inputs.enable_cloudwatch_mcp }}
+        CLI_TOOL: ${{ inputs.cli_tool }}
         INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
 
     - name: Update comment with results

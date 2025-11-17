@@ -5,6 +5,7 @@ const github = require('@actions/github');
 const fs = require('fs');
 const path = require('path');
 const { AmazonQCLIExecutor } = require('./executors/amazonq-cli-executor');
+const { CopilotCLIExecutor } = require('./executors/copilot-cli-executor');
 const { OutputCleaner } = require('./utils/output-cleaner');
 
 /**
@@ -33,19 +34,28 @@ async function run() {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    // Run Amazon Q Developer CLI investigation
+    // Determine which CLI tool to use
+    const cliTool = process.env.CLI_TOOL || 'q-developer';
     let investigationResult = '';
 
     try {
-      core.info('Running Amazon Q Developer CLI investigation...');
-      const executor = new AmazonQCLIExecutor(null);
-      investigationResult = await executor.execute(promptContent);
-      core.info('Amazon Q Developer CLI investigation completed');
+      if (cliTool === 'copilot') {
+        core.info('Running GitHub Copilot CLI investigation...');
+        const executor = new CopilotCLIExecutor();
+        investigationResult = await executor.execute(promptContent);
+        core.info('GitHub Copilot CLI investigation completed');
+      } else {
+        core.info('Running Amazon Q Developer CLI investigation...');
+        const executor = new AmazonQCLIExecutor();
+        investigationResult = await executor.execute(promptContent);
+        core.info('Amazon Q Developer CLI investigation completed');
+      }
     } catch (error) {
-      core.error(`Amazon Q Developer CLI failed: ${error.message}`);
+      const toolName = cliTool === 'copilot' ? 'GitHub Copilot' : 'Amazon Q Developer';
+      core.error(`${toolName} CLI failed: ${error.message}`);
 
       // Return the actual error message
-      investigationResult = `❌ **Amazon Q Investigation Failed**
+      investigationResult = `❌ **${toolName} Investigation Failed**
 
 **Error:** ${error.message}
 
