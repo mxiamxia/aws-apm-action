@@ -1,0 +1,34 @@
+name: Application observability for AWS
+
+on:
+  issue_comment:
+    types: [created, edited]
+  issues:
+    types: [opened, assigned, edited]
+
+jobs:
+  awsapm-investigation:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@awsapm')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@awsapm') || contains(github.event.issue.title, '@awsapm')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWSAPM_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Run Application observability for AWS Investigation
+        id: awsapm
+        uses: aws-actions/application-observability-for-aws@v1
+        with:
+          cli_tool: "copilot"
