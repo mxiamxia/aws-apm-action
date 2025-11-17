@@ -100,23 +100,16 @@ runs:
         CLI_TOOL="${{ inputs.cli_tool }}"
         
         if [ "$CLI_TOOL" = "copilot" ]; then
-          echo "Installing GitHub CLI and Copilot extension..."
-          # Install GitHub CLI
-          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-          sudo apt update
-          sudo apt install gh -y
-          
-          # Install Copilot extension
-          gh extension install github/gh-copilot
+          echo "Installing GitHub Copilot CLI..."
+          npm install -g @github/copilot
           
           # Verify installation
-          if ! command -v gh &> /dev/null; then
-            echo "::error::GitHub CLI installation failed"
+          if ! command -v copilot &> /dev/null; then
+            echo "::error::GitHub Copilot CLI installation failed"
             exit 1
           fi
-          echo "GitHub CLI with Copilot installed successfully"
-          gh --version
+          echo "GitHub Copilot CLI installed successfully"
+          copilot --version
         else
           echo "Installing Amazon Q Developer CLI..."
           sudo apt-get update
