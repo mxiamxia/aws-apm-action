@@ -82,7 +82,7 @@ on:
     types: [opened, assigned, edited]
 
 jobs:
-  apm-analysis:
+  awsapm-investigation:
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@awsapm')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@awsapm') || contains(github.event.issue.title, '@awsapm')))
@@ -91,7 +91,7 @@ jobs:
       contents: write        # To create branches for PRs
       pull-requests: write   # To post comments on PRs
       issues: write          # To post comments on issues
-      id-token: write        # required to configure AWS credentials using OIDC 
+      id-token: write        # required to configure AWS credentials using OIDC
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -104,6 +104,8 @@ jobs:
 
       - name: Run Application observability for AWS Investigation
         uses: aws-actions/application-observability-for-aws@v1
+        with:
+          bot_name: "@awsapm"
 ```
 
 **Note:** You can create separate workflows for different regions or environments by customizing the bot name starting with `@awsapm` (e.g., `@awsapm-prod`, `@awsapm-staging`) and configuring each with environment-specific AWS IAM role credentials and region.
