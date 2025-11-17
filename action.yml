@@ -1,5 +1,5 @@
 name: "Application observability for AWS Action"
-description: "This curated Application observability GitHub action provides Agentic AI driven investigation and resolution, using live production telemetry data."
+description: "This action provides Agentic AI driven application performance investigation and resolution, using live production telemetry data."
 branding:
   icon: "cloud"
   color: "orange"
