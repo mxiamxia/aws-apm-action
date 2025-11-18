@@ -44,8 +44,6 @@ The action uses GitHub's `GITHUB_TOKEN` to interact with your repository (postin
 - **Review the IAM policy regularly** to ensure no excessive permissions have been added
 - **Enable AWS CloudTrail** to monitor and audit all API calls made by the action
 
-**💰 Cost Warning:** AWS usage will be billed to your account. Bedrock model inference is the primary cost driver. Set up [AWS Budget Alerts](https://aws.amazon.com/aws-cost-management/aws-budgets/) to monitor spending.
-
 ## ⚠️ Prompt Injection Risks
 
 This action processes user-provided content (issues, PRs, comments) using AI. **Malicious actors may attempt to inject hidden instructions** through HTML comments, markdown hidden text, or zero-width Unicode characters to manipulate the AI's behavior. To mitigate this risk, the action includes built-in protections: comment timestamp filtering (excludes comments edited after trigger), repository scope restriction (AI analyzes target repository only), sensitive data redaction (AI instructed not to output credentials), and output sanitization before posting to GitHub.

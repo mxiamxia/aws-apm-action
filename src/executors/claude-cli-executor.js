@@ -37,14 +37,16 @@ class ClaudeCLIExecutor extends BaseCLIExecutor {
 
   getEnvironmentVariables() {
     // Check authentication
-    if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
-      throw new Error('No authentication provided. CLAUDE_CODE_OAUTH_TOKEN is required.');
+    if (!process.env.CLI_TOOL_OAUTH_TOKEN) {
+      throw new Error('No authentication provided. CLI_TOOL_OAUTH_TOKEN is required.');
     }
 
-    console.log('Claude CLI will use CLAUDE_CODE_OAUTH_TOKEN for authentication');
+    console.log('Claude CLI will use CLI_TOOL_OAUTH_TOKEN for authentication');
 
     return {
       ...process.env,
+      // Map CLI_TOOL_OAUTH_TOKEN to CLAUDE_CODE_OAUTH_TOKEN for Claude CLI
+      CLAUDE_CODE_OAUTH_TOKEN: process.env.CLI_TOOL_OAUTH_TOKEN,
       // Ensure non-interactive mode
       CLAUDE_NON_INTERACTIVE: '1',
       // Ensure GitHub Action inputs are available to Claude
@@ -140,57 +142,6 @@ class ClaudeCLIExecutor extends BaseCLIExecutor {
         }
       }
     });
-  }
-
-  /**
-   * Extract tool call timings from Claude output
-   * Claude CLI stream-json doesn't provide explicit timing per tool,
-   * so we track tool usage counts and note that detailed timing isn't available
-   * @param {string} output Raw CLI output
-   */
-  extractToolTimings(output) {
-    if (!this.timingTracker) return;
-
-    const responseLines = output.split('\n').filter(line => line.trim());
-    const toolCalls = new Map();
-
-    // Parse JSON stream to count tool calls
-    for (const line of responseLines) {
-      try {
-        const parsed = JSON.parse(line);
-
-        // Track tool usage
-        if (parsed.type === 'tool_use' && parsed.tool && parsed.tool.name) {
-          const toolName = parsed.tool.name;
-          toolCalls.set(toolName, (toolCalls.get(toolName) || 0) + 1);
-        }
-
-        // Alternative: check assistant messages for tool_use content
-        if (parsed.type === 'assistant' && parsed.message && parsed.message.content) {
-          for (const content of parsed.message.content) {
-            if (content.type === 'tool_use' && content.name) {
-              const toolName = content.name;
-              toolCalls.set(toolName, (toolCalls.get(toolName) || 0) + 1);
-            }
-          }
-        }
-      } catch (e) {
-        // Skip non-JSON lines
-      }
-    }
-
-    // Record tool calls (without exact timing since Claude doesn't provide it)
-    // We record with 0ms duration just to show they were called
-    for (const [toolName, count] of toolCalls.entries()) {
-      for (let i = 0; i < count; i++) {
-        const displayName = count > 1 ? `${toolName} (${i + 1}/${count})` : toolName;
-        this.timingTracker.record(
-          `Tool: ${displayName}`,
-          0,
-          { toolName, note: 'Claude CLI does not provide per-tool timing' }
-        );
-      }
-    }
   }
 
   /**

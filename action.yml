@@ -31,8 +31,8 @@ inputs:
   cli_tool:
     description: "CLI tool to use for investigation (amazon_q_cli or claude_code)"
     required: true
-  claude_code_oauth_token:
-    description: "Claude Code OAuth token (required when cli_tool is claude_code)"
+  cli_tool_oauth_token:
+    description: "OAuth token for the selected CLI tool (required when cli_tool is claude_code)"
     required: false
   enable_cloudwatch_mcp:
     description: "Enable CloudWatch MCP server for metrics, alarms, and log insights"
@@ -41,7 +41,7 @@ inputs:
 
 outputs:
   execution_file:
-    description: "Path to the Amazon Q Developer CLI execution output file"
+    description: "Path to the AI agent tool execution output file"
     value: ${{ steps.aws-apm-cli.outputs.execution_file }}
   branch_name:
     description: "The branch created by Application observability for AWS Action for this execution"
@@ -139,7 +139,7 @@ runs:
       env:
         GITHUB_TOKEN: ${{ steps.init.outputs.GITHUB_TOKEN }}
         CLI_TOOL: ${{ inputs.cli_tool }}
-        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude_code_oauth_token }}
+        CLI_TOOL_OAUTH_TOKEN: ${{ inputs.cli_tool_oauth_token }}
         ENABLE_CLOUDWATCH_MCP: ${{ inputs.enable_cloudwatch_mcp }}
         INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
 

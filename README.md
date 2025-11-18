@@ -2,7 +2,7 @@
 
 This action brings Agentic AI capabilities directly into GitHub, enabling service issue investigation with live production context, automated Application Signals enablement, and AI-powered bug fixing with live telemetry data.
 
-This action is powered by the [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server) and [AWS CloudWatch MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-mcp-server), and works with Amazon Q Developer CLI or Claude Code CLI. When you mention `@awsapm` in GitHub issues, it helps you troubleshoot production issues, implement fixes, and enhance observability coverage on demand.
+This action is powered by the [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server) and [AWS CloudWatch MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-mcp-server), and works with multiple modern AI agent tools including Amazon Q Developer CLI and Claude Code CLI, with support for additional tools planned. When you mention `@awsapm` in GitHub issues, it helps you troubleshoot production issues, implement fixes, and enhance observability coverage on demand.
 
 ## ✨ Features
 
@@ -13,17 +13,24 @@ With a one-time setup of Application observability for AWS Action workflow for y
 3. **AI-Powered Analysis**: Leverage modern AI coding agents to analyze performance issues and provide recommendations
 4. **Automated Workflows**: Responds to `@awsapm` mentions in issues, working around the clock
 
-## 📋 Prerequisites
-
-- **Repository Write Access**: Users must have write access or above to trigger the action
-- **AWS IAM Role**: Configure an IAM role with OIDC for GitHub Actions (see [Getting Started](#-getting-started) for setup)
-- **GitHub Token**: Workflow requires specific permissions (automatically provided via `GITHUB_TOKEN`)
-
 ## 🚀 Getting Started
 
-### Setup Steps (One-Time)
+### Choose Your AI Agent Tool
 
-#### 1. Set up AWS Credentials
+This action supports multiple AI agent tools. Choose one based on your needs:
+
+---
+
+### Option 1: Amazon Q Developer CLI (Default)
+
+#### Prerequisites
+- **Repository Write Access**: Users must have write access or above to trigger the action
+- **AWS IAM Role**: Configure an IAM role with OIDC for GitHub Actions (used for both AWS resource access and Q CLI authentication)
+- **GitHub Token**: Workflow requires specific permissions (automatically provided via `GITHUB_TOKEN`)
+
+#### Setup Steps
+
+##### Step 1: Set up AWS Credentials
 
 This action relies on the [aws-actions/configure-aws-credentials](https://github.com/aws-actions/configure-aws-credentials) action to set up AWS authentication in your GitHub Actions Environment. We **highly recommend** using OpenID Connect (OIDC) to authenticate with AWS. OIDC allows your GitHub Actions workflows to access AWS resources using short-lived AWS credentials so you do not have to store long-term credentials in your repository.
 
@@ -63,7 +70,7 @@ In the **Permissions policies** page, add the IAM permissions policy you created
 
 See the [configure-aws-credentials OIDC Quick Start Guide](https://github.com/aws-actions/configure-aws-credentials/tree/main?tab=readme-ov-file#quick-start-oidc-recommended) for more information about setting up OIDC with AWS.
 
-#### 2. Configure Secrets and Add Workflow
+##### Step 2: Configure Secrets and Add Workflow
 
 Go to your repository → Settings → Secrets and variables → Actions.
 
@@ -111,7 +118,7 @@ jobs:
 
 **Note:** You can create separate workflows for different regions or environments by customizing the bot name starting with `@awsapm` (e.g., `@awsapm-prod`, `@awsapm-staging`) and configuring each with environment-specific AWS IAM role credentials and region.
 
-#### 3. Start Using the Action
+##### Step 3: Start Using the Action
 
 Simply mention `@awsapm` in any issue or pull request comment:
 
@@ -122,6 +129,57 @@ Hi @awsapm, can you enable Application Signals for lambda-audit-service? Post a 
 
 Hi @awsapm, I want to know how many GenAI tokens have been used by my services?
 ```
+
+---
+
+### Option 2: Claude Code CLI
+
+#### Prerequisites
+- **Repository Write Access**: Users must have write access or above to trigger the action
+- **Claude Code OAuth Token**: Obtain from Claude Code authentication
+- **AWS IAM Role**: Configure an IAM role with OIDC for GitHub Actions (for AWS Application Signals/CloudWatch access)
+- **GitHub Token**: Workflow requires specific permissions (automatically provided via `GITHUB_TOKEN`)
+
+#### Setup Steps
+
+##### Step 1: Set up AWS Credentials
+
+Follow the same AWS OIDC setup as described in [Option 1 - Step 1](#step-1-set-up-aws-credentials) above to configure AWS credentials for accessing Application Signals and CloudWatch data.
+
+##### Step 2: Set up Claude Code Authentication
+
+1. Obtain your Claude Code OAuth token from [Claude Code IAM documentation](https://code.claude.com/docs/en/iam)
+2. Go to your repository → Settings → Secrets and variables → Actions
+3. Create a new repository secret `CLAUDE_CODE_OAUTH_TOKEN` with your OAuth token
+
+##### Step 3: Configure Secrets and Add Workflow
+
+Create a new repository secret `AWSAPM_ROLE_ARN` (if not already created in Step 1) and set it to the IAM role ARN.
+
+Example workflow file - modify the example from [Option 1](#step-2-configure-secrets-and-add-workflow) by changing:
+
+```yaml
+# Change this:
+      - name: Run Application observability for AWS Investigation
+        uses: aws-actions/application-observability-for-aws@v1
+        with:
+          bot_name: "@awsapm"
+          cli_tool: "amazon_q_cli"
+
+# To this:
+      - name: Run Application observability for AWS Investigation
+        uses: aws-actions/application-observability-for-aws@v1
+        with:
+          bot_name: "@awsapm"
+          cli_tool: "claude_code"
+          cli_tool_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+```
+
+##### Step 4: Start Using the Action
+
+Simply mention `@awsapm` in any issue or pull request comment (same as Option 1).
+
+---
 
 ## 🔒 Security
 
@@ -147,29 +205,33 @@ See the [Security Documentation](SECURITY.md).
 | `github_token` | GitHub token for API calls | No | `${{ github.token }}` |
 | `custom_prompt` | Custom instructions for the AI agent | No | - |
 | `cli_tool` | CLI tool to use for investigation (`amazon_q_cli` or `claude_code`) | Yes | - |
-| `claude_code_oauth_token` | Claude Code OAuth token (required when cli_tool is claude_code) | No | - |
+| `cli_tool_oauth_token` | OAuth token for the selected CLI tool (required when cli_tool is claude_code) | No | - |
 | `enable_cloudwatch_mcp` | Enable CloudWatch MCP server for metrics, alarms, and log insights | No | `true` |
 
-### Using Claude Code CLI
+### Selecting Your AI Agent Tool
 
-You can use Claude Code CLI by setting `cli_tool: "claude_code"` and providing a Claude Code OAuth token.
+The `cli_tool` input determines which AI agent tool to use for investigations:
 
-Example workflow with Claude Code CLI:
+**Available Options:**
+- `amazon_q_cli`: Amazon Q Developer CLI - Uses AWS OIDC authentication
+- `claude_code`: Claude Code CLI - Requires `cli_tool_oauth_token`
+
+**Quick Reference:**
 
 ```yaml
-- name: Run Application observability for AWS Investigation
-  uses: aws-actions/application-observability-for-aws@v1
+# Amazon Q Developer CLI
+- uses: aws-actions/application-observability-for-aws@v1
   with:
-    bot_name: "@awsapm"
+    cli_tool: "amazon_q_cli"
+
+# Claude Code CLI
+- uses: aws-actions/application-observability-for-aws@v1
+  with:
     cli_tool: "claude_code"
-    claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    cli_tool_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
 
-**CLI Tool Options:**
-- `amazon_q_cli`: Uses Amazon Q Developer CLI
-- `claude_code`: Uses Claude Code CLI
-
-**Note:** `claude_code_oauth_token` is required when using `cli_tool: "claude_code"`.
+For complete setup instructions, see [Getting Started](#-getting-started).
 
 ### Required Permissions
 
@@ -239,6 +301,22 @@ For more information, check out:
 
 - [AWS Application Signals Documentation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Application-Monitoring-Intro.html) - Learn about Application Signals features and capabilities
 - Application observability for AWS Action Public Documentation [link TBA] - Detailed guides and tutorials (coming soon)
+
+## 💰 Cost Considerations
+
+Usage costs will be billed based on the pricing model of your selected CLI tool:
+
+### Amazon Q Developer CLI
+- Billed to your AWS account based on:
+  - Amazon Q Developer usage (agent interactions, code analysis)
+  - AWS service usage (CloudWatch, Application Signals, X-Ray, etc.)
+- Set up [AWS Budget Alerts](https://aws.amazon.com/aws-cost-management/aws-budgets/) to monitor spending
+
+### Claude Code CLI
+- Billed based on Claude Code pricing for API/OAuth token usage
+- Refer to [Claude Code pricing](https://claude.ai/pricing) for current rates
+
+**Recommendation:** Set up cost monitoring and budget alerts for your selected tool to track spending.
 
 ## 🤝 Contributing
 
