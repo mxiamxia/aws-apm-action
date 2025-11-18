@@ -80,7 +80,8 @@ class CopilotCLIExecutor extends BaseCLIExecutor {
     const copilotToken = process.env.COPILOT_TOKEN || process.env.GITHUB_TOKEN;
     return {
       ...process.env,
-      GITHUB_TOKEN: copilotToken
+      GITHUB_TOKEN: copilotToken,
+      XDG_CONFIG_HOME: os.homedir()
     };
   }
 
