@@ -22,7 +22,7 @@ class CopilotCLIExecutor extends BaseCLIExecutor {
 
   getCommandArgs() {
     return [
-      'allow-all-tools',
+      '--allow-all-tools',
       '-p',
       '"what is 2+2"'
     ];
