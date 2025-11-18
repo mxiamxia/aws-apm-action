@@ -28,6 +28,12 @@ inputs:
     description: "Custom instructions to guide the AI agent's analysis and actions"
     required: false
     default: ""
+  cli_tool:
+    description: "CLI tool to use for investigation (amazon_q_cli or claude_code)"
+    required: true
+  claude_code_oauth_token:
+    description: "Claude Code OAuth token (required when cli_tool is claude_code)"
+    required: false
   enable_cloudwatch_mcp:
     description: "Enable CloudWatch MCP server for metrics, alarms, and log insights"
     required: false
@@ -86,25 +92,41 @@ runs:
 
         # Verify uvx installation
         if ! command -v uvx &> /dev/null; then
-          echo "::error::uvx installation failed - Amazon Q MCP tools will not work"
+          echo "::error::uvx installation failed - MCP tools will not work"
           exit 1
         fi
         echo "uvx installed successfully"
         uvx --version
 
-        # Install Amazon Q Developer CLI
-        echo "Installing Amazon Q Developer CLI..."
-        sudo apt-get update
-        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.19.4/amazon-q.deb
-        sudo apt-get install -y --fix-missing ./amazon-q.deb || sudo apt-get install -y -f
+        if [ "${{ inputs.cli_tool }}" = "claude_code" ]; then
+          echo "Installing Claude Code CLI..."
+          curl -fsSL https://claude.ai/install.sh | bash -s 1.0.117
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-        # Verify Amazon Q CLI installation
-        if ! command -v q &> /dev/null; then
-          echo "::error::Amazon Q CLI installation failed - q command not found in PATH"
+          # Verify Claude CLI installation
+          if ! command -v claude &> /dev/null; then
+            echo "::error::Claude Code CLI installation failed - claude command not found in PATH"
+            exit 1
+          fi
+          echo "Claude Code CLI installed successfully"
+          claude --version
+        elif [ "${{ inputs.cli_tool }}" = "amazon_q_cli" ]; then
+          echo "Installing Amazon Q Developer CLI..."
+          sudo apt-get update
+          curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.19.4/amazon-q.deb
+          sudo apt-get install -y --fix-missing ./amazon-q.deb || sudo apt-get install -y -f
+
+          # Verify Amazon Q CLI installation
+          if ! command -v q &> /dev/null; then
+            echo "::error::Amazon Q CLI installation failed - q command not found in PATH"
+            exit 1
+          fi
+          echo "Amazon Q CLI installed successfully"
+          q --version
+        else
+          echo "::error::Invalid cli_tool value: ${{ inputs.cli_tool }}. Must be 'amazon_q_cli' or 'claude_code'"
           exit 1
         fi
-        echo "Amazon Q CLI installed successfully"
-        q --version
         
 
     - name: Run Application observability for AWS Investigation
@@ -116,6 +138,8 @@ runs:
         node src/execute.js
       env:
         GITHUB_TOKEN: ${{ steps.init.outputs.GITHUB_TOKEN }}
+        CLI_TOOL: ${{ inputs.cli_tool }}
+        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude_code_oauth_token }}
         ENABLE_CLOUDWATCH_MCP: ${{ inputs.enable_cloudwatch_mcp }}
         INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
 

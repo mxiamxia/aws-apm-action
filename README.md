@@ -2,7 +2,7 @@
 
 This action brings Agentic AI capabilities directly into GitHub, enabling service issue investigation with live production context, automated Application Signals enablement, and AI-powered bug fixing with live telemetry data.
 
-This action is powered by the [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server) and [AWS CloudWatch MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-mcp-server), and works with Amazon Q Developer CLI. When you mention `@awsapm` in GitHub issues, it helps you troubleshoot production issues, implement fixes, and enhance observability coverage on demand.
+This action is powered by the [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server) and [AWS CloudWatch MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-mcp-server), and works with Amazon Q Developer CLI or Claude Code CLI. When you mention `@awsapm` in GitHub issues, it helps you troubleshoot production issues, implement fixes, and enhance observability coverage on demand.
 
 ## ✨ Features
 
@@ -106,6 +106,7 @@ jobs:
         uses: aws-actions/application-observability-for-aws@v1
         with:
           bot_name: "@awsapm"
+          cli_tool: "amazon_q_cli"
 ```
 
 **Note:** You can create separate workflows for different regions or environments by customizing the bot name starting with `@awsapm` (e.g., `@awsapm-prod`, `@awsapm-staging`) and configuring each with environment-specific AWS IAM role credentials and region.
@@ -145,6 +146,30 @@ See the [Security Documentation](SECURITY.md).
 | `branch_prefix` | Prefix for created branches | No | `awsapm/` |
 | `github_token` | GitHub token for API calls | No | `${{ github.token }}` |
 | `custom_prompt` | Custom instructions for the AI agent | No | - |
+| `cli_tool` | CLI tool to use for investigation (`amazon_q_cli` or `claude_code`) | Yes | - |
+| `claude_code_oauth_token` | Claude Code OAuth token (required when cli_tool is claude_code) | No | - |
+| `enable_cloudwatch_mcp` | Enable CloudWatch MCP server for metrics, alarms, and log insights | No | `true` |
+
+### Using Claude Code CLI
+
+You can use Claude Code CLI by setting `cli_tool: "claude_code"` and providing a Claude Code OAuth token.
+
+Example workflow with Claude Code CLI:
+
+```yaml
+- name: Run Application observability for AWS Investigation
+  uses: aws-actions/application-observability-for-aws@v1
+  with:
+    bot_name: "@awsapm"
+    cli_tool: "claude_code"
+    claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+```
+
+**CLI Tool Options:**
+- `amazon_q_cli`: Uses Amazon Q Developer CLI
+- `claude_code`: Uses Claude Code CLI
+
+**Note:** `claude_code_oauth_token` is required when using `cli_tool: "claude_code"`.
 
 ### Required Permissions
 

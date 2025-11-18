@@ -1,5 +1,5 @@
 /**
- * Centralized MCP configuration management for Amazon Q CLI
+ * Centralized MCP configuration management for Amazon Q CLI and Claude Code CLI
  * Provides a single source of truth for MCP configurations
  */
 class MCPConfigManager {
@@ -115,33 +115,106 @@ class MCPConfigManager {
   }
 
   /**
-   * Build complete MCP configuration for Amazon Q CLI
+   * Get allowed tools string for Claude CLI (with wildcards and specific tool names)
+   */
+  getAllowedToolsForClaude() {
+    const workingDir = process.env.GITHUB_WORKSPACE || process.cwd();
+
+    const allowedTools = [
+      // File operations (restricted to target repository)
+      `Read(${workingDir}/**)`,
+      `Edit(${workingDir}/**)`,
+      `MultiEdit(${workingDir}/**)`,
+      `Glob(${workingDir}/**)`,
+      `Grep(${workingDir}/**)`,
+
+      // Git operations
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git checkout:*)",
+      "Bash(git branch:*)",
+
+      // System commands (restricted to working directory)
+      `Bash(ls:${workingDir}/**)`,
+      `Bash(find:${workingDir}/**)`,
+      `Bash(cat:${workingDir}/**)`,
+      `Bash(head:${workingDir}/**)`,
+      `Bash(tail:${workingDir}/**)`,
+      `Bash(wc:${workingDir}/**)`,
+
+      // GitHub MCP tools
+      "mcp__github__*",
+      ...this.getGitHubToolsList()
+    ];
+
+    // Add AWS MCP tools if credentials are available
+    if (this.hasAWSCredentials()) {
+      allowedTools.push(
+        "mcp__*",
+        "mcp__awslabs_cloudwatch-appsignals-mcp-server__*",
+        ...this.getApplicationSignalsToolsList()
+      );
+
+      // Add CloudWatch MCP tools if enabled
+      if (this.hasCloudWatchAccess()) {
+        allowedTools.push(
+          "mcp__awslabs_cloudwatch-mcp-server__*",
+          ...this.getCloudWatchToolsList()
+        );
+      }
+    }
+
+    return allowedTools.join(',');
+  }
+
+  /**
+   * Build complete MCP configuration for specified CLI type
+   * @param {string} cliType - 'claude' or 'amazonq'
    * @returns {object} MCP configuration object
    */
-  buildMCPConfig() {
+  buildMCPConfig(cliType = 'amazonq') {
     const config = { mcpServers: {} };
 
     // Add AWS CloudWatch Application Signals MCP server if credentials available
     if (this.hasAWSCredentials()) {
       const applicationSignalsConfig = this.getApplicationSignalsServerConfig();
 
-      // Amazon Q CLI format
-      config.mcpServers["applicationsignals"] = {
-        ...applicationSignalsConfig,
-        autoApprove: this.getApplicationSignalsToolsList(),
-        disabled: false
-      };
+      if (cliType === 'claude') {
+        // Claude CLI format
+        config.mcpServers["awslabs.cloudwatch-appsignals-mcp-server"] = {
+          ...applicationSignalsConfig,
+          env: this.getAWSEnvVars()
+        };
+      } else {
+        // Amazon Q CLI format
+        config.mcpServers["applicationsignals"] = {
+          ...applicationSignalsConfig,
+          autoApprove: this.getApplicationSignalsToolsList(),
+          disabled: false
+        };
+      }
     }
 
     // Add AWS CloudWatch MCP server if explicitly enabled and credentials available
     if (this.hasCloudWatchAccess()) {
       const cloudwatchConfig = this.getCloudWatchServerConfig();
 
-      config.mcpServers["awslabs.cloudwatch-mcp-server"] = {
-        ...cloudwatchConfig,
-        autoApprove: this.getCloudWatchToolsList(),
-        disabled: false
-      };
+      if (cliType === 'claude') {
+        // Claude CLI format
+        config.mcpServers["awslabs.cloudwatch-mcp-server"] = {
+          ...cloudwatchConfig,
+          env: this.getAWSEnvVars()
+        };
+      } else {
+        // Amazon Q CLI format
+        config.mcpServers["awslabs.cloudwatch-mcp-server"] = {
+          ...cloudwatchConfig,
+          autoApprove: this.getCloudWatchToolsList(),
+          disabled: false
+        };
+      }
     }
 
     // Add GitHub MCP server if token available

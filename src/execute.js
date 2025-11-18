@@ -5,6 +5,7 @@ const github = require('@actions/github');
 const fs = require('fs');
 const path = require('path');
 const { AmazonQCLIExecutor } = require('./executors/amazonq-cli-executor');
+const { ClaudeCLIExecutor } = require('./executors/claude-cli-executor');
 const { OutputCleaner } = require('./utils/output-cleaner');
 
 /**
@@ -33,30 +34,41 @@ async function run() {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    // Run Amazon Q Developer CLI investigation
+    // Determine which CLI to use
+    const cliTool = process.env.CLI_TOOL || 'amazon_q_cli';
+    const useClaude = cliTool === 'claude_code';
+    const cliName = useClaude ? 'Claude Code CLI' : 'Amazon Q Developer CLI';
+
+    // Run investigation
     let investigationResult = '';
 
     try {
-      core.info('Running Amazon Q Developer CLI investigation...');
-      const executor = new AmazonQCLIExecutor(null);
+      core.info(`Running ${cliName} investigation...`);
+      const executor = useClaude ? new ClaudeCLIExecutor(null) : new AmazonQCLIExecutor(null);
       investigationResult = await executor.execute(promptContent);
-      core.info('Amazon Q Developer CLI investigation completed');
-    } catch (error) {
-      core.error(`Amazon Q Developer CLI failed: ${error.message}`);
+      core.info(`${cliName} investigation completed`);
 
-      // Return the actual error message
-      investigationResult = `❌ **Amazon Q Investigation Failed**
+      // Validate that we got a proper result (not the prompt echoed back)
+      if (!investigationResult.includes('🎯 **Application observability for AWS Assistant Result**')) {
+        core.warning(`${cliName} output does not contain the expected result marker`);
+        throw new Error(`${cliName} did not return a valid investigation result`);
+      }
+    } catch (error) {
+      core.error(`${cliName} failed: ${error.message}`);
+
+      // Return a concise error message without the full prompt
+      investigationResult = `❌ **Investigation Failed**
 
 **Error:** ${error.message}
 
-**User Request:** ${promptContent}
-
-Please check the workflow logs for more details and ensure proper authentication is configured.`;
+Please check the [workflow logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}) for more details and ensure proper authentication is configured.`;
     }
 
     // Clean the output to ensure proper markdown formatting for GitHub
     const cleaner = new OutputCleaner();
-    const cleanedResult = cleaner.clean(investigationResult);
+    const cleanedResult = useClaude
+      ? cleaner.cleanClaudeOutput(investigationResult)
+      : cleaner.cleanAmazonQOutput(investigationResult);
 
     // Save the cleaned response with unique run ID to avoid conflicts on self-hosted runners
     const runId = process.env.GITHUB_RUN_ID || Date.now();
