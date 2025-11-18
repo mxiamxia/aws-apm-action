@@ -104,7 +104,7 @@ runs:
         
         if [ "$CLI_TOOL" = "copilot" ]; then
           echo "Installing GitHub Copilot CLI..."
-          npm install -g @github/copilot
+          npm install -g @github/copilot@0.0.330
           
           # Verify installation
           if ! command -v copilot &> /dev/null; then
