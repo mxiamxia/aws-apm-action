@@ -22,10 +22,58 @@ class CopilotCLIExecutor extends BaseCLIExecutor {
 
   getCommandArgs() {
     return [
-      '--allow-all-tools',
-      '-p',
-      '"what is 2+2"'
+      '--allow-all-tools'
     ];
+  }
+
+  /**
+   * Override execute method for Copilot CLI since it uses -p flag instead of stdin
+   */
+  async execute(promptContent) {
+    const path = require('path');
+    
+    try {
+      core.info('Running copilot CLI investigation...');
+
+      // Test if CLI is available
+      await this.testCLIAvailable();
+
+      // Setup CLI-specific configuration
+      const configPath = await this.setupConfiguration();
+
+      // Get command args and env - add -p flag with promptContent
+      const args = [...this.getCommandArgs(), '-p', promptContent];
+      const env = this.getEnvironmentVariables();
+
+      // Spawn CLI process
+      const cliProcess = this.spawnCLIProcess('copilot', args, env, this.targetRepoDir);
+
+      // Handle CLI process errors
+      cliProcess.on('error', (error) => {
+        core.error(`Error spawning copilot process: ${error.message}`);
+        throw error;
+      });
+
+      // Capture output and wait for completion (NO TIMEOUT)
+      const { output, exitCode } = await this.captureOutput(cliProcess);
+
+      // Cleanup config file if needed
+      if (configPath) {
+        await this.cleanup([], [configPath]);
+      }
+
+      // Check exit code and parse output
+      if (exitCode === 0) {
+        core.info('copilot CLI completed successfully');
+        const result = this.parseOutput(output.trim());
+        return result || 'Investigation completed, but no output was generated.';
+      } else {
+        throw new Error(`copilot CLI exited with code ${exitCode}`);
+      }
+
+    } catch (error) {
+      throw new Error(`copilot CLI execution failed: ${error.message}`);
+    }
   }
 
   getEnvironmentVariables() {
