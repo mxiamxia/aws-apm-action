@@ -36,6 +36,9 @@ inputs:
     description: "CLI tool to use for analysis (q-developer, copilot)"
     required: false
     default: "q-developer"
+  copilot_token:
+    description: "GitHub token for Copilot CLI (if using copilot as cli_tool)"
+    required: false"
 
 outputs:
   execution_file:
@@ -138,6 +141,7 @@ runs:
         ENABLE_CLOUDWATCH_MCP: ${{ inputs.enable_cloudwatch_mcp }}
         CLI_TOOL: ${{ inputs.cli_tool }}
         INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
+        COPILOT_TOKEN: ${{ inputs.copilot_token }}
 
     - name: Update comment with results
       if: steps.init.outputs.contains_trigger == 'true' && steps.init.outputs.awsapm_comment_id && always()
