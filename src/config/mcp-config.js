@@ -145,14 +145,12 @@ class MCPConfigManager {
       `Bash(wc:${workingDir}/**)`,
 
       // GitHub MCP tools
-      "mcp__github__*",
       ...this.getGitHubToolsList()
     ];
 
     // Add AWS MCP tools if credentials are available
     if (this.hasAWSCredentials()) {
       allowedTools.push(
-        "mcp__*",
         "mcp__applicationsignals__*",
         ...this.getApplicationSignalsToolsList()
       );
