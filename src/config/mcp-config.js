@@ -118,8 +118,8 @@ class MCPConfigManager {
    * Get allowed tools string for Claude CLI (with wildcards and specific tool names)
    * Note:
    * - Bash tools are already allowed by claude-code-base-action
-   * - MCP tools are auto-approved in the MCP config file itself (autoApprove)
-   * - We only need to specify file operations here
+   * - MCP tools MUST be in allowed_tools for claude-code-base-action
+   *   (autoApprove in MCP config file alone is not sufficient)
    */
   getAllowedToolsForClaude() {
     const workingDir = process.env.GITHUB_WORKSPACE || process.cwd();
@@ -133,8 +133,15 @@ class MCPConfigManager {
       `Grep(${workingDir}/**)`
     ];
 
-    // Note: AWS MCP tools (Application Signals, CloudWatch) are auto-approved
-    // in the MCP config file itself, so we don't need to add them here
+    // Add AWS MCP tools if credentials are available
+    // Using wildcards to allow all tools from these MCP servers
+    if (this.hasAWSCredentials()) {
+      allowedTools.push("mcp__applicationsignals__*");
+
+      if (this.hasCloudWatchAccess()) {
+        allowedTools.push("mcp__awslabs_cloudwatch-mcp-server__*");
+      }
+    }
 
     return allowedTools.join(',');
   }
