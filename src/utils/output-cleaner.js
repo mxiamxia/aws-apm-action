@@ -48,8 +48,10 @@ class OutputCleaner {
     // First, try to find the result marker (most reliable)
     const resultMarker = '🎯 **Application observability for AWS Assistant Result**';
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].trim() === resultMarker) {
-        startIndex = i;
+      const trimmed = lines[i].trim();
+      // Handle both direct marker and marker with bullet point prefix
+      if (trimmed === resultMarker || trimmed === `● ${resultMarker}`) {
+        startIndex = i + 1; // Skip the marker line itself
         filterMethod = 'result_marker';
         break;
       }
