@@ -1,0 +1,58 @@
+# Example workflow for Amazon Q Developer CLI
+#
+# This workflow demonstrates how to use the Application Observability for AWS action
+# with Amazon Q Developer CLI.
+#
+# Key Features:
+# - Free tier available (~1,000 requests/month per AWS account)
+# - One-step execution (no separate claude-code-action needed)
+# - Uses AWS OIDC authentication
+#
+# Prerequisites:
+# 1. AWS IAM role with OIDC trust for GitHub Actions
+# 2. Application Signals and CloudWatch permissions
+#
+# Setup:
+# 1. Create repository secret AWSAPM_ROLE_ARN with your IAM role ARN
+# 2. (Optional) Set repository variable AWS_REGION for your preferred region
+# 3. Copy this file to .github/workflows/awsapm.yml in your repository
+
+name: Application observability for AWS (Amazon Q)
+
+on:
+  issue_comment:
+    types: [created, edited]
+  issues:
+    types: [opened, assigned, edited]
+
+jobs:
+  awsapm-investigation:
+    # Only run when @awsapm is mentioned
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@awsapm')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@awsapm') || contains(github.event.issue.title, '@awsapm')))
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write        # To create branches for PRs
+      pull-requests: write   # To post comments on PRs
+      issues: write          # To post comments on issues
+      id-token: write        # Required for AWS OIDC authentication
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWSAPM_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      # One-step execution with Amazon Q
+      - name: Run Application observability for AWS Investigation
+        uses: aws-actions/application-observability-for-aws@v2
+        with:
+          bot_name: "@awsapm"
+          cli_tool: "amazon_q_cli"
+          enable_cloudwatch_mcp: "true"

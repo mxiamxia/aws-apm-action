@@ -21,7 +21,11 @@ This action supports multiple AI agent tools. Choose one based on your needs:
 
 ---
 
-### Option 1: Claude Code CLI with Custom Bedrock Model
+### Option 1: Claude Code with Custom Bedrock Model (Recommended)
+
+**Bring your own Bedrock model** - Use any Claude model available in Amazon Bedrock with your AWS account.
+
+This option uses [Anthropic's official claude-code-base-action](https://github.com/anthropics/claude-code-action) for executing investigations. This action prepares AWS-specific MCP configurations and prompts.
 
 #### Prerequisites
 - **Repository Write Access**: Users must have write access or above to trigger the action
@@ -34,7 +38,7 @@ This action supports multiple AI agent tools. Choose one based on your needs:
 
 This action relies on the [aws-actions/configure-aws-credentials](https://github.com/aws-actions/configure-aws-credentials) action to set up AWS authentication in your GitHub Actions Environment. We **highly recommend** using OpenID Connect (OIDC) to authenticate with AWS. OIDC allows your GitHub Actions workflows to access AWS resources using short-lived AWS credentials so you do not have to store long-term credentials in your repository.
 
-To use OIDC authentication, you need to first create an IAM Identity Provider that trusts GitHub's OIDC endpoint. This can be done the AWS Management Console by adding a new Identity Provider with the following details:
+To use OIDC authentication, you need to first create an IAM Identity Provider that trusts GitHub's OIDC endpoint. This can be done in the AWS Management Console by adding a new Identity Provider with the following details:
 * **Provider Type**: OpenID Connect
 * **Provider URL**: `https://token.actions.githubusercontent.com`
 * **Audience**: `sts.amazonaws.com`
@@ -55,7 +59,7 @@ Next, create a new IAM policy with the required permissions for this GitHub Acti
 
 Finally, create an IAM Role via the AWS Management Console with the following trust policy template:
 
-```
+```json
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -110,7 +114,7 @@ jobs:
       contents: write        # To create branches for PRs
       pull-requests: write   # To post comments on PRs
       issues: write          # To post comments on issues
-      id-token: write        # required to configure AWS credentials using OIDC
+      id-token: write        # Required for AWS OIDC authentication
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -118,18 +122,34 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWSAPM_ROLE_ARN }} # this should be the ARN of the IAM role you created for GitHub Actions
+          role-to-assume: ${{ secrets.AWSAPM_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
-      - name: Run Application observability for AWS Investigation
-        uses: aws-actions/application-observability-for-aws@v1
+      # Step 1: Prepare AWS MCP config and investigation prompt
+      - name: Prepare Investigation Context
+        id: prepare
+        uses: aws-actions/application-observability-for-aws@v2
         with:
           bot_name: "@awsapm"
           cli_tool: "claude_code"
-          bedrock_model: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+      # Step 2: Execute investigation with Claude Code
+      - name: Run Claude Investigation
+        uses: anthropics/claude-code-base-action@beta
+        with:
+          prompt_file: ${{ steps.prepare.outputs.prompt_file }}
+          use_bedrock: "true"
+          claude_args: |
+            --mcp-config-file ${{ steps.prepare.outputs.mcp_config_file }}
+            --allowed-tools ${{ steps.prepare.outputs.allowed_tools }}
+        env:
+          ANTHROPIC_MODEL: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 ```
 
-**Note:** You can create separate workflows for different regions or environments by customizing the bot name starting with `@awsapm` (e.g., `@awsapm-prod`, `@awsapm-staging`) and configuring each with environment-specific AWS IAM role credentials and region.
+**Note:**
+- This action prepares the MCP configuration and prompt, then uses Anthropic's `claude-code-base-action` for execution
+- Specify your Bedrock model by setting the `ANTHROPIC_MODEL` environment variable in the `claude-code-base-action` step
+- You can customize the bot name (e.g., `@awsapm-prod`, `@awsapm-staging`) for different environments
 
 ##### Step 3: Start Using the Action
 
@@ -199,29 +219,72 @@ See the [Security Documentation](SECURITY.md).
 | `branch_prefix` | Prefix for created branches | No | `awsapm/` |
 | `github_token` | GitHub token for API calls | No | `${{ github.token }}` |
 | `custom_prompt` | Custom instructions for the AI agent | No | - |
-| `cli_tool` | CLI tool to use for investigation (`amazon_q_cli` or `claude_code`) | Yes | - |
-| `cli_tool_oauth_token` | OAuth token for the selected CLI tool (required when cli_tool is claude_code and bedrock_model is not set) | No | - |
-| `bedrock_model` | Bedrock model ID to use with Claude Code CLI (e.g., `us.anthropic.claude-sonnet-4-5-20250929-v1:0`). When set, cli_tool_oauth_token is not required. | No | - |
-| `enable_cloudwatch_mcp` | Enable CloudWatch MCP server for metrics, alarms, and log insights | No | `true` |
+| `cli_tool` | CLI tool to use (`amazon_q_cli` or `claude_code`) | Yes | - |
+| `enable_cloudwatch_mcp` | Enable CloudWatch MCP server | No | `true` |
+
+### Outputs
+
+This action provides different outputs depending on the `cli_tool` selected:
+
+#### Common Outputs (Both Paths)
+
+| Output | Description |
+|--------|-------------|
+| `awsapm_comment_id` | GitHub comment ID for tracking the investigation |
+| `branch_name` | The branch created for this execution |
+| `github_token` | The GitHub token used by the action |
+
+#### Amazon Q Path Outputs (`cli_tool: amazon_q_cli`)
+
+| Output | Description |
+|--------|-------------|
+| `execution_file` | Path to investigation output file |
+
+#### Claude Code Path Outputs (`cli_tool: claude_code`)
+
+| Output | Description |
+|--------|-------------|
+| `prompt_file` | Path to generated prompt file for `claude-code-base-action` |
+| `mcp_config_file` | Path to MCP servers configuration JSON file |
+| `allowed_tools` | Comma-separated list of allowed tools for Claude |
 
 ### Selecting Your AI Agent Tool
 
-The `cli_tool` input determines which AI agent tool to use for investigations:
+The `cli_tool` input determines which path the action takes:
 
 **Available Options:**
-- `amazon_q_cli`: Amazon Q Developer CLI - Uses AWS OIDC authentication
-- `claude_code`: Claude Code CLI - Requires `bedrock_model`
+
+1. **`claude_code`** (Recommended): Prepares MCP config and prompt for use with [`anthropics/claude-code-base-action`](https://github.com/anthropics/claude-code-action)
+   - Bring your own Bedrock model
+   - No CLI installation by this action
+   - Requires adding `claude-code-base-action` step to your workflow
+
+2. **`amazon_q_cli`**: Installs and executes Amazon Q Developer CLI directly
+   - All-in-one execution
+   - Uses AWS OIDC authentication
 
 **Quick Reference:**
 
 ```yaml
-# Claude Code CLI with Custom Bedrock Model
-- uses: aws-actions/application-observability-for-aws@v1
+# Claude Code with Bedrock (Two-step process)
+- name: Prepare Investigation Context
+  id: prepare
+  uses: aws-actions/application-observability-for-aws@v2
   with:
     cli_tool: "claude_code"
-    bedrock_model: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
-# Amazon Q Developer CLI
+- name: Run Claude Investigation
+  uses: anthropics/claude-code-base-action@beta
+  with:
+    prompt_file: ${{ steps.prepare.outputs.prompt_file }}
+    use_bedrock: "true"
+    claude_args: |
+      --mcp-config-file ${{ steps.prepare.outputs.mcp_config_file }}
+      --allowed-tools ${{ steps.prepare.outputs.allowed_tools }}
+  env:
+    ANTHROPIC_MODEL: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+# Amazon Q CLI (One-step process)
 - uses: aws-actions/application-observability-for-aws@v1
   with:
     cli_tool: "amazon_q_cli"
