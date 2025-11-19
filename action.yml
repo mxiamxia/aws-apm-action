@@ -32,7 +32,10 @@ inputs:
     description: "CLI tool to use for investigation (amazon_q_cli or claude_code)"
     required: true
   cli_tool_oauth_token:
-    description: "OAuth token for the selected CLI tool (required when cli_tool is claude_code)"
+    description: "OAuth token for the selected CLI tool (required when cli_tool is claude_code and bedrock_model is not set)"
+    required: false
+  bedrock_model:
+    description: "Bedrock model ID to use with Claude Code CLI (e.g., us.anthropic.claude-sonnet-4-5-20250929-v1:0). When set, cli_tool_oauth_token is not required."
     required: false
   enable_cloudwatch_mcp:
     description: "Enable CloudWatch MCP server for metrics, alarms, and log insights"
@@ -140,6 +143,7 @@ runs:
         GITHUB_TOKEN: ${{ steps.init.outputs.GITHUB_TOKEN }}
         CLI_TOOL: ${{ inputs.cli_tool }}
         CLI_TOOL_OAUTH_TOKEN: ${{ inputs.cli_tool_oauth_token }}
+        BEDROCK_MODEL: ${{ inputs.bedrock_model }}
         ENABLE_CLOUDWATCH_MCP: ${{ inputs.enable_cloudwatch_mcp }}
         INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
 

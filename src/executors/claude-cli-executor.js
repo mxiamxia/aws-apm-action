@@ -36,17 +36,8 @@ class ClaudeCLIExecutor extends BaseCLIExecutor {
   }
 
   getEnvironmentVariables() {
-    // Check authentication
-    if (!process.env.CLI_TOOL_OAUTH_TOKEN) {
-      throw new Error('No authentication provided. CLI_TOOL_OAUTH_TOKEN is required.');
-    }
-
-    console.log('Claude CLI will use CLI_TOOL_OAUTH_TOKEN for authentication');
-
-    return {
+    const envVars = {
       ...process.env,
-      // Map CLI_TOOL_OAUTH_TOKEN to CLAUDE_CODE_OAUTH_TOKEN for Claude CLI
-      CLAUDE_CODE_OAUTH_TOKEN: process.env.CLI_TOOL_OAUTH_TOKEN,
       // Ensure non-interactive mode
       CLAUDE_NON_INTERACTIVE: '1',
       // Ensure GitHub Action inputs are available to Claude
@@ -55,6 +46,23 @@ class ClaudeCLIExecutor extends BaseCLIExecutor {
       GITHUB_PERSONAL_ACCESS_TOKEN: process.env.GITHUB_TOKEN,
       GITHUB_HOST: process.env.GITHUB_SERVER_URL || 'https://github.com'
     };
+
+    // Check if using Bedrock model
+    if (process.env.BEDROCK_MODEL) {
+      console.log(`Claude CLI will use Bedrock model: ${process.env.BEDROCK_MODEL}`);
+      envVars.CLAUDE_CODE_USE_BEDROCK = '1';
+      envVars.ANTHROPIC_MODEL = process.env.BEDROCK_MODEL;
+    } else {
+      // Using OAuth token authentication
+      if (!process.env.CLI_TOOL_OAUTH_TOKEN) {
+        throw new Error('No authentication provided. Either CLI_TOOL_OAUTH_TOKEN or BEDROCK_MODEL is required.');
+      }
+      console.log('Claude CLI will use CLI_TOOL_OAUTH_TOKEN for authentication');
+      // Map CLI_TOOL_OAUTH_TOKEN to CLAUDE_CODE_OAUTH_TOKEN for Claude CLI
+      envVars.CLAUDE_CODE_OAUTH_TOKEN = process.env.CLI_TOOL_OAUTH_TOKEN;
+    }
+
+    return envVars;
   }
 
   /**
