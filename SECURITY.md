@@ -35,7 +35,7 @@ The action uses GitHub's `GITHUB_TOKEN` to interact with your repository (postin
 
 **Principle of Least Privilege:**
 - Configure the IAM role with **minimum required permissions only**
-- The action needs read access to CloudWatch, Application Signals, and invoke access of Amazon Q Developer CLI
+- The action needs read access to CloudWatch, Application Signals, and invoke access of AI agent tools
 - See `template/awsapm.yaml` for a reference IAM policy with minimal permissions
 
 **⚠️ Important Security Considerations:**

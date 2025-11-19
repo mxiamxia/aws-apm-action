@@ -153,7 +153,7 @@ class MCPConfigManager {
     if (this.hasAWSCredentials()) {
       allowedTools.push(
         "mcp__*",
-        "mcp__awslabs_cloudwatch-appsignals-mcp-server__*",
+        "mcp__applicationsignals__*",
         ...this.getApplicationSignalsToolsList()
       );
 
@@ -183,7 +183,7 @@ class MCPConfigManager {
 
       if (cliType === 'claude') {
         // Claude CLI format
-        config.mcpServers["awslabs.cloudwatch-appsignals-mcp-server"] = {
+        config.mcpServers["applicationsignals"] = {
           ...applicationSignalsConfig,
           env: this.getAWSEnvVars()
         };
