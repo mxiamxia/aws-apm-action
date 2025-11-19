@@ -77,7 +77,7 @@ class CopilotCLIExecutor extends BaseCLIExecutor {
   }
 
   getEnvironmentVariables() {
-    const copilotToken = process.env.COPILOT_TOKEN || process.env.GITHUB_TOKEN;
+    const copilotToken = process.env.CLI_AUTH_TOKEN || process.env.GITHUB_TOKEN;
     return {
       ...process.env,
       GITHUB_TOKEN: copilotToken,

@@ -32,4 +32,4 @@ jobs:
         uses: aws-actions/application-observability-for-aws@v1
         with:
           cli_tool: "copilot"
-          copilot_token: ${{ secrets.COPILOT_TOKEN }}
+          cli_auth_token: ${{ secrets.COPILOT_TOKEN }}
