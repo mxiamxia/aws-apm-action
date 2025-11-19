@@ -70,7 +70,7 @@ Result text`;
 
       const output = executor.parseOutput(input);
 
-      expect(output).toContain('🎯 **Application observability for AWS Assistant Result**');
+      expect(output).not.toContain('🎯 **Application observability for AWS Assistant Result**');
       expect(output).toContain('Result text');
       expect(output).not.toContain('Tool output');
     });

@@ -154,7 +154,7 @@ describe('execute', () => {
       const responseFile = path.join(tempDir, 'awsapm-output', 'awsapm-response-12345.txt');
       const content = fs.readFileSync(responseFile, 'utf8');
 
-      expect(content).toContain('❌ **Amazon Q Investigation Failed**');
+      expect(content).toContain('❌ **Amazon Q Developer Investigation Failed**');
       expect(content).toContain('Test error');
     });
 
@@ -171,7 +171,7 @@ describe('execute', () => {
       // Verify the response file contains the error message for the user
       const responseFile = path.join(tempDir, 'awsapm-output', 'awsapm-response-12345.txt');
       const content = fs.readFileSync(responseFile, 'utf8');
-      expect(content).toContain('❌ **Amazon Q Investigation Failed**');
+      expect(content).toContain('❌ **Amazon Q Developer Investigation Failed**');
       expect(content).toContain('Test error');
     });
 

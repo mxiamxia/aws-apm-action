@@ -84,7 +84,7 @@ Tool output
 Here is the analysis`;
 
       const result = cleaner.removeToolExecutionBlocks(input);
-      expect(result).toContain('🎯 **Application observability for AWS Assistant Result**');
+      expect(result).not.toContain('🎯 **Application observability for AWS Assistant Result**');
       expect(result).toContain('## Analysis Result');
       expect(result).not.toContain('Banner text');
       expect(result).not.toContain('Tool output');
@@ -265,7 +265,7 @@ Line 2`;
 Result text\x1b[0m`;
 
       const result = cleaner.cleanAmazonQOutput(input);
-      expect(result).toContain('🎯 **Application observability for AWS Assistant Result**');
+      expect(result).not.toContain('🎯 **Application observability for AWS Assistant Result**');
       expect(result).toContain('## Analysis');
       expect(result).toContain('Result text');
       expect(result).not.toContain('Banner');
@@ -318,7 +318,7 @@ Root cause: Exception in Lambda
 Impact: 12% fault rate`;
 
       const result = cleaner.cleanAmazonQOutput(input);
-      expect(result).toContain('🎯 **Application observability for AWS Assistant Result**');
+      expect(result).not.toContain('🎯 **Application observability for AWS Assistant Result**');
       expect(result).toContain('## SLO Breach Analysis');
       expect(result).toContain('Root cause');
       expect(result).not.toContain('Did you know');
