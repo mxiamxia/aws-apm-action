@@ -99,6 +99,17 @@ class CopilotCLIExecutor extends BaseCLIExecutor {
         fs.mkdirSync(copilotConfigDir, { recursive: true });
       }
 
+      const credentialsContent = `[default]
+aws_access_key_id = ${process.env.AWS_ACCESS_KEY_ID}
+aws_secret_access_key = ${process.env.AWS_SECRET_ACCESS_KEY}
+aws_session_token = ${process.env.AWS_SESSION_TOKEN || ''}
+region = ${process.env.AWS_REGION || 'us-east-1'}
+`;
+      
+      const credentialsPath = path.join(awsDir, 'credentials');
+      fs.writeFileSync(credentialsPath, credentialsContent);
+      core.info(`AWS credentials written to: ${credentialsPath}`);
+
       // Use MCPConfigManager to build configuration
       const mcpConfigManager = new MCPConfigManager();
       const mcpConfig = mcpConfigManager.buildCopilotMCPConfig();
