@@ -112,65 +112,6 @@ class MCPConfigManager {
   }
 
   /**
-   * Build complete MCP configuration for GitHub Copilot
-   * @returns {object} Copilot MCP configuration object
-   */
-  buildCopilotMCPConfig() {
-    const config = { mcpServers: {} };
-
-    // Add AWS CloudWatch Application Signals MCP server if credentials available
-    if (this.hasAWSCredentials()) {
-      config.mcpServers["applicationsignals"] = {
-        type: "local",
-        command: "uvx",
-        args: ["awslabs.cloudwatch-applicationsignals-mcp-server@latest"],
-        env: {
-          MCP_RUN_FROM: "awsapm-gh",
-          ...this.getAWSEnvVars()
-        },
-        tools: ["*"]
-      };
-    }
-
-    // Add AWS CloudWatch MCP server if explicitly enabled and credentials available
-    if (this.hasCloudWatchAccess()) {
-      config.mcpServers["cloudwatch"] = {
-        command: "uvx",
-        args: ["awslabs.cloudwatch-mcp-server@latest"],
-        env: {
-          MCP_RUN_FROM: "awsapm-gh",
-          ...this.getAWSEnvVars()
-        },
-        tools: ["*"]
-      };
-    }
-
-    // Add GitHub MCP server if token available
-    if (this.hasGitHubToken()) {
-      config.mcpServers["github"] = {
-        command: "docker",
-        args: [
-          "run",
-          "-i",
-          "--rm",
-          "-e",
-          "GITHUB_PERSONAL_ACCESS_TOKEN",
-          "-e",
-          "GITHUB_HOST",
-          "ghcr.io/github/github-mcp-server:sha-efef8ae"
-        ],
-        env: {
-          GITHUB_PERSONAL_ACCESS_TOKEN: process.env.GITHUB_TOKEN,
-          GITHUB_HOST: process.env.GITHUB_SERVER_URL || "https://github.com"
-        },
-        tools: ["*"]
-      };
-    }
-
-    return config;
-  }
-
-  /**
    * Build complete MCP configuration for specified CLI type
    * @param {string} cliType - CLI type ('amazonq' or 'copilot')
    * @returns {object} MCP configuration object

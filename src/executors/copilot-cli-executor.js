@@ -118,7 +118,7 @@ region = ${process.env.AWS_REGION || 'us-east-1'}
 
       // Use MCPConfigManager to build configuration
       const mcpConfigManager = new MCPConfigManager();
-      const mcpConfig = mcpConfigManager.buildCopilotMCPConfig();
+      const mcpConfig = mcpConfigManager.buildMCPConfig('copilot');
 
       // Create MCP configuration file
       const mcpConfigPath = path.join(copilotConfigDir, 'mcp-config.json');
