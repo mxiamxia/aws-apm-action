@@ -87,6 +87,10 @@ async function run() {
       result = '⚠️ Investigation completed but no result was generated. Check the workflow logs for details.';
     }
 
+    // Debug: Log what we're posting
+    core.info(`Result length: ${result.length} characters`);
+    core.info(`First 500 chars of result: ${result.substring(0, 500)}`);
+
     // Post result to GitHub
     const octokit = github.getOctokit(githubToken);
     const [owner, repo] = repository.split('/');
@@ -94,14 +98,17 @@ async function run() {
     const statusEmoji = conclusion === 'success' ? '✅' : '⚠️';
     const commentBody = `${statusEmoji} **Application Observability for AWS Assistant Result**\n\n${result}`;
 
-    await octokit.rest.issues.updateComment({
+    core.info(`Updating comment ${commentId} in ${owner}/${repo}`);
+    core.info(`Comment body length: ${commentBody.length} characters`);
+
+    const response = await octokit.rest.issues.updateComment({
       owner,
       repo,
       comment_id: commentId,
       body: commentBody
     });
 
-    core.info('Successfully posted Claude results to GitHub');
+    core.info(`Successfully posted Claude results to GitHub (comment URL: ${response.data.html_url})`);
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);

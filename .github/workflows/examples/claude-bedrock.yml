@@ -59,15 +59,39 @@ jobs:
           cli_tool: "claude_code"
           enable_cloudwatch_mcp: "true"
 
+      # Debug: Print prepared files for debugging
+      - name: Debug - Show Prepared Configuration
+        shell: bash
+        run: |
+          echo "=== Prompt File ==="
+          cat "${{ steps.prepare.outputs.prompt_file }}"
+          echo ""
+          echo "=== MCP Config File ==="
+          cat "${{ steps.prepare.outputs.mcp_config_file }}"
+          echo ""
+          echo "=== Allowed Tools ==="
+          echo "${{ steps.prepare.outputs.allowed_tools }}"
+
       # Step 2: Execute investigation with Claude Code
       - name: Run Claude Investigation
+        id: claude
         uses: anthropics/claude-code-base-action@beta
         with:
           prompt_file: ${{ steps.prepare.outputs.prompt_file }}
           use_bedrock: "true"
-          claude_args: |
-            --mcp-config-file ${{ steps.prepare.outputs.mcp_config_file }}
-            --allowed-tools ${{ steps.prepare.outputs.allowed_tools }}
+          mcp_config: ${{ steps.prepare.outputs.mcp_config_file }}
+          allowed_tools: ${{ steps.prepare.outputs.allowed_tools }}
         env:
           # Specify the Bedrock model to use
           ANTHROPIC_MODEL: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+      # Step 3: Post results back to GitHub issue/PR (reuse the same action)
+      - name: Post Investigation Results
+        if: always()  # Run even if Claude step fails
+        uses: aws-actions/application-observability-for-aws@v2
+        with:
+          bot_name: "@awsapm"
+          cli_tool: "claude_code"
+          comment_id: ${{ steps.prepare.outputs.awsapm_comment_id }}
+          claude_execution_file: ${{ steps.claude.outputs.execution_file }}
+          claude_conclusion: ${{ steps.claude.outputs.conclusion }}

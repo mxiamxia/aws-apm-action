@@ -37,6 +37,9 @@ inputs:
   claude_conclusion:
     description: "Conclusion from claude-code-base-action (success or failure). Only used when claude_execution_file is provided."
     required: false
+  comment_id:
+    description: "GitHub comment ID to update with results (only for claude_code path when posting results). Pass this from the first call's awsapm_comment_id output."
+    required: false
   enable_cloudwatch_mcp:
     description: "Enable CloudWatch MCP server for metrics, alarms, and log insights"
     required: false
@@ -86,6 +89,7 @@ runs:
 
     - name: Init action
       id: init
+      if: inputs.claude_execution_file == ''  # Skip init when posting Claude results
       shell: bash
       run: |
         node ${GITHUB_ACTION_PATH}/src/init.js
@@ -208,16 +212,16 @@ runs:
 
     # Post results for Claude Code path (when claude_execution_file is provided)
     - name: Post Claude Results
-      if: inputs.claude_execution_file != '' && steps.init.outputs.awsapm_comment_id
+      if: inputs.claude_execution_file != '' && inputs.comment_id != ''
       shell: bash
       run: |
         cd ${GITHUB_ACTION_PATH}
         node src/post-claude-result.js
       env:
-        AWSAPM_COMMENT_ID: ${{ steps.init.outputs.awsapm_comment_id }}
+        AWSAPM_COMMENT_ID: ${{ inputs.comment_id }}
         CLAUDE_EXECUTION_FILE: ${{ inputs.claude_execution_file }}
         CLAUDE_CONCLUSION: ${{ inputs.claude_conclusion }}
-        GITHUB_TOKEN: ${{ steps.init.outputs.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
         REPOSITORY: ${{ github.repository }}
         GITHUB_SERVER_URL: ${{ github.server_url }}
         GITHUB_RUN_ID: ${{ github.run_id }}

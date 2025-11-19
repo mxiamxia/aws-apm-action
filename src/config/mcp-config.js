@@ -116,8 +116,10 @@ class MCPConfigManager {
 
   /**
    * Get allowed tools string for Claude CLI (with wildcards and specific tool names)
-   * Note: Bash tools are already allowed by claude-code-base-action, so we only need
-   * to specify file operations and MCP tools
+   * Note:
+   * - Bash tools are already allowed by claude-code-base-action
+   * - MCP tools are auto-approved in the MCP config file itself (autoApprove)
+   * - We only need to specify file operations here
    */
   getAllowedToolsForClaude() {
     const workingDir = process.env.GITHUB_WORKSPACE || process.cwd();
@@ -128,25 +130,11 @@ class MCPConfigManager {
       `Edit(${workingDir}/**)`,
       `MultiEdit(${workingDir}/**)`,
       `Glob(${workingDir}/**)`,
-      `Grep(${workingDir}/**)`,
-
-      // GitHub MCP tools
-      ...this.getGitHubToolsList()
+      `Grep(${workingDir}/**)`
     ];
 
-    // Add AWS MCP tools if credentials are available
-    if (this.hasAWSCredentials()) {
-      allowedTools.push(
-        "mcp__applicationsignals__*"
-      );
-
-      // Add CloudWatch MCP tools if enabled
-      if (this.hasCloudWatchAccess()) {
-        allowedTools.push(
-          "mcp__awslabs_cloudwatch-mcp-server__*"
-        );
-      }
-    }
+    // Note: AWS MCP tools (Application Signals, CloudWatch) are auto-approved
+    // in the MCP config file itself, so we don't need to add them here
 
     return allowedTools.join(',');
   }
@@ -164,10 +152,12 @@ class MCPConfigManager {
       const applicationSignalsConfig = this.getApplicationSignalsServerConfig();
 
       if (cliType === 'claude') {
-        // Claude CLI format
+        // Claude CLI format - use autoApprove for MCP tools
         config.mcpServers["applicationsignals"] = {
           ...applicationSignalsConfig,
-          env: this.getAWSEnvVars()
+          env: this.getAWSEnvVars(),
+          autoApprove: this.getApplicationSignalsToolsList(),
+          disabled: false
         };
       } else {
         // Amazon Q CLI format
@@ -184,10 +174,12 @@ class MCPConfigManager {
       const cloudwatchConfig = this.getCloudWatchServerConfig();
 
       if (cliType === 'claude') {
-        // Claude CLI format
+        // Claude CLI format - use autoApprove for MCP tools
         config.mcpServers["awslabs.cloudwatch-mcp-server"] = {
           ...cloudwatchConfig,
-          env: this.getAWSEnvVars()
+          env: this.getAWSEnvVars(),
+          autoApprove: this.getCloudWatchToolsList(),
+          disabled: false
         };
       } else {
         // Amazon Q CLI format
