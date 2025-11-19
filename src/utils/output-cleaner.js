@@ -179,6 +179,7 @@ class OutputCleaner {
    */
   cleanCopilotOutput(text) {
     let cleaned = this.removeAnsiCodes(text);
+    cleaned = this.removeToolExecutionBlocks(cleaned);
     cleaned = this.ensureMarkdownFormatting(cleaned);
     return cleaned;
   }
