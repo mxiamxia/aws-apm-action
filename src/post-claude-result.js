@@ -42,16 +42,27 @@ async function run() {
     core.info(`Reading Claude execution results from: ${executionFile}`);
     const executionLogContent = fs.readFileSync(executionFile, 'utf8');
 
+    // Debug: Show first 1000 chars of raw execution log
+    core.info(`Raw execution log (first 1000 chars):`);
+    core.info(executionLogContent.substring(0, 1000));
+
     // Parse the execution log (JSON format from claude-code-base-action)
     let result = '';
     try {
       const lines = executionLogContent.split('\n').filter(line => line.trim());
       let lastAssistantMessage = '';
 
+      core.info(`Processing ${lines.length} lines from execution log`);
+
       // Parse stream-json format output
       for (const line of lines) {
         try {
           const parsed = JSON.parse(line);
+
+          // Debug: Log what types we're seeing
+          if (parsed.type) {
+            core.info(`Found JSON with type: ${parsed.type}`);
+          }
 
           // Extract text from assistant messages
           if (parsed.type === 'assistant' && parsed.message && parsed.message.content) {

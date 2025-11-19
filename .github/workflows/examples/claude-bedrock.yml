@@ -79,11 +79,9 @@ jobs:
         with:
           prompt_file: ${{ steps.prepare.outputs.prompt_file }}
           use_bedrock: "true"
+          model: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
           mcp_config: ${{ steps.prepare.outputs.mcp_config_file }}
           allowed_tools: ${{ steps.prepare.outputs.allowed_tools }}
-        env:
-          # Specify the Bedrock model to use
-          ANTHROPIC_MODEL: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
       # Step 3: Post results back to GitHub issue/PR (reuse the same action)
       - name: Post Investigation Results
