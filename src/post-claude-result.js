@@ -42,9 +42,11 @@ async function run() {
     core.info(`Reading Claude execution results from: ${executionFile}`);
     const executionLogContent = fs.readFileSync(executionFile, 'utf8');
 
-    // Debug: Show first 1000 chars of raw execution log
-    core.info(`Raw execution log (first 1000 chars):`);
-    core.info(executionLogContent.substring(0, 1000));
+    // Debug: Print FULL execution file content
+    core.info(`========== FULL EXECUTION FILE CONTENT START ==========`);
+    core.info(executionLogContent);
+    core.info(`========== FULL EXECUTION FILE CONTENT END ==========`);
+    core.info(`Total file length: ${executionLogContent.length} characters`);
 
     // Parse the execution log (JSON format from claude-code-base-action)
     let result = '';
