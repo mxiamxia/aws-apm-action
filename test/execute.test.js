@@ -26,7 +26,7 @@ jest.mock('@actions/github', () => ({
 // Mock AmazonQCLIExecutor
 jest.mock('../src/executors/amazonq-cli-executor', () => ({
   AmazonQCLIExecutor: jest.fn().mockImplementation(() => ({
-    execute: jest.fn().mockResolvedValue('Test analysis result')
+    execute: jest.fn().mockResolvedValue('🎯 **Application observability for AWS Assistant Result**\n\nTest analysis result')
   }))
 }));
 
@@ -91,7 +91,8 @@ describe('execute', () => {
 
       const responseFile = path.join(tempDir, 'awsapm-output', 'awsapm-response-12345.txt');
       expect(fs.existsSync(responseFile)).toBe(true);
-      expect(fs.readFileSync(responseFile, 'utf8')).toBe('Test analysis result');
+      // The output cleaner will process the result marker and return the cleaned content
+      expect(fs.readFileSync(responseFile, 'utf8')).toContain('Test analysis result');
     });
 
     test('sets execution_file output', async () => {
@@ -141,7 +142,7 @@ describe('execute', () => {
 
       await run();
 
-      expect(core.error).toHaveBeenCalledWith(expect.stringContaining('Amazon Q Developer CLI failed'));
+      expect(core.error).toHaveBeenCalledWith(expect.stringContaining('CLI failed'));
     });
 
     test('writes error message to output on failure', async () => {
@@ -154,7 +155,7 @@ describe('execute', () => {
       const responseFile = path.join(tempDir, 'awsapm-output', 'awsapm-response-12345.txt');
       const content = fs.readFileSync(responseFile, 'utf8');
 
-      expect(content).toContain('❌ **Amazon Q Investigation Failed**');
+      expect(content).toContain('❌ **Investigation Failed**');
       expect(content).toContain('Test error');
     });
 
@@ -171,7 +172,7 @@ describe('execute', () => {
       // Verify the response file contains the error message for the user
       const responseFile = path.join(tempDir, 'awsapm-output', 'awsapm-response-12345.txt');
       const content = fs.readFileSync(responseFile, 'utf8');
-      expect(content).toContain('❌ **Amazon Q Investigation Failed**');
+      expect(content).toContain('❌ **Investigation Failed**');
       expect(content).toContain('Test error');
     });
 

@@ -173,6 +173,19 @@ class OutputCleaner {
   }
 
   /**
+   * Clean Claude CLI output (stream-json format)
+   * Claude CLI with stream-json format returns cleaner output already parsed by the executor
+   * We just need to ensure markdown formatting
+   * @param {string} text - Parsed Claude CLI output
+   * @returns {string} Cleaned output
+   */
+  cleanClaudeOutput(text) {
+    // Claude output is already clean from parseOutput() in claude-cli-executor.js
+    // Just ensure markdown formatting is preserved
+    return this.ensureMarkdownFormatting(text);
+  }
+
+  /**
    * Generic clean method - uses Amazon Q output cleaning
    * @param {string} text - Raw CLI output
    * @returns {string} Cleaned output
