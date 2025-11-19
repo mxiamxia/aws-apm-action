@@ -51,49 +51,73 @@ async function run() {
     // Parse the execution log (JSON format from claude-code-base-action)
     let result = '';
     try {
-      const lines = executionLogContent.split('\n').filter(line => line.trim());
-      let lastAssistantMessage = '';
+      // Try to parse as JSON array first (claude-code-base-action format)
+      const parsedArray = JSON.parse(executionLogContent);
 
-      core.info(`Processing ${lines.length} lines from execution log`);
+      if (Array.isArray(parsedArray)) {
+        core.info(`Parsed execution file as JSON array with ${parsedArray.length} items`);
 
-      // Parse stream-json format output
-      for (const line of lines) {
-        try {
-          const parsed = JSON.parse(line);
-
-          // Debug: Log what types we're seeing
-          if (parsed.type) {
-            core.info(`Found JSON with type: ${parsed.type}`);
+        // Look for the result object (type: "result")
+        for (const item of parsedArray) {
+          if (item.type === 'result' && item.result) {
+            result = item.result;
+            core.info(`Found result in type="result" object`);
+            break;
           }
 
-          // Extract text from assistant messages
-          if (parsed.type === 'assistant' && parsed.message && parsed.message.content) {
-            let currentMessage = '';
-            for (const content of parsed.message.content) {
+          // Fallback: extract from assistant message
+          if (item.type === 'assistant' && item.message && item.message.content) {
+            for (const content of item.message.content) {
               if (content.type === 'text' && content.text) {
-                currentMessage += content.text;
+                result = content.text;
+                core.info(`Found result in type="assistant" message`);
               }
             }
-            if (currentMessage.trim()) {
-              lastAssistantMessage = currentMessage;
-            }
           }
-
-          // Extract final result
-          if (parsed.type === 'result' && parsed.result) {
-            result += parsed.result;
-          }
-        } catch (e) {
-          // Skip non-JSON lines
         }
+      } else {
+        core.warning('Execution file is not a JSON array, trying line-by-line parsing');
+        throw new Error('Not a JSON array');
       }
-
-      // Use the last assistant message if no explicit result
-      result = result || lastAssistantMessage;
-
     } catch (parseError) {
-      core.error(`Failed to parse execution log: ${parseError.message}`);
-      result = executionLogContent; // Fallback to raw content
+      core.info(`JSON array parsing failed, trying line-by-line: ${parseError.message}`);
+
+      // Fallback: try line-by-line parsing for older format
+      try {
+        const lines = executionLogContent.split('\n').filter(line => line.trim());
+        let lastAssistantMessage = '';
+
+        core.info(`Processing ${lines.length} lines from execution log`);
+
+        for (const line of lines) {
+          try {
+            const parsed = JSON.parse(line);
+
+            if (parsed.type === 'assistant' && parsed.message && parsed.message.content) {
+              let currentMessage = '';
+              for (const content of parsed.message.content) {
+                if (content.type === 'text' && content.text) {
+                  currentMessage += content.text;
+                }
+              }
+              if (currentMessage.trim()) {
+                lastAssistantMessage = currentMessage;
+              }
+            }
+
+            if (parsed.type === 'result' && parsed.result) {
+              result += parsed.result;
+            }
+          } catch (e) {
+            // Skip non-JSON lines
+          }
+        }
+
+        result = result || lastAssistantMessage;
+      } catch (lineParseError) {
+        core.error(`Failed to parse execution log: ${lineParseError.message}`);
+        result = executionLogContent; // Fallback to raw content
+      }
     }
 
     if (!result || result.trim().length === 0) {
