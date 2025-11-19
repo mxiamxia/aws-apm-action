@@ -116,6 +116,8 @@ class MCPConfigManager {
 
   /**
    * Get allowed tools string for Claude CLI (with wildcards and specific tool names)
+   * Note: Bash tools are already allowed by claude-code-base-action, so we only need
+   * to specify file operations and MCP tools
    */
   getAllowedToolsForClaude() {
     const workingDir = process.env.GITHUB_WORKSPACE || process.cwd();
@@ -128,22 +130,6 @@ class MCPConfigManager {
       `Glob(${workingDir}/**)`,
       `Grep(${workingDir}/**)`,
 
-      // Git operations
-      "Bash(git status:*)",
-      "Bash(git log:*)",
-      "Bash(git diff:*)",
-      "Bash(git show:*)",
-      "Bash(git checkout:*)",
-      "Bash(git branch:*)",
-
-      // System commands (restricted to working directory)
-      `Bash(ls:${workingDir}/**)`,
-      `Bash(find:${workingDir}/**)`,
-      `Bash(cat:${workingDir}/**)`,
-      `Bash(head:${workingDir}/**)`,
-      `Bash(tail:${workingDir}/**)`,
-      `Bash(wc:${workingDir}/**)`,
-
       // GitHub MCP tools
       ...this.getGitHubToolsList()
     ];
@@ -151,15 +137,13 @@ class MCPConfigManager {
     // Add AWS MCP tools if credentials are available
     if (this.hasAWSCredentials()) {
       allowedTools.push(
-        "mcp__applicationsignals__*",
-        ...this.getApplicationSignalsToolsList()
+        "mcp__applicationsignals__*"
       );
 
       // Add CloudWatch MCP tools if enabled
       if (this.hasCloudWatchAccess()) {
         allowedTools.push(
-          "mcp__awslabs_cloudwatch-mcp-server__*",
-          ...this.getCloudWatchToolsList()
+          "mcp__awslabs_cloudwatch-mcp-server__*"
         );
       }
     }
