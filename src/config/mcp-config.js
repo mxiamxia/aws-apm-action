@@ -1,5 +1,5 @@
 /**
- * Centralized MCP configuration management for Amazon Q CLI and Claude Code CLI
+ * Centralized MCP configuration management for Claude Code CLI
  * Provides a single source of truth for MCP configurations
  */
 class MCPConfigManager {
@@ -153,55 +153,34 @@ class MCPConfigManager {
   }
 
   /**
-   * Build complete MCP configuration for specified CLI type
-   * @param {string} cliType - 'claude' or 'amazonq'
+   * Build complete MCP configuration for Claude Code CLI
    * @returns {object} MCP configuration object
    */
-  buildMCPConfig(cliType = 'amazonq') {
+  buildMCPConfig() {
     const config = { mcpServers: {} };
 
     // Add AWS CloudWatch Application Signals MCP server if credentials available
     if (this.hasAWSCredentials()) {
       const applicationSignalsConfig = this.getApplicationSignalsServerConfig();
 
-      if (cliType === 'claude') {
-        // Claude CLI format - use autoApprove for MCP tools
-        config.mcpServers["applicationsignals"] = {
-          ...applicationSignalsConfig,
-          env: this.getAWSEnvVars(),
-          autoApprove: this.getApplicationSignalsToolsList(),
-          disabled: false
-        };
-      } else {
-        // Amazon Q CLI format
-        config.mcpServers["applicationsignals"] = {
-          ...applicationSignalsConfig,
-          autoApprove: this.getApplicationSignalsToolsList(),
-          disabled: false
-        };
-      }
+      config.mcpServers["applicationsignals"] = {
+        ...applicationSignalsConfig,
+        env: this.getAWSEnvVars(),
+        autoApprove: this.getApplicationSignalsToolsList(),
+        disabled: false
+      };
     }
 
     // Add AWS CloudWatch MCP server if explicitly enabled and credentials available
     if (this.hasCloudWatchAccess()) {
       const cloudwatchConfig = this.getCloudWatchServerConfig();
 
-      if (cliType === 'claude') {
-        // Claude CLI format - use autoApprove for MCP tools
-        config.mcpServers["awslabs.cloudwatch-mcp-server"] = {
-          ...cloudwatchConfig,
-          env: this.getAWSEnvVars(),
-          autoApprove: this.getCloudWatchToolsList(),
-          disabled: false
-        };
-      } else {
-        // Amazon Q CLI format
-        config.mcpServers["awslabs.cloudwatch-mcp-server"] = {
-          ...cloudwatchConfig,
-          autoApprove: this.getCloudWatchToolsList(),
-          disabled: false
-        };
-      }
+      config.mcpServers["awslabs.cloudwatch-mcp-server"] = {
+        ...cloudwatchConfig,
+        env: this.getAWSEnvVars(),
+        autoApprove: this.getCloudWatchToolsList(),
+        disabled: false
+      };
     }
 
     // Add GitHub MCP server if token available

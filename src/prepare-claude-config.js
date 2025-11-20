@@ -32,7 +32,7 @@ async function run() {
 
     // Build MCP configuration for Claude
     const mcpManager = new MCPConfigManager();
-    const mcpConfig = mcpManager.buildMCPConfig('claude');
+    const mcpConfig = mcpManager.buildMCPConfig();
 
     // Log configuration status
     core.info('MCP Configuration Summary:');
