@@ -6,11 +6,12 @@ const path = require('path');
 const { MCPConfigManager } = require('./config/mcp-config');
 
 /**
- * Prepare Claude Code configuration files for claude-code-base-action
+ * Prepare Claude Code configuration for claude-code-action@v1
  * This script generates:
  * 1. MCP servers configuration JSON file
  * 2. Allowed tools list for Claude
- * 3. Outputs for claude-code-base-action to consume
+ * 3. Prompt content from file
+ * 4. Outputs for claude-code-action to consume
  */
 async function run() {
   try {
@@ -24,11 +25,14 @@ async function run() {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    // Verify prompt file exists
+    // Verify prompt file exists and read content
     if (!promptFile || !fs.existsSync(promptFile)) {
       throw new Error(`Prompt file not found: ${promptFile}`);
     }
     core.info(`Prompt file found: ${promptFile}`);
+
+    // Read prompt content for claude-code-action@v1 (uses inline prompt, not prompt_file)
+    const promptContent = fs.readFileSync(promptFile, 'utf8');
 
     // Build MCP configuration for Claude
     const mcpManager = new MCPConfigManager();
@@ -51,8 +55,8 @@ async function run() {
     // Get allowed tools for Claude
     const allowedTools = mcpManager.getAllowedToolsForClaude();
 
-    // Set outputs for claude-code-base-action
-    core.setOutput('prompt_file', promptFile);
+    // Set outputs for claude-code-action@v1
+    core.setOutput('prompt_content', promptContent);
     core.setOutput('mcp_config_file', mcpConfigFile);
     core.setOutput('allowed_tools', allowedTools);
 

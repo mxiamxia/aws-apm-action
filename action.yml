@@ -33,7 +33,7 @@ inputs:
     required: false
     default: "claude_code"
   output_file:
-    description: "Path to AI agent execution output file (used to post results back to GitHub). For claude_code path, pass this from claude-code-base-action outputs in a second call to this action."
+    description: "Path to AI agent execution output file (used to post results back to GitHub). For claude_code path, pass this from claude-code-action outputs in a second call to this action."
     required: false
   output_status:
     description: "Execution status from AI agent (success or failure). Only used when output_file is provided."
@@ -47,10 +47,10 @@ inputs:
     default: "true"
 
 outputs:
-  # Preparation outputs for claude-code-base-action
-  prompt_file:
-    description: "Path to the generated prompt file for claude-code-base-action"
-    value: ${{ steps.prepare-claude.outputs.prompt_file }}
+  # Preparation outputs for claude-code-action
+  prompt_content:
+    description: "The investigation prompt content for claude-code-action"
+    value: ${{ steps.prepare-claude.outputs.prompt_content }}
   mcp_config_file:
     description: "Path to the MCP servers configuration JSON file"
     value: ${{ steps.prepare-claude.outputs.mcp_config_file }}
@@ -125,7 +125,7 @@ runs:
         echo "::error::Unsupported cli_tool: ${{ inputs.cli_tool }}. Only 'claude_code' is supported."
         exit 1  # Fail the step but continue workflow to post error
 
-    # Install MCP Tools for claude-code-base-action
+    # Install MCP Tools for claude-code-action
     - name: Install MCP Tools
       if: steps.init.outputs.contains_trigger == 'true' && steps.validate-cli.outcome == 'skipped'
       shell: bash

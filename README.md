@@ -13,7 +13,7 @@ With a one-time setup of Application observability for AWS Action workflow for y
 3. **AI-Powered Analysis**: Leverage modern AI coding agents to analyze performance issues and provide recommendations and fixes
 
 ## 🚀 Getting Started
-This action configures your AI agent within your GitHub workflow by generating AWS-specific MCP configurations and custom observability prompts. All you need to provide is IAM role to assume and a [Bedrock Model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html) you want to use, or LLM API tokens from your existing subscription. The example below includes a workflow template showing how this action works with [Anthropic's claude-code-base-action](https://github.com/anthropics/claude-code-action) to run investigations.
+This action configures your AI agent within your GitHub workflow by generating AWS-specific MCP configurations and custom observability prompts. All you need to provide is IAM role to assume and a [Bedrock Model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html) you want to use, or LLM API tokens from your existing subscription. The example below includes a workflow template showing how this action works with [Anthropic's claude-code-base-action](https://github.com/anthropics/claude-code-action/tree/main/base-action) to run investigations.
 
 ### Prerequisites
 - **Repository Write Access**: Users must have write access or above to trigger the action
@@ -120,14 +120,14 @@ jobs:
       # Step 2: Execute investigation with Claude Code
       - name: Run Claude Investigation
         id: claude
-        uses: anthropics/claude-code-base-action@beta
+        uses: anthropics/claude-code-action@v1
         with:
           use_bedrock: "true"
-          # Set to any Bedrock Model ID 
-          model: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
-          prompt_file: ${{ steps.prepare.outputs.prompt_file }}
-          mcp_config: ${{ steps.prepare.outputs.mcp_config_file }}
-          allowed_tools: ${{ steps.prepare.outputs.allowed_tools }}
+          prompt: ${{ steps.prepare.outputs.prompt_content }}
+          claude_args: |
+            --model us.anthropic.claude-sonnet-4-5-20250929-v1:0
+            --mcp-config ${{ steps.prepare.outputs.mcp_config_file }}
+            --allowed-tools ${{ steps.prepare.outputs.allowed_tools }}
 
       # Step 3: Post results back to GitHub issue/PR (reuse the same action)
       - name: Post Investigation Results
@@ -142,8 +142,9 @@ jobs:
 
 **Note:**
 - The above template should work out-of-box if you have `AWS_IAM_ROLE_ARN` setup for your GitHub Action
-- Specify your Bedrock model using the `model` input in step 2
+- Specify your Bedrock model using `--model` in the `claude_args` parameter
 - You can customize the bot name (e.g., `@awsapm-prod`, `@awsapm-staging`) for different environments
+- This example uses `claude-code-action@v1` which requires prompt content inline rather than a file path
 
 #### Step 3: Start Using the Action
 
@@ -187,9 +188,12 @@ See the [Security Documentation](SECURITY.md).
 
 | Output | Description |
 |--------|-------------|
-| `prompt_file` | Path to generated prompt file for `claude-code-base-action` |
+| `prompt_content` | Investigation prompt content for `claude-code-action` |
 | `mcp_config_file` | Path to MCP servers configuration JSON file |
 | `allowed_tools` | Comma-separated list of allowed tools |
+| `awsapm_comment_id` | GitHub comment ID for tracking the investigation |
+| `branch_name` | Branch created for this execution |
+| `github_token` | GitHub token used by the action |
 
 ### Required Permissions
 

@@ -6,7 +6,7 @@ const fs = require('fs');
 
 /**
  * Post Claude Code execution results back to GitHub issue/PR
- * This is specifically for the Claude Code path when using claude-code-base-action
+ * This is specifically for the Claude Code path when using claude-code-action
  */
 async function run() {
   try {
@@ -44,10 +44,10 @@ async function run() {
 
     core.info(`Total file length: ${executionLogContent.length} characters`);
 
-    // Parse the execution log (JSON format from claude-code-base-action)
+    // Parse the execution log (JSON format from claude-code-action)
     let result = '';
     try {
-      // Try to parse as JSON array first (claude-code-base-action format)
+      // Try to parse as JSON array first (claude-code-action format)
       const parsedArray = JSON.parse(executionLogContent);
 
       if (Array.isArray(parsedArray)) {

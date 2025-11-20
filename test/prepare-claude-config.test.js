@@ -78,7 +78,7 @@ describe('prepare-claude-config', () => {
       expect(core.info).toHaveBeenCalledWith('MCP servers configured: 2');
       expect(core.info).toHaveBeenCalledWith('Configuration prepared successfully');
 
-      expect(core.setOutput).toHaveBeenCalledWith('prompt_file', '/tmp/test-prompt.txt');
+      expect(core.setOutput).toHaveBeenCalledWith('prompt_content', 'test prompt content');
       expect(core.setOutput).toHaveBeenCalledWith('mcp_config_file', expect.stringContaining('mcp-servers.json'));
       expect(core.setOutput).toHaveBeenCalledWith('allowed_tools', 'tool1,tool2,tool3');
     });

@@ -3,7 +3,7 @@
 #
 # Key Features:
 # - Brings your own Bedrock model (pay-per-token usage on your AWS account)
-# - Uses Anthropic's official claude-code-base-action for execution
+# - Uses Anthropic's official claude-code-action for execution
 #
 # Prerequisites:
 # 1. AWS IAM role with OIDC trust for GitHub Actions
@@ -56,14 +56,14 @@ jobs:
       # Step 2: Execute investigation with Claude Code
       - name: Run Claude Investigation
         id: claude
-        uses: anthropics/claude-code-base-action@beta
+        uses: anthropics/claude-code-action@v1
         with:
-          use_bedrock: "true" 
-          # Set to any Bedrock Model ID 
-          model: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
-          prompt_file: ${{ steps.prepare.outputs.prompt_file }}
-          mcp_config: ${{ steps.prepare.outputs.mcp_config_file }}
-          allowed_tools: ${{ steps.prepare.outputs.allowed_tools }}
+          use_bedrock: "true"
+          prompt: ${{ steps.prepare.outputs.prompt_content }}
+          claude_args: |
+            --model us.anthropic.claude-sonnet-4-5-20250929-v1:0
+            --mcp-config ${{ steps.prepare.outputs.mcp_config_file }}
+            --allowed-tools ${{ steps.prepare.outputs.allowed_tools }}
 
       # Step 3: Post results back to GitHub issue/PR (reuse the same action)
       - name: Post Investigation Results
