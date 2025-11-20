@@ -35,7 +35,7 @@ The action uses GitHub's `GITHUB_TOKEN` to interact with your repository (postin
 
 **Principle of Least Privilege:**
 - Configure the IAM role with **minimum required permissions only**
-- The action needs read access to CloudWatch, Application Signals, and invoke access of Amazon Q Developer CLI
+- The action needs read access to CloudWatch, Application Signals, and invoke access of AI agent tools
 - See `template/awsapm.yaml` for a reference IAM policy with minimal permissions
 
 **⚠️ Important Security Considerations:**
@@ -43,8 +43,6 @@ The action uses GitHub's `GITHUB_TOKEN` to interact with your repository (postin
 - **Be cautious when adding additional permissions** beyond the minimal set - each permission increases security risk
 - **Review the IAM policy regularly** to ensure no excessive permissions have been added
 - **Enable AWS CloudTrail** to monitor and audit all API calls made by the action
-
-**💰 Cost Warning:** AWS usage will be billed to your account. Bedrock model inference is the primary cost driver. Set up [AWS Budget Alerts](https://aws.amazon.com/aws-cost-management/aws-budgets/) to monitor spending.
 
 ## ⚠️ Prompt Injection Risks
 

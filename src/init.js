@@ -79,6 +79,12 @@ async function run() {
     // Set output for action.yml to check
     core.setOutput('contains_trigger', containsTrigger.toString());
 
+    // Debug: Log event information
+    core.info(`[Event Debug] Event name: ${context.eventName}`);
+    core.info(`[Event Debug] Event action: ${context.payload.action}`);
+    core.info(`[Event Debug] Is edit event: ${isEditEvent}`);
+    core.info(`[Event Debug] Contains trigger: ${containsTrigger}`);
+
     if (!containsTrigger) {
       return;
     }
