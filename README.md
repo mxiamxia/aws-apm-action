@@ -202,7 +202,6 @@ The IAM role assumed by GitHub Actions needs to have a permission policy with th
         {
             "Effect": "Allow",
             "Action": [
-                "q:SendMessage",
                 "application-signals:ListServices",
                 "application-signals:GetService",
                 "application-signals:ListServiceOperations",

@@ -21,6 +21,8 @@ The action uses GitHub's `GITHUB_TOKEN` to interact with your repository (postin
 
 **You need to use OpenID Connect (OIDC)** to authenticate with AWS, which provides short-lived credentials without storing long-term secrets in your repository. See the [Getting Started guide in README](README.md#-getting-started) for OIDC setup instructions.
 
+The IAM permissions set needed for this action is provided in the [Required Permissions section of the README](https://github.com/aws-actions/application-observability-for-aws?tab=readme-ov-file#required-permissions).
+
 - The IAM permissions list follows the **Principle of Least Privilege** to minimize the set of operations granted to the action while upholding functionality.
 - **Be cautious when adding additional permissions** beyond the minimal set - each permission increases security risk.
 - **Review the IAM policy regularly** to ensure no unnecessary permissions have been added.
