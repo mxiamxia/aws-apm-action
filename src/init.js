@@ -159,31 +159,12 @@ async function run() {
             // For issue_comment events: Find the result comment after the specific trigger comment
             const triggerCommentIndex = comments.findIndex(c => c.id == commentId);
 
-            core.info(`[Edit Event] Searching for existing result comment...`);
-            core.info(`[Edit Event] Trigger comment ID: ${commentId}`);
-            core.info(`[Edit Event] Trigger comment index: ${triggerCommentIndex}`);
-            core.info(`[Edit Event] Total comments: ${comments.length}`);
-
             if (triggerCommentIndex !== -1) {
-              const commentsAfterTrigger = comments.slice(triggerCommentIndex + 1);
-              core.info(`[Edit Event] Comments after trigger: ${commentsAfterTrigger.length}`);
-
-              // Debug: log all comments after trigger
-              commentsAfterTrigger.forEach((c, idx) => {
-                const preview = c.body ? c.body.substring(0, 100) : '(empty)';
-                const hasMarker = c.body && c.body.includes('Application observability for AWS Investigation');
-                core.info(`[Edit Event] Comment ${idx}: ID=${c.id}, hasMarker=${hasMarker}, preview="${preview}"`);
-              });
-
-              existingComment = commentsAfterTrigger.find(c =>
-                c.body && c.body.includes('Application observability for AWS Investigation')
-              );
-
-              if (existingComment) {
-                core.info(`[Edit Event] ✓ Found existing result comment ID: ${existingComment.id}`);
-              } else {
-                core.info(`[Edit Event] ✗ No existing result comment found`);
-              }
+              existingComment = comments
+                .slice(triggerCommentIndex + 1) // Start from next comment after trigger
+                .find(c =>
+                  c.body && c.body.includes('Application observability for AWS Investigation')
+                );
             } else {
               core.warning(`Trigger comment ID ${commentId} not found in comments list. Creating new comment.`);
             }

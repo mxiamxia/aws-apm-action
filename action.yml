@@ -166,7 +166,7 @@ runs:
       shell: bash
       run: |
         cd ${GITHUB_ACTION_PATH}
-        node src/post-claude-result.js
+        node src/post-result.js
       env:
         AWSAPM_COMMENT_ID: ${{ inputs.comment_id || steps.init.outputs.awsapm_comment_id }}
         CLAUDE_EXECUTION_FILE: ${{ steps.validate-cli.outputs.validation_error_file || inputs.output_file }}

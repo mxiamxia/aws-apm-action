@@ -34,52 +34,29 @@ async function run() {
     const mcpManager = new MCPConfigManager();
     const mcpConfig = mcpManager.buildMCPConfig();
 
-    // Log configuration status
-    core.info('MCP Configuration Summary:');
+    // Log configuration summary
     if (mcpManager.hasAWSCredentials()) {
-      core.info('✓ AWS credentials found - Application Signals MCP configured');
-      core.info(`  AWS Region: ${process.env.AWS_REGION || 'us-east-1'}`);
+      core.info('AWS credentials found - Application Signals MCP configured');
     } else {
-      core.warning('⚠ No AWS credentials found - Application Signals MCP disabled');
-    }
-
-    if (mcpManager.hasCloudWatchAccess()) {
-      core.info('✓ CloudWatch MCP enabled');
-      core.info('  Available tools: metrics, logs, alarms, dashboards, insights');
-    } else {
-      core.info('ℹ CloudWatch MCP disabled (enable_cloudwatch_mcp not set or no AWS credentials)');
-    }
-
-    if (mcpManager.hasGitHubToken()) {
-      core.info('✓ GitHub MCP configured');
-    } else {
-      core.warning('⚠ No GitHub token found - GitHub MCP disabled');
+      core.warning('No AWS credentials found - Application Signals MCP disabled');
     }
 
     const serverCount = Object.keys(mcpConfig.mcpServers).length;
-    core.info(`Total MCP servers configured: ${serverCount}`);
+    core.info(`MCP servers configured: ${serverCount}`);
 
     // Write MCP config to JSON file
     const mcpConfigFile = path.join(outputDir, 'mcp-servers.json');
     fs.writeFileSync(mcpConfigFile, JSON.stringify(mcpConfig, null, 2));
-    core.info(`✓ MCP config written to: ${mcpConfigFile}`);
 
     // Get allowed tools for Claude
     const allowedTools = mcpManager.getAllowedToolsForClaude();
-    const toolCount = allowedTools.split(',').length;
-    core.info(`✓ Allowed tools configured: ${toolCount} tool patterns`);
 
     // Set outputs for claude-code-base-action
     core.setOutput('prompt_file', promptFile);
     core.setOutput('mcp_config_file', mcpConfigFile);
     core.setOutput('allowed_tools', allowedTools);
 
-    core.info('Claude configuration prepared successfully');
-    core.info('');
-    core.info('Next steps:');
-    core.info('1. Add anthropics/claude-code-base-action step to your workflow');
-    core.info('2. Pass the outputs from this step to claude-code-base-action');
-    core.info('3. Set ANTHROPIC_MODEL environment variable with your Bedrock model');
+    core.info('Configuration prepared successfully');
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);

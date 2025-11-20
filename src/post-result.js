@@ -142,8 +142,7 @@ async function run() {
 
     const footer = `\n\n---\n\n${statusEmoji} **Status:** ${statusText}\n👤 **Requested by:** @${triggerUsername}\n🔗 **Workflow:** [View details](${workflowUrl})`;
 
-    // Add hidden marker for init.js to find this comment when user edits their request
-    const commentBody = `${statusEmoji} ${result}${footer}\n\n<!-- Application observability for AWS Investigation -->`;
+    const commentBody = `${statusEmoji} ${result}${footer}`;
 
     core.info(`Updating comment ${commentId} in ${owner}/${repo}`);
     core.info(`Comment body length: ${commentBody.length} characters`);
