@@ -124,6 +124,13 @@ async function run() {
       result = '⚠️ Investigation completed but no result was generated. Check the workflow logs for details.';
     }
 
+    // Ensure result starts with the required marker
+    const resultMarker = '🎯 **Application observability for AWS Investigation Result**';
+    if (!result.trim().startsWith(resultMarker)) {
+      core.info('Result does not start with required marker, adding it');
+      result = `${resultMarker}\n\n${result}`;
+    }
+
     // Debug: Log what we're posting
     core.info(`Result length: ${result.length} characters`);
     core.info(`First 500 chars of result: ${result.substring(0, 500)}`);

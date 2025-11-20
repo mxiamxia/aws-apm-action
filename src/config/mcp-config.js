@@ -131,7 +131,15 @@ class MCPConfigManager {
       `Edit(${workingDir}/**)`,
       `MultiEdit(${workingDir}/**)`,
       `Glob(${workingDir}/**)`,
-      `Grep(${workingDir}/**)`
+      `Grep(${workingDir}/**)`,
+
+      // System commands (restricted to working directory)
+      `Bash(ls:${workingDir}/**)`,
+      `Bash(find:${workingDir}/**)`,
+      `Bash(cat:${workingDir}/**)`,
+      `Bash(head:${workingDir}/**)`,
+      `Bash(tail:${workingDir}/**)`,
+      `Bash(wc:${workingDir}/**)`
     ];
 
     // Add AWS MCP tools if credentials are available
