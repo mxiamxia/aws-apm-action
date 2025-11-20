@@ -42,10 +42,6 @@ async function run() {
     core.info(`Reading Claude execution results from: ${executionFile}`);
     const executionLogContent = fs.readFileSync(executionFile, 'utf8');
 
-    // Debug: Print FULL execution file content
-    core.info(`========== FULL EXECUTION FILE CONTENT START ==========`);
-    core.info(executionLogContent);
-    core.info(`========== FULL EXECUTION FILE CONTENT END ==========`);
     core.info(`Total file length: ${executionLogContent.length} characters`);
 
     // Parse the execution log (JSON format from claude-code-base-action)
@@ -116,7 +112,7 @@ async function run() {
         result = result || lastAssistantMessage;
       } catch (lineParseError) {
         core.error(`Failed to parse execution log: ${lineParseError.message}`);
-        result = executionLogContent; // Fallback to raw content
+        result = '⚠️ Investigation completed but no result was generated. Check the workflow logs for details.'; // Fallback to default error msg
       }
     }
 
@@ -132,8 +128,8 @@ async function run() {
     }
 
     // Debug: Log what we're posting
-    core.info(`Result length: ${result.length} characters`);
-    core.info(`First 500 chars of result: ${result.substring(0, 500)}`);
+    core.debug(`Result length: ${result.length} characters`);
+    core.debug(`First 500 chars of result: ${result.substring(0, 500)}`);
 
     // Post result to GitHub
     const octokit = github.getOctokit(githubToken);
