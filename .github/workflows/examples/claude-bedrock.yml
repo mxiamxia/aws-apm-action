@@ -91,5 +91,5 @@ jobs:
           bot_name: "@awsapm"
           cli_tool: "claude_code"
           comment_id: ${{ steps.prepare.outputs.awsapm_comment_id }}
-          claude_execution_file: ${{ steps.claude.outputs.execution_file }}
-          claude_conclusion: ${{ steps.claude.outputs.conclusion }}
+          output_file: ${{ steps.claude.outputs.execution_file }}
+          output_status: ${{ steps.claude.outputs.conclusion }}

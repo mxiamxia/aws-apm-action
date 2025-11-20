@@ -133,7 +133,7 @@ async function run() {
     const [owner, repo] = repository.split('/');
 
     const statusEmoji = conclusion === 'success' ? '✅' : '⚠️';
-    const commentBody = `${statusEmoji} **Application Observability for AWS Assistant Result**\n\n${result}`;
+    const commentBody = `${statusEmoji} ${result}`;
 
     core.info(`Updating comment ${commentId} in ${owner}/${repo}`);
     core.info(`Comment body length: ${commentBody.length} characters`);

@@ -15,26 +15,16 @@ With a one-time setup of Application observability for AWS Action workflow for y
 
 ## 🚀 Getting Started
 
-### Choose Your AI Agent Tool
+This action uses [Anthropic's official claude-code-base-action](https://github.com/anthropics/claude-code-action) for executing investigations. This action prepares AWS-specific MCP configurations and prompts, allowing you to **bring your own Bedrock model** - use any Claude model available in Amazon Bedrock with your AWS account.
 
-This action supports multiple AI agent tools. Choose one based on your needs:
-
----
-
-### Option 1: Claude Code with Custom Bedrock Model (Recommended)
-
-**Bring your own Bedrock model** - Use any Claude model available in Amazon Bedrock with your AWS account.
-
-This option uses [Anthropic's official claude-code-base-action](https://github.com/anthropics/claude-code-action) for executing investigations. This action prepares AWS-specific MCP configurations and prompts.
-
-#### Prerequisites
+### Prerequisites
 - **Repository Write Access**: Users must have write access or above to trigger the action
 - **AWS IAM Role**: Configure an IAM role with OIDC for GitHub Actions (for AWS Application Signals/CloudWatch access AND Bedrock model access)
 - **GitHub Token**: Workflow requires specific permissions (automatically provided via `GITHUB_TOKEN`)
 
-#### Setup Steps
+### Setup Steps
 
-##### Step 1: Set up AWS Credentials
+#### Step 1: Set up AWS Credentials
 
 This action relies on the [aws-actions/configure-aws-credentials](https://github.com/aws-actions/configure-aws-credentials) action to set up AWS authentication in your GitHub Actions Environment. We **highly recommend** using OpenID Connect (OIDC) to authenticate with AWS. OIDC allows your GitHub Actions workflows to access AWS resources using short-lived AWS credentials so you do not have to store long-term credentials in your repository.
 
@@ -86,7 +76,7 @@ In the **Permissions policies** page, add the IAM permissions policy you created
 
 See the [configure-aws-credentials OIDC Quick Start Guide](https://github.com/aws-actions/configure-aws-credentials/tree/main?tab=readme-ov-file#quick-start-oidc-recommended) for more information about setting up OIDC with AWS.
 
-##### Step 2: Configure Secrets and Add Workflow
+#### Step 2: Configure Secrets and Add Workflow
 
 Go to your repository → Settings → Secrets and variables → Actions.
 
@@ -135,23 +125,34 @@ jobs:
 
       # Step 2: Execute investigation with Claude Code
       - name: Run Claude Investigation
+        id: claude
         uses: anthropics/claude-code-base-action@beta
         with:
           prompt_file: ${{ steps.prepare.outputs.prompt_file }}
           use_bedrock: "true"
-          claude_args: |
-            --mcp-config-file ${{ steps.prepare.outputs.mcp_config_file }}
-            --allowed-tools ${{ steps.prepare.outputs.allowed_tools }}
-        env:
-          ANTHROPIC_MODEL: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+          model: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+          mcp_config: ${{ steps.prepare.outputs.mcp_config_file }}
+          allowed_tools: ${{ steps.prepare.outputs.allowed_tools }}
+
+      # Step 3: Post results back to GitHub issue/PR
+      - name: Post Investigation Results
+        if: always()
+        uses: aws-actions/application-observability-for-aws@v2
+        with:
+          bot_name: "@awsapm"
+          cli_tool: "claude_code"
+          comment_id: ${{ steps.prepare.outputs.awsapm_comment_id }}
+          output_file: ${{ steps.claude.outputs.execution_file }}
+          output_status: ${{ steps.claude.outputs.conclusion }}
 ```
 
 **Note:**
-- This action prepares the MCP configuration and prompt, then uses Anthropic's `claude-code-base-action` for execution
-- Specify your Bedrock model by setting the `ANTHROPIC_MODEL` environment variable in the `claude-code-base-action` step
+- This is a **three-step workflow**: prepare context, execute investigation, post results
+- **Step 1 & 3 use the same action** - the action detects whether to prepare or post based on inputs
+- Specify your Bedrock model using the `model` input in step 2
 - You can customize the bot name (e.g., `@awsapm-prod`, `@awsapm-staging`) for different environments
 
-##### Step 3: Start Using the Action
+#### Step 3: Start Using the Action
 
 Simply mention `@awsapm` in any issue or pull request comment:
 
@@ -162,39 +163,6 @@ Hi @awsapm, can you enable Application Signals for lambda-audit-service? Post a 
 
 Hi @awsapm, I want to know how many GenAI tokens have been used by my services?
 ```
-
----
-
-### Option 2: Amazon Q Developer CLI
-
-#### Prerequisites
-- **Repository Write Access**: Users must have write access or above to trigger the action
-- **AWS IAM Role**: Configure an IAM role with OIDC for GitHub Actions (used for both AWS resource access and Q CLI authentication)
-- **GitHub Token**: Workflow requires specific permissions (automatically provided via `GITHUB_TOKEN`)
-
-#### Setup Steps
-
-##### Step 1: Set up AWS Credentials
-
-Follow the same AWS OIDC setup as described in [Option 1 - Step 1](#step-1-set-up-aws-credentials) above to configure AWS credentials for accessing Application Signals and CloudWatch data.
-
-##### Step 2: Configure Secrets and Add Workflow
-
-Use the same workflow structure as [Option 1](#step-2-configure-secrets-and-add-workflow), but configure the action step as:
-
-```yaml
-- name: Run Application observability for AWS Investigation
-  uses: aws-actions/application-observability-for-aws@v1
-  with:
-    bot_name: "@awsapm"
-    cli_tool: "amazon_q_cli"
-```
-
-##### Step 3: Start Using the Action
-
-Simply mention `@awsapm` in any issue or pull request comment (same as Option 1).
-
----
 
 ## 🔒 Security
 
@@ -219,78 +187,22 @@ See the [Security Documentation](SECURITY.md).
 | `branch_prefix` | Prefix for created branches | No | `awsapm/` |
 | `github_token` | GitHub token for API calls | No | `${{ github.token }}` |
 | `custom_prompt` | Custom instructions for the AI agent | No | - |
-| `cli_tool` | CLI tool to use (`amazon_q_cli` or `claude_code`) | Yes | - |
+| `cli_tool` | CLI tool to use (`claude_code`) | No | `claude_code` |
+| `comment_id` | GitHub comment ID (for posting results in step 3) | No | - |
+| `output_file` | Path to AI agent execution output file (for posting results in step 3) | No | - |
+| `output_status` | AI agent execution status (`success` or `failure`) | No | - |
 | `enable_cloudwatch_mcp` | Enable CloudWatch MCP server | No | `true` |
 
 ### Outputs
-
-This action provides different outputs depending on the `cli_tool` selected:
-
-#### Common Outputs (Both Paths)
-
-| Output | Description |
-|--------|-------------|
-| `awsapm_comment_id` | GitHub comment ID for tracking the investigation |
-| `branch_name` | The branch created for this execution |
-| `github_token` | The GitHub token used by the action |
-
-#### Amazon Q Path Outputs (`cli_tool: amazon_q_cli`)
-
-| Output | Description |
-|--------|-------------|
-| `execution_file` | Path to investigation output file |
-
-#### Claude Code Path Outputs (`cli_tool: claude_code`)
 
 | Output | Description |
 |--------|-------------|
 | `prompt_file` | Path to generated prompt file for `claude-code-base-action` |
 | `mcp_config_file` | Path to MCP servers configuration JSON file |
-| `allowed_tools` | Comma-separated list of allowed tools for Claude |
-
-### Selecting Your AI Agent Tool
-
-The `cli_tool` input determines which path the action takes:
-
-**Available Options:**
-
-1. **`claude_code`** (Recommended): Prepares MCP config and prompt for use with [`anthropics/claude-code-base-action`](https://github.com/anthropics/claude-code-action)
-   - Bring your own Bedrock model
-   - No CLI installation by this action
-   - Requires adding `claude-code-base-action` step to your workflow
-
-2. **`amazon_q_cli`**: Installs and executes Amazon Q Developer CLI directly
-   - All-in-one execution
-   - Uses AWS OIDC authentication
-
-**Quick Reference:**
-
-```yaml
-# Claude Code with Bedrock (Two-step process)
-- name: Prepare Investigation Context
-  id: prepare
-  uses: aws-actions/application-observability-for-aws@v2
-  with:
-    cli_tool: "claude_code"
-
-- name: Run Claude Investigation
-  uses: anthropics/claude-code-base-action@beta
-  with:
-    prompt_file: ${{ steps.prepare.outputs.prompt_file }}
-    use_bedrock: "true"
-    claude_args: |
-      --mcp-config-file ${{ steps.prepare.outputs.mcp_config_file }}
-      --allowed-tools ${{ steps.prepare.outputs.allowed_tools }}
-  env:
-    ANTHROPIC_MODEL: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
-
-# Amazon Q CLI (One-step process)
-- uses: aws-actions/application-observability-for-aws@v1
-  with:
-    cli_tool: "amazon_q_cli"
-```
-
-For complete setup instructions, see [Getting Started](#-getting-started).
+| `allowed_tools` | Comma-separated list of allowed tools |
+| `awsapm_comment_id` | GitHub comment ID for tracking the investigation |
+| `branch_name` | The branch created for this execution |
+| `github_token` | The GitHub token used by the action |
 
 ### Required Permissions
 
@@ -349,14 +261,6 @@ The IAM role assumed by GitHub Actions needs to have a permission policy with th
    - `pull-requests: write` - To post comments on PRs
    - `checks: write` - To create check runs with detailed results
 
-### Outputs
-
-| Output | Description |
-|--------|-------------|
-| `execution_file` | Path to the analysis results file |
-| `branch_name` | Branch created for this execution |
-| `github_token` | GitHub token used by the action |
-
 ## 📖 Documentation
 
 For more information, check out:
@@ -366,22 +270,11 @@ For more information, check out:
 
 ## 💰 Cost Considerations
 
-Usage costs vary based on your selected CLI tool:
-
-### Claude Code CLI with Custom Bedrock Model (Option 1)
 - **Billed to your AWS account** where IAM role is created
 - **Charged per-token** for Bedrock `InvokeModel` API calls based on the specific Claude model used
 - **Additional AWS service costs** for CloudWatch, Application Signals API calls via MCPs
 - See [Amazon Bedrock pricing](https://aws.amazon.com/bedrock/pricing/) for model-specific rates
-- Set up [AWS Budget Alerts](https://aws.amazon.com/aws-cost-management/aws-budgets/) to monitor spending
-
-### Amazon Q Developer CLI (Option 2)
-- **Free tier available** with no cost
-- **Usage limits**: Approximately 1,000 requests per AWS account per month
-- **Additional AWS service costs** for CloudWatch, Application Signals API calls via MCPs
-- Exceeding free tier limits may incur charges - see [Amazon Q Developer pricing](https://aws.amazon.com/q/developer/pricing/) for details
-
-**Recommendation:** Set up cost monitoring and budget alerts for your AWS account to track spending across all services.
+- **Recommendation:** Set up [AWS Budget Alerts](https://aws.amazon.com/aws-cost-management/aws-budgets/) to monitor spending
 
 ## 🤝 Contributing
 

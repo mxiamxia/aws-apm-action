@@ -1,5 +1,5 @@
 name: "Application observability for AWS Action"
-description: "Provides Agentic AI–driven performance investigation and resolution using live production telemetry."
+description: "Support Agentic AI–driven performance investigation and resolution using live production telemetry."
 branding:
   icon: "cloud"
   color: "orange"
@@ -29,13 +29,14 @@ inputs:
     required: false
     default: ""
   cli_tool:
-    description: "CLI tool to use for investigation (amazon_q_cli or claude_code)"
-    required: true
-  claude_execution_file:
-    description: "Path to Claude Code execution file (only for claude_code path, used to post results back to GitHub). Pass this from claude-code-base-action outputs in a second call to this action."
+    description: "CLI tool to use for investigation (claude_code)"
     required: false
-  claude_conclusion:
-    description: "Conclusion from claude-code-base-action (success or failure). Only used when claude_execution_file is provided."
+    default: "claude_code"
+  output_file:
+    description: "Path to AI agent execution output file (used to post results back to GitHub). For claude_code path, pass this from claude-code-base-action outputs in a second call to this action."
+    required: false
+  output_status:
+    description: "Execution status from AI agent (success or failure). Only used when output_file is provided."
     required: false
   comment_id:
     description: "GitHub comment ID to update with results (only for claude_code path when posting results). Pass this from the first call's awsapm_comment_id output."
@@ -46,23 +47,18 @@ inputs:
     default: "true"
 
 outputs:
-  # Amazon Q CLI outputs (when cli_tool = amazon_q_cli)
-  execution_file:
-    description: "Path to the AI agent tool execution output file (Amazon Q only)"
-    value: ${{ steps.amazonq-execute.outputs.execution_file }}
-
-  # Claude Code preparation outputs (when cli_tool = claude_code)
+  # Preparation outputs for claude-code-base-action
   prompt_file:
-    description: "Path to the generated prompt file for claude-code-base-action (Claude only)"
+    description: "Path to the generated prompt file for claude-code-base-action"
     value: ${{ steps.prepare-claude.outputs.prompt_file }}
   mcp_config_file:
-    description: "Path to the MCP servers configuration JSON file (Claude only)"
+    description: "Path to the MCP servers configuration JSON file"
     value: ${{ steps.prepare-claude.outputs.mcp_config_file }}
   allowed_tools:
-    description: "Comma-separated list of allowed tools for Claude (Claude only)"
+    description: "Comma-separated list of allowed tools"
     value: ${{ steps.prepare-claude.outputs.allowed_tools }}
 
-  # Common outputs (both paths)
+  # Common outputs
   awsapm_comment_id:
     description: "GitHub comment ID for tracking the investigation"
     value: ${{ steps.init.outputs.awsapm_comment_id }}
@@ -89,7 +85,7 @@ runs:
 
     - name: Init action
       id: init
-      if: inputs.claude_execution_file == ''  # Skip init when posting Claude results
+      if: inputs.output_file == ''  # Skip init when posting results
       shell: bash
       run: |
         node ${GITHUB_ACTION_PATH}/src/init.js
@@ -103,60 +99,9 @@ runs:
         GITHUB_RUN_ID: ${{ github.run_id }}
         DEFAULT_WORKFLOW_TOKEN: ${{ github.token }}
 
-    # Amazon Q CLI Path: Install uvx + Amazon Q CLI and execute directly
-    - name: Install MCP Tools (Amazon Q)
-      if: steps.init.outputs.contains_trigger == 'true' && inputs.cli_tool == 'amazon_q_cli'
-      shell: bash
-      run: |
-        set -e  # Exit immediately if any command fails
-
-        # Install uv/uvx for MCP server execution
-        echo "Installing uv package manager for MCP server support..."
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-
-        # Verify uvx installation
-        if ! command -v uvx &> /dev/null; then
-          echo "::error::uvx installation failed - MCP tools will not work"
-          exit 1
-        fi
-        echo "uvx installed successfully"
-        uvx --version
-
-    - name: Install Amazon Q CLI
-      if: steps.init.outputs.contains_trigger == 'true' && inputs.cli_tool == 'amazon_q_cli'
-      shell: bash
-      run: |
-        set -e
-        echo "Installing Amazon Q Developer CLI..."
-        sudo apt-get update
-        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.19.4/amazon-q.deb
-        sudo apt-get install -y --fix-missing ./amazon-q.deb || sudo apt-get install -y -f
-
-        # Verify Amazon Q CLI installation
-        if ! command -v q &> /dev/null; then
-          echo "::error::Amazon Q CLI installation failed - q command not found in PATH"
-          exit 1
-        fi
-        echo "Amazon Q CLI installed successfully"
-        q --version
-
-    - name: Run Amazon Q Investigation
-      id: amazonq-execute
-      if: steps.init.outputs.contains_trigger == 'true' && inputs.cli_tool == 'amazon_q_cli'
-      shell: bash
-      run: |
-        cd ${GITHUB_ACTION_PATH}
-        node src/execute.js
-      env:
-        GITHUB_TOKEN: ${{ steps.init.outputs.GITHUB_TOKEN }}
-        CLI_TOOL: ${{ inputs.cli_tool }}
-        ENABLE_CLOUDWATCH_MCP: ${{ inputs.enable_cloudwatch_mcp }}
-        INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
-
-    # Claude Code Path: Prepare MCP config and prompt files for claude-code-base-action
-    - name: Install MCP Tools (Claude)
-      if: steps.init.outputs.contains_trigger == 'true' && inputs.cli_tool == 'claude_code'
+    # Install MCP Tools for claude-code-base-action
+    - name: Install MCP Tools
+      if: steps.init.outputs.contains_trigger == 'true'
       shell: bash
       run: |
         set -e  # Exit immediately if any command fails
@@ -176,7 +121,7 @@ runs:
 
     - name: Prepare Claude Configuration
       id: prepare-claude
-      if: steps.init.outputs.contains_trigger == 'true' && inputs.cli_tool == 'claude_code'
+      if: steps.init.outputs.contains_trigger == 'true'
       shell: bash
       run: |
         cd ${GITHUB_ACTION_PATH}
@@ -187,40 +132,17 @@ runs:
         INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
         OUTPUT_DIR: ${{ runner.temp }}/awsapm-prompts
 
-    # Post results for Amazon Q path
-    - name: Update comment with results (Amazon Q)
-      if: steps.init.outputs.contains_trigger == 'true' && inputs.cli_tool == 'amazon_q_cli' && steps.init.outputs.awsapm_comment_id && always()
-      shell: bash
-      run: |
-        cd ${GITHUB_ACTION_PATH}
-        node src/post-result.js
-      env:
-        REPOSITORY: ${{ github.repository }}
-        PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
-        AWSAPM_COMMENT_ID: ${{ steps.init.outputs.awsapm_comment_id }}
-        GITHUB_RUN_ID: ${{ github.run_id }}
-        GITHUB_TOKEN: ${{ steps.init.outputs.GITHUB_TOKEN }}
-        GITHUB_EVENT_NAME: ${{ github.event_name }}
-        TRIGGER_COMMENT_ID: ${{ github.event.comment.id }}
-        AWSAPM_BRANCH: ${{ steps.init.outputs.AWSAPM_BRANCH }}
-        IS_PR: ${{ github.event.issue.pull_request != null || github.event_name == 'pull_request_review_comment' }}
-        TARGET_BRANCH: ${{ steps.init.outputs.TARGET_BRANCH }}
-        AWSAPM_SUCCESS: ${{ steps.amazonq-execute.outputs.conclusion == 'success' }}
-        OUTPUT_FILE: ${{ steps.amazonq-execute.outputs.execution_file || '' }}
-        TRIGGER_USERNAME: ${{ github.event.comment.user.login || github.event.issue.user.login || github.event.pull_request.user.login || github.event.sender.login || github.triggering_actor || github.actor || '' }}
-        INIT_SUCCESS: ${{ steps.init.outcome == 'success' }}
-
-    # Post results for Claude Code path (when claude_execution_file is provided)
-    - name: Post Claude Results
-      if: inputs.claude_execution_file != '' && inputs.comment_id != ''
+    # Post results (when output_file is provided)
+    - name: Post Investigation Results
+      if: inputs.output_file != '' && inputs.comment_id != ''
       shell: bash
       run: |
         cd ${GITHUB_ACTION_PATH}
         node src/post-claude-result.js
       env:
         AWSAPM_COMMENT_ID: ${{ inputs.comment_id }}
-        CLAUDE_EXECUTION_FILE: ${{ inputs.claude_execution_file }}
-        CLAUDE_CONCLUSION: ${{ inputs.claude_conclusion }}
+        CLAUDE_EXECUTION_FILE: ${{ inputs.output_file }}
+        CLAUDE_CONCLUSION: ${{ inputs.output_status }}
         GITHUB_TOKEN: ${{ inputs.github_token }}
         REPOSITORY: ${{ github.repository }}
         GITHUB_SERVER_URL: ${{ github.server_url }}
