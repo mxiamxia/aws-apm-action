@@ -29,7 +29,7 @@ inputs:
     required: false
     default: ""
   cli_tool:
-    description: "CLI tool to use for investigation (claude_code)"
+    description: "CLI tool to use for investigation"
     required: false
     default: "claude_code"
   output_file:
@@ -39,7 +39,7 @@ inputs:
     description: "Execution status from AI agent (success or failure). Only used when output_file is provided."
     required: false
   comment_id:
-    description: "GitHub comment ID to update with results (only for claude_code path when posting results). Pass this from the first call's awsapm_comment_id output."
+    description: "GitHub comment ID to update with results (optional - will be auto-detected from Step 1 if not provided)"
     required: false
   enable_cloudwatch_mcp:
     description: "Enable CloudWatch MCP server for metrics, alarms, and log insights"
@@ -99,9 +99,33 @@ runs:
         GITHUB_RUN_ID: ${{ github.run_id }}
         DEFAULT_WORKFLOW_TOKEN: ${{ github.token }}
 
+    # Validate CLI tool input
+    - name: Validate CLI Tool
+      id: validate-cli
+      if: inputs.output_file == '' && inputs.cli_tool != 'claude_code'
+      shell: bash
+      run: |
+        # Create error output file
+        mkdir -p ${{ runner.temp }}/awsapm-output
+        ERROR_FILE="${{ runner.temp }}/awsapm-output/validation-error.txt"
+
+        cat > "$ERROR_FILE" << 'EOF'
+        ❌ **Invalid CLI Tool**
+
+        The CLI tool `${{ inputs.cli_tool }}` is not supported.
+
+        **Supported tools:**
+        - `claude_code` (default)
+
+        Please update your workflow configuration to use `cli_tool: "claude_code"` or remove the `cli_tool` input to use the default.
+        EOF
+
+        echo "validation_error_file=$ERROR_FILE" >> $GITHUB_OUTPUT
+        echo "::error::Unsupported cli_tool: ${{ inputs.cli_tool }}. Only 'claude_code' is supported."
+
     # Install MCP Tools for claude-code-base-action
     - name: Install MCP Tools
-      if: steps.init.outputs.contains_trigger == 'true'
+      if: steps.init.outputs.contains_trigger == 'true' && steps.validate-cli.outcome == 'skipped'
       shell: bash
       run: |
         set -e  # Exit immediately if any command fails
@@ -121,7 +145,7 @@ runs:
 
     - name: Prepare Claude Configuration
       id: prepare-claude
-      if: steps.init.outputs.contains_trigger == 'true'
+      if: steps.init.outputs.contains_trigger == 'true' && steps.validate-cli.outcome == 'skipped'
       shell: bash
       run: |
         cd ${GITHUB_ACTION_PATH}
@@ -132,18 +156,21 @@ runs:
         INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
         OUTPUT_DIR: ${{ runner.temp }}/awsapm-prompts
 
-    # Post results (when output_file is provided)
+    # Post results (when output_file is provided OR validation failed)
     - name: Post Investigation Results
-      if: inputs.output_file != '' && inputs.comment_id != ''
+      if: |
+        inputs.output_file != '' ||
+        (steps.validate-cli.outcome == 'success' && steps.init.outputs.awsapm_comment_id != '')
       shell: bash
       run: |
         cd ${GITHUB_ACTION_PATH}
         node src/post-claude-result.js
       env:
-        AWSAPM_COMMENT_ID: ${{ inputs.comment_id }}
-        CLAUDE_EXECUTION_FILE: ${{ inputs.output_file }}
-        CLAUDE_CONCLUSION: ${{ inputs.output_status }}
-        GITHUB_TOKEN: ${{ inputs.github_token }}
+        AWSAPM_COMMENT_ID: ${{ steps.init.outputs.awsapm_comment_id }}
+        CLAUDE_EXECUTION_FILE: ${{ steps.validate-cli.outputs.validation_error_file || inputs.output_file }}
+        CLAUDE_CONCLUSION: ${{ steps.validate-cli.outcome == 'success' && 'failure' || inputs.output_status }}
+        GITHUB_TOKEN: ${{ steps.init.outputs.GITHUB_TOKEN || inputs.github_token }}
         REPOSITORY: ${{ github.repository }}
         GITHUB_SERVER_URL: ${{ github.server_url }}
         GITHUB_RUN_ID: ${{ github.run_id }}
+        TRIGGER_USERNAME: ${{ github.event.comment.user.login || github.event.issue.user.login || github.event.pull_request.user.login || github.event.sender.login || github.triggering_actor || github.actor || 'unknown' }}

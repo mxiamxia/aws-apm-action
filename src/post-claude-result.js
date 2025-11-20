@@ -132,8 +132,17 @@ async function run() {
     const octokit = github.getOctokit(githubToken);
     const [owner, repo] = repository.split('/');
 
+    // Get trigger username from environment
+    const triggerUsername = process.env.TRIGGER_USERNAME || 'unknown';
+
+    // Build status footer
     const statusEmoji = conclusion === 'success' ? '✅' : '⚠️';
-    const commentBody = `${statusEmoji} ${result}`;
+    const statusText = conclusion === 'success' ? 'Complete' : 'Failed';
+    const workflowUrl = `${process.env.GITHUB_SERVER_URL}/${repository}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+    const footer = `\n\n---\n\n${statusEmoji} **Status:** ${statusText}\n👤 **Requested by:** @${triggerUsername}\n🔗 **Workflow:** [View details](${workflowUrl})`;
+
+    const commentBody = `${statusEmoji} ${result}${footer}`;
 
     core.info(`Updating comment ${commentId} in ${owner}/${repo}`);
     core.info(`Comment body length: ${commentBody.length} characters`);
