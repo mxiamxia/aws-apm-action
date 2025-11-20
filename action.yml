@@ -39,7 +39,7 @@ inputs:
     description: "Execution status from AI agent (success or failure). Only used when output_file is provided."
     required: false
   comment_id:
-    description: "GitHub comment ID to update with results (optional - will be auto-detected from Step 1 if not provided)"
+    description: "GitHub comment ID to update with results (required for Step 3 - pass from Step 1 output: steps.prepare.outputs.awsapm_comment_id)"
     required: false
   enable_cloudwatch_mcp:
     description: "Enable CloudWatch MCP server for metrics, alarms, and log insights"
@@ -103,6 +103,7 @@ runs:
     - name: Validate CLI Tool
       id: validate-cli
       if: inputs.output_file == '' && inputs.cli_tool != 'claude_code'
+      continue-on-error: true
       shell: bash
       run: |
         # Create error output file
@@ -122,6 +123,7 @@ runs:
 
         echo "validation_error_file=$ERROR_FILE" >> $GITHUB_OUTPUT
         echo "::error::Unsupported cli_tool: ${{ inputs.cli_tool }}. Only 'claude_code' is supported."
+        exit 1  # Fail the step but continue workflow to post error
 
     # Install MCP Tools for claude-code-base-action
     - name: Install MCP Tools
@@ -160,17 +162,25 @@ runs:
     - name: Post Investigation Results
       if: |
         inputs.output_file != '' ||
-        (steps.validate-cli.outcome == 'success' && steps.init.outputs.awsapm_comment_id != '')
+        (steps.validate-cli.outcome == 'failure' && steps.init.outputs.awsapm_comment_id != '')
       shell: bash
       run: |
         cd ${GITHUB_ACTION_PATH}
         node src/post-claude-result.js
       env:
-        AWSAPM_COMMENT_ID: ${{ steps.init.outputs.awsapm_comment_id }}
+        AWSAPM_COMMENT_ID: ${{ inputs.comment_id || steps.init.outputs.awsapm_comment_id }}
         CLAUDE_EXECUTION_FILE: ${{ steps.validate-cli.outputs.validation_error_file || inputs.output_file }}
-        CLAUDE_CONCLUSION: ${{ steps.validate-cli.outcome == 'success' && 'failure' || inputs.output_status }}
+        CLAUDE_CONCLUSION: ${{ steps.validate-cli.outcome == 'failure' && 'failure' || inputs.output_status }}
         GITHUB_TOKEN: ${{ steps.init.outputs.GITHUB_TOKEN || inputs.github_token }}
         REPOSITORY: ${{ github.repository }}
         GITHUB_SERVER_URL: ${{ github.server_url }}
         GITHUB_RUN_ID: ${{ github.run_id }}
         TRIGGER_USERNAME: ${{ github.event.comment.user.login || github.event.issue.user.login || github.event.pull_request.user.login || github.event.sender.login || github.triggering_actor || github.actor || 'unknown' }}
+
+    # Fail the workflow if validation failed (after posting error to GitHub)
+    - name: Fail Workflow on Validation Error
+      if: steps.validate-cli.outcome == 'failure'
+      shell: bash
+      run: |
+        echo "::error::Workflow stopped due to validation error. See the posted comment for details."
+        exit 1
