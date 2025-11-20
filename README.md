@@ -1,8 +1,8 @@
 # Application observability for AWS Action
 
-This action brings Agentic AI capabilities directly into GitHub, enabling service issue investigation with live production context, automated Application Signals enablement, and AI-powered bug fixing with live telemetry data.
+This action provides an end-to-end application observability investigation workflow that connects your source code and live production telemetry data to Agentic AI agent. It leverages CloudWatch MCPs and generates custom prompts to provide the context that AI agents need for troubleshooting and applying code fixes.
 
-This action is powered by the [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server) and [AWS CloudWatch MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-mcp-server), and allows you to **bring-your-own-Bedrock-model** with modern AI agent tools or use your existing AI subscriptions. When you mention `@awsapm` in GitHub issues, it helps you troubleshoot production issues, implement fixes, and enhance observability coverage on demand.
+The action sets up and configures [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server) and [AWS CloudWatch MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-mcp-server) for AI Agent you have setup in in GitHub workflow, enabling AI agents to access your live telemetry data as troubleshooting context. Customers can continue using their bring-your-own-model, API key or Bedrock models for application performance investigations. Simply mention `@awsapm` in GitHub issues to troubleshoot production issues, implement fixes, and enhance observability coverage on demand.
 
 ## ✨ Features
 
@@ -10,8 +10,7 @@ With a one-time setup of Application observability for AWS Action workflow for y
 
 1. **Troubleshoot Production Issues**: Investigate and fix production problems using live telemetry and SLO data
 2. **Instrumentation Assistance**: Automatically instrument your applications directly from GitHub
-3. **AI-Powered Analysis**: Leverage modern AI coding agents to analyze performance issues and provide recommendations
-4. **Automated Workflows**: Responds to `@awsapm` mentions in issues, working around the clock
+3. **AI-Powered Analysis**: Leverage modern AI coding agents to analyze performance issues and provide recommendations and fixes
 
 ## 🚀 Getting Started
 
@@ -86,7 +85,7 @@ You can also specify your region by setting a repository variable `AWS_REGION`.
 Example workflow file (e.g., `.github/workflows/awsapm.yml`):
 
 ```yaml
-name: Application observability for AWS
+name: Application observability for AWS (Claude + AWS Bedrock)
 
 on:
   issue_comment:
@@ -96,15 +95,18 @@ on:
 
 jobs:
   awsapm-investigation:
+    # Only run when @awsapm is mentioned
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@awsapm')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@awsapm') || contains(github.event.issue.title, '@awsapm')))
     runs-on: ubuntu-latest
+
     permissions:
       contents: write        # To create branches for PRs
       pull-requests: write   # To post comments on PRs
       issues: write          # To post comments on issues
       id-token: write        # Required for AWS OIDC authentication
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -112,13 +114,13 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWSAPM_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
-      # Step 1: Prepare AWS MCP config and investigation prompt
+      # Step 1: Prepare AWS MCP configuration and investigation prompt
       - name: Prepare Investigation Context
         id: prepare
-        uses: aws-actions/application-observability-for-aws@v2
+        uses: aws-actions/application-observability-for-aws@v1
         with:
           bot_name: "@awsapm"
           cli_tool: "claude_code"
@@ -128,18 +130,17 @@ jobs:
         id: claude
         uses: anthropics/claude-code-base-action@beta
         with:
-          prompt_file: ${{ steps.prepare.outputs.prompt_file }}
           use_bedrock: "true"
           model: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+          prompt_file: ${{ steps.prepare.outputs.prompt_file }}
           mcp_config: ${{ steps.prepare.outputs.mcp_config_file }}
           allowed_tools: ${{ steps.prepare.outputs.allowed_tools }}
 
-      # Step 3: Post results back to GitHub issue/PR
+      # Step 3: Post results back to GitHub issue/PR (reuse the same action)
       - name: Post Investigation Results
-        if: always()
-        uses: aws-actions/application-observability-for-aws@v2
+        if: always()  # Run even if Claude step fails
+        uses: aws-actions/application-observability-for-aws@v1
         with:
-          bot_name: "@awsapm"
           cli_tool: "claude_code"
           comment_id: ${{ steps.prepare.outputs.awsapm_comment_id }}
           output_file: ${{ steps.claude.outputs.execution_file }}
@@ -188,8 +189,8 @@ See the [Security Documentation](SECURITY.md).
 | `github_token` | GitHub token for API calls | No | `${{ github.token }}` |
 | `custom_prompt` | Custom instructions for the AI agent | No | - |
 | `cli_tool` | CLI tool to use (`claude_code`) | No | `claude_code` |
-| `comment_id` | GitHub comment ID (for posting results in step 3) | No | - |
-| `output_file` | Path to AI agent execution output file (for posting results in step 3) | No | - |
+| `comment_id` | GitHub comment ID (required for Step 3 - pass from Step 1: `steps.prepare.outputs.awsapm_comment_id`) | No | - |
+| `output_file` | Path to AI agent execution output file (for posting results in Step 3) | No | - |
 | `output_status` | AI agent execution status (`success` or `failure`) | No | - |
 | `enable_cloudwatch_mcp` | Enable CloudWatch MCP server | No | `true` |
 
