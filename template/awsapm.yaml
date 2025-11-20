@@ -30,3 +30,5 @@ jobs:
       - name: Run Application observability for AWS Investigation
         id: awsapm
         uses: aws-actions/application-observability-for-aws@v1
+        with:
+          bot_name: "@awsapm"
