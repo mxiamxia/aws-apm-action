@@ -74,7 +74,7 @@ describe('prepare-claude-config', () => {
 
       expect(core.info).toHaveBeenCalledWith('Preparing Claude Code configuration...');
       expect(core.info).toHaveBeenCalledWith(expect.stringContaining('Prompt file found'));
-      expect(core.info).toHaveBeenCalledWith('AWS credentials found - Application Signals MCP configured');
+      expect(core.info).toHaveBeenCalledWith('AWS credentials found - CloudWatch MCPs configured');
       expect(core.info).toHaveBeenCalledWith('MCP servers configured: 2');
       expect(core.info).toHaveBeenCalledWith('Configuration prepared successfully');
 
@@ -93,7 +93,7 @@ describe('prepare-claude-config', () => {
 
       await run();
 
-      expect(core.warning).toHaveBeenCalledWith('No AWS credentials found - Application Signals MCP disabled');
+      expect(core.warning).toHaveBeenCalledWith('No AWS credentials found - CloudWatch MCPs disabled');
       expect(core.info).toHaveBeenCalledWith('Configuration prepared successfully');
     });
 

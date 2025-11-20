@@ -36,9 +36,9 @@ async function run() {
 
     // Log configuration summary
     if (mcpManager.hasAWSCredentials()) {
-      core.info('AWS credentials found - Application Signals MCP configured');
+      core.info('AWS credentials found - CloudWatch MCPs configured');
     } else {
-      core.warning('No AWS credentials found - Application Signals MCP disabled');
+      core.warning('No AWS credentials found - CloudWatch MCPs disabled');
     }
 
     const serverCount = Object.keys(mcpConfig.mcpServers).length;

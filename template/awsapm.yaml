@@ -1,12 +1,9 @@
-# Example workflow for Claude Code with Amazon Bedrock
-#
 # This workflow demonstrates how to use the Application Observability for AWS action
 # with Claude Code and a custom Bedrock model.
 #
 # Key Features:
 # - Brings your own Bedrock model (pay-per-token usage on your AWS account)
 # - Uses Anthropic's official claude-code-base-action for execution
-# - Two-step process: preparation + execution
 #
 # Prerequisites:
 # 1. AWS IAM role with OIDC trust for GitHub Actions
@@ -14,9 +11,8 @@
 # 3. Application Signals and CloudWatch permissions
 #
 # Setup:
-# 1. Create repository secret AWSAPM_ROLE_ARN with your IAM role ARN
-# 2. (Optional) Set repository variable AWS_REGION for your preferred region
-# 3. Copy this file to .github/workflows/awsapm.yml in your repository
+# 1. Create repository secret AWS_IAM_ROLE_ARN with your IAM role ARN
+# 2. Copy this file to .github/workflows/awsapm.yml in your repository
 
 name: Application observability for AWS (Claude + AWS Bedrock)
 
@@ -28,7 +24,6 @@ on:
 
 jobs:
   awsapm-investigation:
-    # Only run when @awsapm is mentioned
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@awsapm')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@awsapm') || contains(github.event.issue.title, '@awsapm')))
@@ -47,7 +42,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
       # Step 1: Prepare AWS MCP configuration and investigation prompt
@@ -64,6 +59,7 @@ jobs:
         uses: anthropics/claude-code-base-action@beta
         with:
           use_bedrock: "true" 
+          # Set to any Bedrock Model ID 
           model: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
           prompt_file: ${{ steps.prepare.outputs.prompt_file }}
           mcp_config: ${{ steps.prepare.outputs.mcp_config_file }}
@@ -71,7 +67,7 @@ jobs:
 
       # Step 3: Post results back to GitHub issue/PR (reuse the same action)
       - name: Post Investigation Results
-        if: always()  # Run even if Claude step fails
+        if: always()
         uses: aws-actions/application-observability-for-aws@v1
         with:
           cli_tool: "claude_code"

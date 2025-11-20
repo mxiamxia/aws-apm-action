@@ -1,6 +1,6 @@
 # Application observability for AWS Action
 
-This action provides an end-to-end application observability investigation workflow that connects your source code and live production telemetry data to Agentic AI agent. It leverages CloudWatch MCPs and generates custom prompts to provide the context that AI agents need for troubleshooting and applying code fixes.
+This action provides an end-to-end application observability investigation workflow that connects your source code and live production telemetry data to AI agent. It leverages CloudWatch MCPs and generates custom prompts to provide the context that AI agents need for troubleshooting and applying code fixes.
 
 The action sets up and configures [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server) and [AWS CloudWatch MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-mcp-server) for AI Agent you have setup in in GitHub workflow, enabling AI agents to access your live telemetry data as troubleshooting context. Customers can continue using their bring-your-own-model, API key or Bedrock models for application performance investigations. Simply mention `@awsapm` in GitHub issues to troubleshoot production issues, implement fixes, and enhance observability coverage on demand.
 
@@ -13,8 +13,7 @@ With a one-time setup of Application observability for AWS Action workflow for y
 3. **AI-Powered Analysis**: Leverage modern AI coding agents to analyze performance issues and provide recommendations and fixes
 
 ## 🚀 Getting Started
-
-This action uses [Anthropic's official claude-code-base-action](https://github.com/anthropics/claude-code-action) for executing investigations. This action prepares AWS-specific MCP configurations and prompts, allowing you to **bring your own Bedrock model** - use any Claude model available in Amazon Bedrock with your AWS account.
+This action configures your AI agent within your GitHub workflow by generating AWS-specific MCP configurations and custom observability prompts. All you need to provide is IAM role to assume and a [Bedrock Model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html) you want to use, or LLM API tokens from your existing subscription. The example below includes a workflow template showing how this action works with [Anthropic's claude-code-base-action](https://github.com/anthropics/claude-code-action) to run investigations.
 
 ### Prerequisites
 - **Repository Write Access**: Users must have write access or above to trigger the action
@@ -25,7 +24,7 @@ This action uses [Anthropic's official claude-code-base-action](https://github.c
 
 #### Step 1: Set up AWS Credentials
 
-This action relies on the [aws-actions/configure-aws-credentials](https://github.com/aws-actions/configure-aws-credentials) action to set up AWS authentication in your GitHub Actions Environment. We **highly recommend** using OpenID Connect (OIDC) to authenticate with AWS. OIDC allows your GitHub Actions workflows to access AWS resources using short-lived AWS credentials so you do not have to store long-term credentials in your repository.
+This action relies on the [aws-actions/configure-aws-credentials](https://github.com/aws-actions/configure-aws-credentials) action to set up AWS authentication in your GitHub Actions Environment. We recommend using OpenID Connect (OIDC) to authenticate with AWS. OIDC allows your GitHub Actions workflows to access AWS resources using short-lived AWS credentials so you do not have to store long-term credentials in your repository.
 
 To use OIDC authentication, you need to first create an IAM Identity Provider that trusts GitHub's OIDC endpoint. This can be done in the AWS Management Console by adding a new Identity Provider with the following details:
 * **Provider Type**: OpenID Connect
@@ -34,19 +33,7 @@ To use OIDC authentication, you need to first create an IAM Identity Provider th
 
 Next, create a new IAM policy with the required permissions for this GitHub Action. See the [Required Permissions](#required-permissions) section below for more details.
 
-**Important**: The IAM role must also have permissions to invoke the Bedrock model. Add Bedrock permissions to your IAM policy:
-```json
-{
-  "Effect": "Allow",
-  "Action": [
-    "bedrock:InvokeModel",
-    "bedrock:InvokeModelWithResponseStream"
-  ],
-  "Resource": "arn:aws:bedrock:*::foundation-model/*"
-}
-```
-
-Finally, create an IAM Role via the AWS Management Console with the following trust policy template:
+Finally, create an IAM Role via the AWS Management Console with the following trust policy template to allow the authorized GitHub repositories to assume the Role:
 
 ```json
 {
@@ -70,6 +57,10 @@ Finally, create an IAM Role via the AWS Management Console with the following tr
   ]
 }
 ```
+Modify the following variables in the template
+
+* <AWS_ACCOUNT_ID>
+* repo:<GITHUB_ORG>/<GITHUB_REPOSITORY>:ref:refs/heads/<GITHUB_BRANCH>
 
 In the **Permissions policies** page, add the IAM permissions policy you created.
 
@@ -79,13 +70,12 @@ See the [configure-aws-credentials OIDC Quick Start Guide](https://github.com/aw
 
 Go to your repository → Settings → Secrets and variables → Actions.
 
-Create a new repository secret `AWSAPM_ROLE_ARN` and set it to the IAM role you created in the previous step.
-You can also specify your region by setting a repository variable `AWS_REGION`.
+Create a new repository secret `AWS_IAM_ROLE_ARN` and set it to the IAM role you created in the previous step.
+Optionally, you can also specify your region by setting a repository variable `AWS_REGION`.
 
-Example workflow file (e.g., `.github/workflows/awsapm.yml`):
-
+Merge the following Application Observability Investigation workflow [template](./template/awsapm.yaml) to your GitHub Repository folder `.github/workflows`.
 ```yaml
-name: Application observability for AWS (Claude + AWS Bedrock)
+name: Application observability for AWS
 
 on:
   issue_comment:
@@ -114,7 +104,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
       # Step 1: Prepare AWS MCP configuration and investigation prompt
@@ -131,6 +121,7 @@ jobs:
         uses: anthropics/claude-code-base-action@beta
         with:
           use_bedrock: "true"
+          # Set to any Bedrock Model ID 
           model: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
           prompt_file: ${{ steps.prepare.outputs.prompt_file }}
           mcp_config: ${{ steps.prepare.outputs.mcp_config_file }}
@@ -138,7 +129,7 @@ jobs:
 
       # Step 3: Post results back to GitHub issue/PR (reuse the same action)
       - name: Post Investigation Results
-        if: always()  # Run even if Claude step fails
+        if: always()
         uses: aws-actions/application-observability-for-aws@v1
         with:
           cli_tool: "claude_code"
@@ -148,8 +139,7 @@ jobs:
 ```
 
 **Note:**
-- This is a **three-step workflow**: prepare context, execute investigation, post results
-- **Step 1 & 3 use the same action** - the action detects whether to prepare or post based on inputs
+- The above template should work out-of-box if you have `AWS_IAM_ROLE_ARN` setup for your GitHub Action
 - Specify your Bedrock model using the `model` input in step 2
 - You can customize the bot name (e.g., `@awsapm-prod`, `@awsapm-staging`) for different environments
 
@@ -170,7 +160,7 @@ Hi @awsapm, I want to know how many GenAI tokens have been used by my services?
 This action prioritizes security with strict access controls, OIDC-based AWS authentication, and built-in protections against prompt injection attacks. Only users with repository write access can trigger the action, and all operations are scoped to the specific repository.
 
 For detailed security information, including:
-- Access control and token permissions
+- Access control with only writer and above permissions users
 - AWS IAM permissions and OIDC setup
 - Prompt injection risks and mitigations
 - Security best practices
@@ -186,13 +176,10 @@ See the [Security Documentation](SECURITY.md).
 | `bot_name` | The bot name to respond to in comments | No | `@awsapm` |
 | `target_branch` | The branch to merge PRs into | No | Repository default |
 | `branch_prefix` | Prefix for created branches | No | `awsapm/` |
-| `github_token` | GitHub token for API calls | No | `${{ github.token }}` |
 | `custom_prompt` | Custom instructions for the AI agent | No | - |
 | `cli_tool` | CLI tool to use (`claude_code`) | No | `claude_code` |
-| `comment_id` | GitHub comment ID (required for Step 3 - pass from Step 1: `steps.prepare.outputs.awsapm_comment_id`) | No | - |
-| `output_file` | Path to AI agent execution output file (for posting results in Step 3) | No | - |
+| `output_file` | Path to AI agent execution output file | No | - |
 | `output_status` | AI agent execution status (`success` or `failure`) | No | - |
-| `enable_cloudwatch_mcp` | Enable CloudWatch MCP server | No | `true` |
 
 ### Outputs
 
@@ -201,15 +188,12 @@ See the [Security Documentation](SECURITY.md).
 | `prompt_file` | Path to generated prompt file for `claude-code-base-action` |
 | `mcp_config_file` | Path to MCP servers configuration JSON file |
 | `allowed_tools` | Comma-separated list of allowed tools |
-| `awsapm_comment_id` | GitHub comment ID for tracking the investigation |
-| `branch_name` | The branch created for this execution |
-| `github_token` | The GitHub token used by the action |
 
 ### Required Permissions
 
 The action requires:
 
-1. **AWS Permissions**:
+**AWS IAM Permissions**:
 The IAM role assumed by GitHub Actions needs to have a permission policy with the following permissions.
 ```json
 {
@@ -261,11 +245,6 @@ The IAM role assumed by GitHub Actions needs to have a permission policy with th
 }
 ```
 
-2. **GitHub Permissions**:
-   - `contents: write` - To create branches for PRs
-   - `pull-requests: write` - To post comments on PRs
-   - `checks: write` - To create check runs with detailed results
-
 ## 📖 Documentation
 
 For more information, check out:
@@ -275,10 +254,9 @@ For more information, check out:
 
 ## 💰 Cost Considerations
 
-- **Billed to your AWS account** where IAM role is created
-- **Charged per-token** for Bedrock `InvokeModel` API calls based on the specific Claude model used
-- **Additional AWS service costs** for CloudWatch, Application Signals API calls via MCPs
+- **Billed to your AWS account** where the IAM role is created, covering CloudWatch API calls via MCP and Bedrock token usage if you are using Bedrock models.
 - See [Amazon Bedrock pricing](https://aws.amazon.com/bedrock/pricing/) for model-specific rates
+- **LLM provider costs** apply if you use a model outside of Bedrock, based on the provider you specify.
 - **Recommendation:** Set up [AWS Budget Alerts](https://aws.amazon.com/aws-cost-management/aws-budgets/) to monitor spending
 
 ## 🤝 Contributing
