@@ -2,7 +2,7 @@
 
 This action provides an end-to-end application observability investigation workflow that connects your source code and live production telemetry data to AI agent. It leverages CloudWatch MCPs and generates custom prompts to provide the context that AI agents need for troubleshooting and applying code fixes.
 
-The action sets up and configures [AWS Application Signals MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-appsignals-mcp-server) and [AWS CloudWatch MCP](https://github.com/awslabs/mcp/tree/main/src/cloudwatch-mcp-server), enabling them to access live telemetry data as troubleshooting context. You can use your preferred AI model - whether through your own API key, a third-party model, or Amazon Bedrock - for application performance investigations.
+The action sets up and configures [AWS Application Signals MCP](https://awslabs.github.io/mcp/servers/cloudwatch-applicationsignals-mcp-server) and [AWS CloudWatch MCP](https://awslabs.github.io/mcp/servers/cloudwatch-mcp-server), enabling them to access live telemetry data as troubleshooting context. You can use your preferred AI model - whether through your own API key, a third-party model, or Amazon Bedrock - for application performance investigations.
 
 To get started, mention `@awsapm` in your GitHub issues to trigger the AI agent. The agent will troubleshoot production issues, implement fixes, and enhance observability coverage based on your live application data.
 
@@ -218,7 +218,7 @@ See the [Security Documentation](./docs/security.md).
 
 ### Required Permissions
 
-The IAM role assumed by GitHub Actions must have the following permissions:
+The IAM role assumed by GitHub Actions must have the following permissions. Note that `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` are only required if you're using Amazon Bedrock models:
 
 ```json
 {
@@ -275,7 +275,7 @@ The IAM role assumed by GitHub Actions must have the following permissions:
 For more information, check out:
 
 - [AWS Application Signals Documentation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Application-Monitoring-Intro.html) - Learn about Application Signals features and capabilities
-- [Application observability for AWS Action Public Documentation](https://github.com/marketplace/actions/application-observability-for-aws-action) - Detailed guides and tutorials
+- [Application observability for AWS Action Public Documentation](https://github.com/marketplace/actions/application-observability-for-aws) - Detailed guides and tutorials
 
 ## 💰 Cost Considerations
 Using this action incurs costs in the following areas:
