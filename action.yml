@@ -1,4 +1,4 @@
-name: "Application observability for AWS Action"
+name: "Application observability for AWS"
 description: "Support Agentic AI–driven performance investigation and resolution using live production telemetry."
 branding:
   icon: "cloud"
