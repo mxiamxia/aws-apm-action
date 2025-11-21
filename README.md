@@ -220,6 +220,8 @@ See the [Security Documentation](./docs/security.md).
 
 The IAM role assumed by GitHub Actions must have the following permissions.
 
+**Note:** The `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` permissions are only required if you're using Amazon Bedrock models.
+
 ```json
 {
     "Version": "2012-10-17",
@@ -268,7 +270,7 @@ The IAM role assumed by GitHub Actions must have the following permissions.
     ]
 }
 ```
-**Note:** The `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` permissions are only required if you're using Amazon Bedrock models.
+
 
 ## 📖 Documentation
 
