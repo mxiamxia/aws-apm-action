@@ -15,7 +15,7 @@ With a one-time setup of Application observability for AWS Action workflow for y
 3. **AI-Powered Analysis**: Use AI agents to analyze performance issues, receive actionable recommendations, and apply code fixes
 
 ## 🚀 Getting Started
-This action configures AI agents within your GitHub workflow by generating AWS-specific MCP configurations and custom observability prompts. You only need to provide IAM role to assume and a [Bedrock Model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html) you want to use, or API token from your existing LLM subscription. The example below demonstrates a workflow template that integrates this action with [Anthropic's claude-code-base-action](https://github.com/anthropics/claude-code-action) to run automated investigations.
+This action configures AI agents within your GitHub workflow by generating AWS-specific MCP configurations and custom observability prompts. You only need to provide IAM role to assume and a [Bedrock Model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html) you want to use, or API token from your existing LLM subscription. The example below demonstrates a workflow template that integrates this action with [Anthropic's claude-code-base-action](https://github.com/anthropics/claude-code-base-action) to run automated investigations.
 
 ### Prerequisites
 Before you begin, ensure you have the following:
