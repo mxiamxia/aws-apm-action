@@ -277,7 +277,6 @@ The IAM role assumed by GitHub Actions must have the following permissions.
 For more information, check out:
 
 - [AWS Application Signals Documentation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Application-Monitoring-Intro.html) - Learn about Application Signals features and capabilities
-- [Application observability for AWS Action Public Documentation](https://github.com/marketplace/actions/application-observability-for-aws) - Detailed guides and tutorials
 
 ## 💰 Cost Considerations
 Using this action incurs costs in the following areas:
