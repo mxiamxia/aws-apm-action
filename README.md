@@ -31,23 +31,23 @@ Before you begin, ensure you have the following:
 
 This action relies on the [aws-actions/configure-aws-credentials](https://github.com/aws-actions/configure-aws-credentials) action to set up AWS authentication in your GitHub Actions Environment. We recommend using OpenID Connect (OIDC) to authenticate with AWS. OIDC allows your GitHub Actions workflows to access AWS resources using short-lived AWS credentials so you do not have to store long-term credentials in your repository.
 
-1. **Create an IAM Identity Provider**
+#### 1. Create an IAM Identity Provider
 
 First, create an IAM Identity Provider that trusts GitHub's OIDC endpoint in the AWS Management Console:
 
   1. Open IAM console at https://console.aws.amazon.com/iam/
-  2. Click `Identity providers` under `Access management` on the left
-  3. Click `Add provider` button to add GitHub Identify provider if not yet created
-  4. Select `OpenID Connect` type of Identity provider
-  5. Enter `https://token.actions.githubusercontent.com` for Provider URL input box
-  6. Enter `sts.amazonaws.com` for Audience input box
-  7. Click `Add provider` button
-
-2. **Create an IAM Policy**
+  2. Choose **Identity providers** under **Access management** in the left navigation pane
+  3. Click **Add provider** to create a GitHub identity provider if one does not already exist
+  4. For **Provider type**, choose **OpenID Connect**
+  5. In the **Provider URL** field, enter `https://token.actions.githubusercontent.com`
+  6. In the **Audience** field, enter `sts.amazonaws.com`
+  7. Choose **Add provider** to complete the setup.
+  
+#### 2. Create an IAM Policy
 
 Create an IAM policy with the required permissions for this action. See the [Required Permissions](#required-permissions) section below for details.
 
-3. **Create an IAM Role**
+#### 3. Create an IAM Role
 
 Create an IAM role (for example, `AWS_IAM_ROLE_ARN`) in the AWS Management Console with the following trust policy template. This allows authorized GitHub repositories to assume the role:
 
@@ -80,7 +80,7 @@ Replace the following placeholders in the template:
 * `<GITHUB_REPOSITORY>` - Your repository name
 * `<GITHUB_BRANCH>` - Your branch name (e.g., main)
 
-4. **Attach the IAM Policy**
+#### 4. Attach the IAM Policy
 
 In the role's Permissions tab, attach the IAM policy you created in step 2.
 
@@ -89,14 +89,14 @@ For more information about configuring OIDC with AWS,  see the [configure-aws-cr
 
 #### Step 2: Configure Secrets and Add Workflow
 
-1. **Configure Repository Secrets**
+#### 1. Configure Repository Secrets
 
 Go to your repository → Settings → Secrets and variables → Actions.
 
   - Create a new repository secret named `AWS_IAM_ROLE_ARN` and set its value to the ARN of the IAM role you created in Step 1.
   - (Optional) Create a repository variable named `AWS_REGION` to specify your AWS region (defaults to `us-east-1` if not set)
 
-2. **Add the Workflow File**
+#### 2. Add the Workflow File
 
 Create Application Observability Investigation workflow from the following [template](./template/awsapm.yaml) to your GitHub Repository directory `.github/workflows`.
 ```yaml
@@ -174,15 +174,15 @@ Once the workflow is configured, mention @awsapm in any GitHub issue to trigger 
 
 **Example Use Cases:**
 
-1. **Investigate performance issues:**
+#### 1. Investigate performance issues:
 
 `@awsapm, can you investigate why my service is breaching its SLO?`
 
-2. **Enable instrumentation:**
+#### 2. Enable instrumentation:
 
 `@awsapm, please enable Application Signals for lambda-audit-service and create a PR with the required changes.`
 
-3. **Query telemetry data:**
+#### 3. Query telemetry data:
 
 `@awsapm, how many GenAI tokens have been consumed by my services in the past 24 hours?`
 
