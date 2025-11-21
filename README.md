@@ -199,7 +199,7 @@ For detailed security information, including:
 * Prompt injection risks and mitigations
 * Security best practices
 
-See the [Security Documentation](SECURITY.md).
+See the [Security Documentation](./docs/security.md).
 
 ## ⚙️ Configuration
 
