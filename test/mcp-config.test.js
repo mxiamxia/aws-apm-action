@@ -199,7 +199,6 @@ describe('MCPConfigManager', () => {
       expect(config.command).toBe('uvx');
       expect(config.args).toBeDefined();
       expect(Array.isArray(config.args)).toBe(true);
-      expect(config.transportType).toBe('stdio');
       expect(config.env.MCP_RUN_FROM).toBe('awsapm-gh');
     });
 
@@ -208,7 +207,6 @@ describe('MCPConfigManager', () => {
 
       expect(config.command).toBe('uvx');
       expect(config.args).toEqual(['awslabs.cloudwatch-mcp-server@latest']);
-      expect(config.transportType).toBe('stdio');
       expect(config.env.MCP_RUN_FROM).toBe('awsapm-gh');
     });
 
@@ -272,6 +270,84 @@ describe('MCPConfigManager', () => {
       const envVars = manager.getAWSEnvVars();
 
       expect(envVars.AWS_REGION).toBe('us-east-1');
+    });
+  });
+
+  describe('Copilot CLI Integration', () => {
+    beforeEach(() => {
+      process.env.AWS_ACCESS_KEY_ID = 'AKIATEST123';
+      process.env.AWS_SECRET_ACCESS_KEY = 'secretkey';
+      process.env.GITHUB_TOKEN = 'github-token';
+    });
+
+    describe('buildMCPConfig for Copilot', () => {
+      test('generates Copilot-specific config format', () => {
+        const config = manager.buildMCPConfig('copilot');
+
+        expect(config.mcpServers.applicationsignals).toEqual({
+          command: "uvx",
+          args: ["awslabs.cloudwatch-applicationsignals-mcp-server@latest"],
+          env: { MCP_RUN_FROM: "awsapm-gh" },
+          type: "local",
+          tools: ["*"]
+        });
+
+        expect(config.mcpServers.github).toEqual({
+          command: "docker",
+          args: [
+            "run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
+            "-e", "GITHUB_HOST", "ghcr.io/github/github-mcp-server:sha-efef8ae"
+          ],
+          env: {
+            GITHUB_PERSONAL_ACCESS_TOKEN: "github-token",
+            GITHUB_HOST: "https://github.com"
+          },
+          type: "local",
+          tools: ["*"]
+        });
+      });
+
+      test('differs from Amazon Q config format', () => {
+        const copilotConfig = manager.buildMCPConfig('copilot');
+        const amazonqConfig = manager.buildMCPConfig('amazonq');
+
+        // Copilot uses type: "local" and tools: ["*"]
+        expect(copilotConfig.mcpServers.applicationsignals.type).toBe('local');
+        expect(copilotConfig.mcpServers.applicationsignals.tools).toEqual(['*']);
+        expect(copilotConfig.mcpServers.applicationsignals.autoApprove).toBeUndefined();
+        expect(copilotConfig.mcpServers.applicationsignals.disabled).toBeUndefined();
+
+        // Amazon Q uses transportType, autoApprove, and disabled
+        expect(amazonqConfig.mcpServers.applicationsignals.transportType).toBe('stdio');
+        expect(amazonqConfig.mcpServers.applicationsignals.autoApprove).toBeDefined();
+        expect(amazonqConfig.mcpServers.applicationsignals.disabled).toBe(false);
+        expect(amazonqConfig.mcpServers.applicationsignals.type).toBeUndefined();
+        expect(amazonqConfig.mcpServers.applicationsignals.tools).toBeUndefined();
+      });
+
+      test('includes CloudWatch server when enabled', () => {
+        process.env.ENABLE_CLOUDWATCH_MCP = 'true';
+
+        const config = manager.buildMCPConfig('copilot');
+
+        expect(config.mcpServers.cloudwatch).toEqual({
+          command: "uvx",
+          args: ["awslabs.cloudwatch-mcp-server@latest"],
+          env: { MCP_RUN_FROM: "awsapm-gh" },
+          type: "local",
+          tools: ["*"]
+        });
+      });
+
+      test('excludes servers when credentials missing', () => {
+        delete process.env.AWS_ACCESS_KEY_ID;
+        delete process.env.GITHUB_TOKEN;
+
+        const config = manager.buildMCPConfig('copilot');
+
+        expect(config.mcpServers.applicationsignals).toBeUndefined();
+        expect(config.mcpServers.github).toBeUndefined();
+      });
     });
   });
 });

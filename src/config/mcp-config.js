@@ -15,8 +15,7 @@ class MCPConfigManager {
       args: ["awslabs.cloudwatch-applicationsignals-mcp-server@latest"],
       env: {
         MCP_RUN_FROM: "awsapm-gh"
-      },
-      transportType: "stdio"
+      }
     };
   }
 
@@ -29,8 +28,7 @@ class MCPConfigManager {
       args: ["awslabs.cloudwatch-mcp-server@latest"],
       env: {
         MCP_RUN_FROM: "awsapm-gh"
-      },
-      transportType: "stdio"
+      }
     };
   }
 
@@ -53,8 +51,7 @@ class MCPConfigManager {
       env: {
         GITHUB_PERSONAL_ACCESS_TOKEN: token,
         GITHUB_HOST: process.env.GITHUB_SERVER_URL || "https://github.com"
-      },
-      transportType: "stdio"
+      }
     };
   }
 
@@ -115,44 +112,77 @@ class MCPConfigManager {
   }
 
   /**
-   * Build complete MCP configuration for Amazon Q CLI
+   * Build complete MCP configuration for specified CLI type
+   * @param {string} cliType - CLI type ('amazonq' or 'copilot')
    * @returns {object} MCP configuration object
    */
-  buildMCPConfig() {
+  buildMCPConfig(cliType='amazonq') {
     const config = { mcpServers: {} };
 
     // Add AWS CloudWatch Application Signals MCP server if credentials available
     if (this.hasAWSCredentials()) {
       const applicationSignalsConfig = this.getApplicationSignalsServerConfig();
 
-      // Amazon Q CLI format
-      config.mcpServers["applicationsignals"] = {
-        ...applicationSignalsConfig,
-        autoApprove: this.getApplicationSignalsToolsList(),
-        disabled: false
-      };
+      if (cliType === 'copilot') {
+        // Copilot CLI format
+        config.mcpServers["applicationsignals"] = {
+          ...applicationSignalsConfig,
+          type: "local",
+          tools: ["*"]
+        };
+      } else {
+        // Amazon Q CLI format
+        config.mcpServers["applicationsignals"] = {
+          ...applicationSignalsConfig,
+          transportType: "stdio",
+          autoApprove: this.getApplicationSignalsToolsList(),
+          disabled: false
+        };
+      }
     }
 
     // Add AWS CloudWatch MCP server if explicitly enabled and credentials available
     if (this.hasCloudWatchAccess()) {
       const cloudwatchConfig = this.getCloudWatchServerConfig();
 
-      config.mcpServers["awslabs.cloudwatch-mcp-server"] = {
-        ...cloudwatchConfig,
-        autoApprove: this.getCloudWatchToolsList(),
-        disabled: false
-      };
+      if (cliType === 'copilot') {
+        // Copilot CLI format
+        config.mcpServers["cloudwatch"] = {
+          ...cloudwatchConfig,
+          type: "local",
+          tools: ["*"]
+        };
+      } else {
+        // Amazon Q CLI format
+        config.mcpServers["awslabs.cloudwatch-mcp-server"] = {
+          ...cloudwatchConfig,
+          transportType: "stdio",
+          autoApprove: this.getCloudWatchToolsList(),
+          disabled: false
+        };
+      }
     }
 
     // Add GitHub MCP server if token available
     if (this.hasGitHubToken()) {
       const githubConfig = this.getGitHubServerConfig(process.env.GITHUB_TOKEN);
 
-      config.mcpServers.github = {
-        ...githubConfig,
-        autoApprove: this.getGitHubToolsList(),
-        disabled: false
-      };
+      if (cliType === 'copilot') {
+        // Copilot CLI format
+        config.mcpServers.github = {
+          ...githubConfig,
+          type: "local",
+          tools: ["*"]
+        };
+      } else {
+        // Amazon Q CLI format
+        config.mcpServers.github = {
+          ...githubConfig,
+          transportType: "stdio",
+          autoApprove: this.getGitHubToolsList(),
+          disabled: false
+        };
+      }
     }
 
     return config;

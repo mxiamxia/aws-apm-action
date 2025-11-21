@@ -32,6 +32,13 @@ inputs:
     description: "Enable CloudWatch MCP server for metrics, alarms, and log insights"
     required: false
     default: "true"
+  cli_tool:
+    description: "CLI tool to use for analysis (q-developer, copilot)"
+    required: false
+    default: "q-developer"
+  cli_auth_token:
+    description: "GitHub token for CLI (if not using Amazon Q CLI)"
+    required: false"
 
 outputs:
   execution_file:
@@ -92,19 +99,34 @@ runs:
         echo "uvx installed successfully"
         uvx --version
 
-        # Install Amazon Q Developer CLI
-        echo "Installing Amazon Q Developer CLI..."
-        sudo apt-get update
-        curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.19.4/amazon-q.deb
-        sudo apt-get install -y --fix-missing ./amazon-q.deb || sudo apt-get install -y -f
+        # Install CLI based on cli_tool input
+        CLI_TOOL="${{ inputs.cli_tool }}"
+        
+        if [ "$CLI_TOOL" = "copilot" ]; then
+          echo "Installing GitHub Copilot CLI..."
+          npm install -g @github/copilot@0.0.330
+          
+          # Verify installation
+          if ! command -v copilot &> /dev/null; then
+            echo "::error::GitHub Copilot CLI installation failed"
+            exit 1
+          fi
+          echo "GitHub Copilot CLI installed successfully"
+          copilot --version
+        else
+          echo "Installing Amazon Q Developer CLI..."
+          sudo apt-get update
+          curl -L -o amazon-q.deb https://desktop-release.q.us-east-1.amazonaws.com/1.19.4/amazon-q.deb
+          sudo apt-get install -y --fix-missing ./amazon-q.deb || sudo apt-get install -y -f
 
-        # Verify Amazon Q CLI installation
-        if ! command -v q &> /dev/null; then
-          echo "::error::Amazon Q CLI installation failed - q command not found in PATH"
-          exit 1
+          # Verify Amazon Q CLI installation
+          if ! command -v q &> /dev/null; then
+            echo "::error::Amazon Q CLI installation failed - q command not found in PATH"
+            exit 1
+          fi
+          echo "Amazon Q CLI installed successfully"
+          q --version
         fi
-        echo "Amazon Q CLI installed successfully"
-        q --version
         
 
     - name: Run Application observability for AWS Investigation
@@ -117,7 +139,9 @@ runs:
       env:
         GITHUB_TOKEN: ${{ steps.init.outputs.GITHUB_TOKEN }}
         ENABLE_CLOUDWATCH_MCP: ${{ inputs.enable_cloudwatch_mcp }}
+        CLI_TOOL: ${{ inputs.cli_tool }}
         INPUT_PROMPT_FILE: ${{ runner.temp }}/awsapm-prompts/awsapm-prompt.txt
+        CLI_AUTH_TOKEN: ${{ inputs.cli_auth_token }}
 
     - name: Update comment with results
       if: steps.init.outputs.contains_trigger == 'true' && steps.init.outputs.awsapm_comment_id && always()
