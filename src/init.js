@@ -103,6 +103,7 @@ async function run() {
     const hasPermissions = await checkUserPermissions(octokit, context, issueNumber, allowedNonWriteUsers);
     if (!hasPermissions) {
       core.setOutput('contains_trigger', 'false');
+      core.setFailed('User does not have permission to trigger this action. Write access or explicit allowlist is required.');
       return;
     }
 
